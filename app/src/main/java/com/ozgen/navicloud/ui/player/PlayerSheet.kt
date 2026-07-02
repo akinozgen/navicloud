@@ -837,15 +837,20 @@ private fun FullPlayerContent(
                 }
             }
 
-            // Kontroller ile up-next arasındaki boşluk: progress'e senkron
-            // deterministik spektrum (track başına aynı desen, izin/CPU yok)
-            Spacer(Modifier.height(20.dp))
-            com.ozgen.navicloud.ui.components.SpectrumBar(
-                seedKey = item?.mediaId ?: "",
-                progress = sliderValue.coerceIn(0f, 1f),
-                accent = accent,
-            )
         }
+
+        // Kenardan kenara ambient spektrum: ayrı öğe değil, zeminin dokusu —
+        // progress'e senkron, track başına deterministik desen
+        Spacer(Modifier.height(16.dp))
+        com.ozgen.navicloud.ui.components.SpectrumBar(
+            seedKey = item?.mediaId ?: "",
+            progress = run {
+                val sv = if (dragging) dragValue
+                else if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
+                sv.coerceIn(0f, 1f)
+            },
+            accent = accent,
+        )
     }
 }
 

@@ -14,10 +14,10 @@ import androidx.compose.ui.unit.dp
 import kotlin.random.Random
 
 /**
- * Dekoratif spektrum bar: track başına SEED'Lİ deterministik yükseklikler
- * (aynı şarkı hep aynı görünür), oynatma konumuna göre geçilen kısım accent
- * ile dolar. Gerçek FFT değil — RECORD_AUDIO izni ve CPU maliyeti olmadan
- * progress'i yansıtır. Salt Canvas draw; relayout yok.
+ * Ambient spektrum: kenardan kenara, alt hizalı bir arka plan dokusu —
+ * ayrı bir widget gibi değil, zeminin parçası gibi. Track başına SEED'Lİ
+ * deterministik desen; oynatma konumuna göre geçilen kısım accent'le dolar.
+ * Gerçek FFT değil (izin/CPU yok), salt Canvas draw.
  */
 @Composable
 fun SpectrumBar(
@@ -28,19 +28,26 @@ fun SpectrumBar(
 ) {
     val heights = remember(seedKey) {
         val rnd = Random(seedKey.hashCode())
-        List(52) { 0.18f + rnd.nextFloat() * 0.82f }
+        // Komşu barlar arasında yumuşak geçiş: ham gürültüyü hafifçe blend'le
+        val raw = List(96) { 0.10f + rnd.nextFloat() * 0.90f }
+        raw.mapIndexed { i, h ->
+            val prev = raw.getOrElse(i - 1) { h }
+            val next = raw.getOrElse(i + 1) { h }
+            (prev + h * 2f + next) / 4f
+        }
     }
-    Canvas(modifier.fillMaxWidth().height(44.dp)) {
+    Canvas(modifier.fillMaxWidth().height(64.dp)) {
         val n = heights.size
-        val gap = 3.dp.toPx()
+        val gap = 2.dp.toPx()
         val barW = ((size.width - gap * (n - 1)) / n).coerceAtLeast(1f)
         val filled = progress.coerceIn(0f, 1f) * n
         heights.forEachIndexed { i, h ->
             val x = i * (barW + gap)
             val bh = size.height * h
             drawRoundRect(
-                color = if (i < filled) accent else Color(0x30FFFFFF),
-                topLeft = Offset(x, (size.height - bh) / 2f),
+                // Yarı saydam: zeminle kaynaşır, öğe gibi bağırmaz
+                color = if (i < filled) accent.copy(alpha = 0.55f) else Color(0x14FFFFFF),
+                topLeft = Offset(x, size.height - bh), // alt hizalı skyline
                 size = Size(barW, bh),
                 cornerRadius = CornerRadius(barW / 2f),
             )
