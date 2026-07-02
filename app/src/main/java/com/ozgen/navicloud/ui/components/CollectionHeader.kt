@@ -14,6 +14,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Shuffle
@@ -85,6 +86,8 @@ fun CollectionActionRow(
     onRemoveDownload: () -> Unit,
     downloadState: DownloadState,
     modifier: Modifier = Modifier,
+    /** This collection is the active playback context and playing → show pause. */
+    isPlaying: Boolean = false,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
 
@@ -134,7 +137,11 @@ fun CollectionActionRow(
                 containerColor = MaterialTheme.colorScheme.primary,
             ),
         ) {
-            Icon(Icons.Rounded.PlayArrow, contentDescription = "Çal", modifier = Modifier.size(36.dp))
+            Icon(
+                if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                contentDescription = if (isPlaying) "Duraklat" else "Çal",
+                modifier = Modifier.size(36.dp),
+            )
         }
 
         when (downloadState) {

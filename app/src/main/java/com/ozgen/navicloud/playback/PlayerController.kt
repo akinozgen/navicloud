@@ -97,6 +97,10 @@ class PlayerController @Inject constructor(
     private val _contextLabel = MutableStateFlow<String?>(null)
     val contextLabel: StateFlow<String?> = _contextLabel
 
+    // What's playing right now — collection pages flip their play button to pause
+    private val _currentContext = MutableStateFlow<PlaybackContext?>(null)
+    val currentContext: StateFlow<PlaybackContext?> = _currentContext
+
     fun play(
         songs: List<Song>,
         startIndex: Int = 0,
@@ -104,6 +108,7 @@ class PlayerController @Inject constructor(
         contextLabel: String? = null,
     ) {
         playbackContext = context
+        _currentContext.value = context
         _contextLabel.value = contextLabel
         scope.launch {
             val items = songs.map { it.toItem() }
@@ -255,6 +260,8 @@ class PlayerController @Inject constructor(
             clearMediaItems()
         }
         playbackContext = null
+        _currentContext.value = null
+        _contextLabel.value = null
     }
 
     fun cycleRepeat() {

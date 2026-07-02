@@ -109,15 +109,21 @@ class ArtistViewModel @Inject constructor(
 
     fun playbackContext(): PlaybackContext = PlaybackContext.Artist(artistId)
 
-    /** Top songs when available, otherwise everything from the artist's albums would be heavy — shuffle albums instead. */
+    /** Plays the artist's ENTIRE catalog (all albums' tracks), not just the visible top songs. */
     fun playArtist(shuffle: Boolean) {
-        val top = _state.value.topSongs
-        if (top.isNotEmpty()) {
-            player.play(
-                if (shuffle) top.shuffled() else top,
-                context = playbackContext(),
-                contextLabel = _state.value.detail?.artist?.name,
-            )
+        val detail = _state.value.detail ?: return
+        viewModelScope.launch {
+            val all = detail.albums.take(30).flatMap { album ->
+                runCatching { repo.album(album.id).songs }.getOrDefault(emptyList())
+            }.distinctBy { it.id }
+            val songs = all.ifEmpty { _state.value.topSongs }
+            if (songs.isNotEmpty()) {
+                player.play(
+                    if (shuffle) songs.shuffled() else songs,
+                    context = playbackContext(),
+                    contextLabel = detail.artist.name,
+                )
+            }
         }
     }
 }

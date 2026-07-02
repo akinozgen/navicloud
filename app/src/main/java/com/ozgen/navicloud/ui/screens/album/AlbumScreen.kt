@@ -213,8 +213,19 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                             songIds.isNotEmpty() && songIds.all { it in downloadedIds } -> DownloadState.DONE
                             else -> DownloadState.NONE
                         }
+                        val playerUi by vm.player.state.collectAsStateWithLifecycle()
+                        val currentCtx by vm.player.currentContext.collectAsStateWithLifecycle()
+                        val isThisPlaying =
+                            (currentCtx as? PlaybackContext.Album)?.albumId == detail.album.id
                         CollectionActionRow(
-                            onPlay = { vm.player.play(detail.songs, context = vm.playbackContext(), contextLabel = vm.contextLabel()) },
+                            isPlaying = isThisPlaying && playerUi.isPlaying,
+                            onPlay = {
+                                if (isThisPlaying) {
+                                    vm.player.togglePlayPause()
+                                } else {
+                                    vm.player.play(detail.songs, context = vm.playbackContext(), contextLabel = vm.contextLabel())
+                                }
+                            },
                             onShuffle = { vm.player.play(detail.songs.shuffled(), context = vm.playbackContext(), contextLabel = vm.contextLabel()) },
                             onPlayNext = { vm.player.playNext(detail.songs) },
                             onAddToQueue = { vm.player.addToQueue(detail.songs) },
