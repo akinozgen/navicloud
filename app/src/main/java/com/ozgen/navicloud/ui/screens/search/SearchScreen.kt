@@ -15,7 +15,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Search
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,9 +49,12 @@ import com.ozgen.navicloud.ui.components.SongItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -64,15 +72,23 @@ data class SearchUiState(
     val result: SearchResult? = null,
 )
 
+private val KEY_RECENT_SEARCHES = stringPreferencesKey("recent_searches")
+private const val RECENT_LIMIT = 10
+
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val repo: MusicRepository,
+    private val dataStore: DataStore<Preferences>,
     val player: PlayerController,
 ) : ViewModel() {
     private val queryFlow = MutableStateFlow("")
     private val _state = MutableStateFlow(SearchUiState())
     val state: StateFlow<SearchUiState> = _state
+
+    val recentSearches: StateFlow<List<String>> = dataStore.data
+        .map { prefs -> prefs[KEY_RECENT_SEARCHES]?.split('\n')?.filter { it.isNotBlank() }.orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
         viewModelScope.launch {
@@ -83,10 +99,28 @@ class SearchViewModel @Inject constructor(
                 }
                 _state.value = _state.value.copy(searching = true)
                 runCatching { repo.search(q) }
-                    .onSuccess { _state.value = _state.value.copy(searching = false, result = it) }
+                    .onSuccess {
+                        _state.value = _state.value.copy(searching = false, result = it)
+                        if (it.songs.isNotEmpty() || it.albums.isNotEmpty() || it.artists.isNotEmpty()) {
+                            saveRecent(q)
+                        }
+                    }
                     .onFailure { _state.value = _state.value.copy(searching = false) }
             }
         }
+    }
+
+    private suspend fun saveRecent(query: String) {
+        dataStore.edit { prefs ->
+            val current = prefs[KEY_RECENT_SEARCHES]?.split('\n').orEmpty()
+            val updated = (listOf(query) + current.filter { !it.equals(query, ignoreCase = true) })
+                .take(RECENT_LIMIT)
+            prefs[KEY_RECENT_SEARCHES] = updated.joinToString("\n")
+        }
+    }
+
+    fun clearRecents() {
+        viewModelScope.launch { dataStore.edit { it.remove(KEY_RECENT_SEARCHES) } }
     }
 
     fun onQueryChange(q: String) {
@@ -138,7 +172,51 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = hiltViewMod
             }
         }
 
-        if (result == null) return@Column
+        if (result == null) {
+            // Recent searches when the query is empty
+            val recents by vm.recentSearches.collectAsStateWithLifecycle()
+            if (state.query.isBlank() && recents.isNotEmpty()) {
+                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    item(key = "recents-header") {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "Son aramalar",
+                                style = MaterialTheme.typography.titleLarge,
+                                modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+                            )
+                            IconButton(onClick = { vm.clearRecents() }) {
+                                Icon(
+                                    Icons.Rounded.Close,
+                                    contentDescription = "Temizle",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                    items(recents.size, key = { recents[it] }) { i ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { vm.onQueryChange(recents[i]) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Icon(
+                                Icons.Rounded.History,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(recents[i], style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            }
+            return@Column
+        }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
