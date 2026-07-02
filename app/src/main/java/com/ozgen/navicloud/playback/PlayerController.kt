@@ -118,14 +118,31 @@ class PlayerController @Inject constructor(
         }
     }
 
-    /** Offline moda geçilince mevcut kuyruktan indirilmemiş şarkıları at. */
+    /**
+     * Offline moda geçilince mevcut kuyruğu offline'a uygun hale getirir:
+     *  - indirilmemiş şarkılar kuyruktan atılır,
+     *  - indirilmiş ama STREAM URL'li kalmış şarkılar (kuyruk offline'dan önce
+     *    kurulduğu için) yerel dosya URL'iyle değiştirilir — offline'da tek bayt
+     *    bile ağ trafiği olmaz.
+     */
     private fun observeOfflineMode(c: MediaController) {
         scope.launch {
             settings.offlineMode.collect { offline ->
                 if (!offline) return@collect
                 val ids = downloads.downloadedIds.first().toSet()
                 for (i in c.mediaItemCount - 1 downTo 0) {
-                    if (c.getMediaItemAt(i).mediaId !in ids) c.removeMediaItem(i)
+                    val item = c.getMediaItemAt(i)
+                    if (item.mediaId !in ids) {
+                        c.removeMediaItem(i)
+                    } else {
+                        val uri = item.localConfiguration?.uri?.toString()
+                        if (uri == null || !uri.startsWith("file")) {
+                            val local = downloads.localFile(item.mediaId)
+                            if (local != null) {
+                                c.replaceMediaItem(i, item.buildUpon().setUri(local.toUri()).build())
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -369,6 +386,11 @@ class PlayerController @Inject constructor(
     }
 
     private suspend fun fetchContinuation(): List<Song> = runCatching {
+        // Offline: ASLA sunucuya gitme; sadece indirilenlerden besle. Tükenince
+        // (dedupe sonrası boş) endless kendiliğinden durur — sonsuz döngü yok.
+        if (settings.offlineMode.first()) {
+            return@runCatching downloads.allDownloadedSongs().shuffled()
+        }
         when (val ctx = playbackContext) {
             is PlaybackContext.Album -> {
                 // Continue with more from the same artist

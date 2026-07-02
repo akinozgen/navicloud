@@ -46,6 +46,9 @@ class DownloadRepository @Inject constructor(
 
     fun downloadsFor(serverId: Long): Flow<List<DownloadEntity>> = downloadDao.observeAll(serverId)
 
+    /** Offline endless için: indirilen tüm şarkılar (Song modeli). */
+    suspend fun allDownloadedSongs(): List<Song> = downloadDao.all().map { it.toSong() }
+
     /** Tüm indirilenleri siler (dosyalar + kayıtlar). */
     suspend fun clearAll() {
         downloadDao.all().forEach { File(it.filePath).delete() }
