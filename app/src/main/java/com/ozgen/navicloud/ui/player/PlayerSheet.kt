@@ -188,14 +188,18 @@ fun PlayerSheet(
         val progress = 1f - (sheetOffset / collapsedOffset)
         val expanded = progress > 0.98f
 
-        // Queue panel: slides up over the player (YTMusic up-next panel)
+        // Queue panel: slides up over the player (YTMusic up-next panel).
+        // Shown anchor stays clear of the status bar so the header drag
+        // doesn't fight the notification shade.
+        val queueShownPx = with(density) { (statusPad + 8.dp).toPx() }
         val upNextHpx = with(density) { (44.dp + navBarPad).toPx() }
-        val queueHidden = (sheetHpx - upNextHpx).coerceAtLeast(1f)
-        val queueDrag = remember(queueHidden) {
+        val queueHidden = (sheetHpx - upNextHpx - with(density) { 28.dp.toPx() })
+            .coerceAtLeast(queueShownPx + 1f)
+        val queueDrag = remember(queueHidden, queueShownPx) {
             AnchoredDraggableState(
                 initialValue = QueuePanelValue.Hidden,
                 anchors = DraggableAnchors {
-                    QueuePanelValue.Shown at 0f
+                    QueuePanelValue.Shown at queueShownPx
                     QueuePanelValue.Hidden at queueHidden
                 },
                 positionalThreshold = { it * 0.4f },
@@ -204,8 +208,8 @@ fun PlayerSheet(
                 decayAnimationSpec = exponentialDecay(),
             )
         }
-        val queueOffset = queueDrag.requireOffset().coerceIn(0f, queueHidden)
-        val queueProgress = 1f - (queueOffset / queueHidden)
+        val queueOffset = queueDrag.requireOffset().coerceIn(queueShownPx, queueHidden)
+        val queueProgress = 1f - ((queueOffset - queueShownPx) / (queueHidden - queueShownPx))
         val queueShown = queueProgress > 0.98f
 
         // External collapse requests (e.g. menu navigation)
@@ -306,12 +310,21 @@ fun PlayerSheet(
 
             // ---- Queue panel (only relevant once expanded) ----
             if (progress > 0.9f) {
+                // Dim the player behind as the queue slides up — the sliver above
+                // the panel reads as a scrim, not a chopped player
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .zIndex(1.5f)
+                        .graphicsLayer { alpha = (queueProgress * 0.75f).coerceIn(0f, 0.75f) }
+                        .background(Color.Black),
+                )
                 QueuePanel(
                     player = vm.player,
                     queueDrag = queueDrag,
                     queueOffset = queueOffset,
                     queueProgress = queueProgress,
-                    navBarPadPx = with(density) { navBarPad.toPx() },
+                    bottomPad = navBarPad + statusPad + 8.dp,
                     onShow = { scope.launch { queueDrag.animateTo(QueuePanelValue.Shown) } },
                 )
             }
@@ -338,6 +351,8 @@ private fun MiniRow(
     alpha: Float,
     onClick: () -> Unit,
 ) {
+    // The sheet lives outside any Surface, so LocalContentColor defaults to
+    // black — every color here must be explicit.
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -351,13 +366,14 @@ private fun MiniRow(
             Text(
                 title,
                 style = MaterialTheme.typography.titleSmall,
+                color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 artist,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Color(0xB3FFFFFF),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -366,10 +382,11 @@ private fun MiniRow(
             Icon(
                 if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 contentDescription = if (isPlaying) "Duraklat" else "Çal",
+                tint = Color.White,
             )
         }
         IconButton(onClick = { vm.player.skipNext() }) {
-            Icon(Icons.Rounded.SkipNext, contentDescription = "Sonraki")
+            Icon(Icons.Rounded.SkipNext, contentDescription = "Sonraki", tint = Color.White)
         }
     }
 }
@@ -554,7 +571,7 @@ private fun QueuePanel(
     queueDrag: AnchoredDraggableState<QueuePanelValue>,
     queueOffset: Float,
     queueProgress: Float,
-    navBarPadPx: Float,
+    bottomPad: androidx.compose.ui.unit.Dp,
     onShow: () -> Unit,
 ) {
     val state by player.state.collectAsStateWithLifecycle()
@@ -572,7 +589,12 @@ private fun QueuePanel(
             .fillMaxSize()
             .zIndex(2f)
             .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            // Transparent while resting as the up-next hint; solid as it slides up
+            .background(
+                MaterialTheme.colorScheme.surfaceContainerHigh.copy(
+                    alpha = (queueProgress * 3f).coerceIn(0f, 1f),
+                )
+            ),
     ) {
         Column(Modifier.fillMaxSize()) {
             // Drag zone: up-next bar when hidden, queue header when shown
@@ -658,7 +680,7 @@ private fun QueuePanel(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
                         top = 8.dp,
-                        bottom = with(density) { navBarPadPx.toDp() } + 8.dp,
+                        bottom = bottomPad + 8.dp,
                     ),
                 ) {
                     items(
