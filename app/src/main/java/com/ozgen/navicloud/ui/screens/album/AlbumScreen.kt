@@ -175,6 +175,17 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
+                        // Small centered meta line above the cover (YT mindset)
+                        Text(
+                            listOfNotNull(
+                                "Albüm",
+                                detail.album.year?.toString(),
+                                "${detail.songs.size} şarkı",
+                            ).joinToString(" • "),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 12.dp),
+                        )
                         Artwork(
                             detail.album.coverArt,
                             sizePx = 800,
@@ -188,10 +199,7 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )
                         Text(
-                            listOfNotNull(
-                                detail.album.artist,
-                                detail.album.year?.toString(),
-                            ).joinToString(" • "),
+                            detail.album.artist,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp),

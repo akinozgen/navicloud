@@ -147,19 +147,34 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
+                        // Small centered meta line above the cover (YT mindset)
+                        Text(
+                            "Çalma listesi • ${detail.playlist.songCount} şarkı",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 12.dp),
+                        )
                         PlaylistCoverMosaic(
                             playlistId = detail.playlist.id,
                             songs = detail.songs,
                             modifier = Modifier.size(220.dp),
                         )
                         Spacer(Modifier.height(16.dp))
-                        Text(detail.playlist.name, style = MaterialTheme.typography.headlineSmall)
                         Text(
-                            "${detail.playlist.songCount} şarkı",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp),
+                            detail.playlist.name,
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )
+                        val comment = detail.playlist.comment
+                        if (!comment.isNullOrBlank()) {
+                            Text(
+                                comment,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
                         Spacer(Modifier.height(16.dp))
                         val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
                         val active by vm.activeDownload.collectAsStateWithLifecycle()
