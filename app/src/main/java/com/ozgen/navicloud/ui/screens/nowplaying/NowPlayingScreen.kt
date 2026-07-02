@@ -2,10 +2,17 @@ package com.ozgen.navicloud.ui.screens.nowplaying
 
 import android.graphics.drawable.BitmapDrawable
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.exponentialDecay
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.AnchoredDraggableState
+import androidx.compose.foundation.gestures.DraggableAnchors
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.snapTo
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,6 +65,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -238,7 +246,10 @@ fun NowPlayingScreen(
     }
 }
 
+private enum class PlayerDragValue { Queue, Rest, Dismiss }
+
 /** Art + controls. No scrolling here, so vertical drags are safe to capture. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun NowPlayingPane(
     vm: NowPlayingViewModel,
@@ -253,6 +264,38 @@ private fun NowPlayingPane(
     var durationMs by remember { mutableLongStateOf(0L) }
     var dragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
+
+    // Finger-tracking pane drag: down dismisses, up opens the queue; both cancelable
+    val dragState = remember {
+        AnchoredDraggableState(
+            initialValue = PlayerDragValue.Rest,
+            anchors = DraggableAnchors {
+                PlayerDragValue.Queue at with(density) { -240.dp.toPx() }
+                PlayerDragValue.Rest at 0f
+                PlayerDragValue.Dismiss at with(density) { 300.dp.toPx() }
+            },
+            positionalThreshold = { distance -> distance * 0.5f },
+            velocityThreshold = { with(density) { 125.dp.toPx() } },
+            snapAnimationSpec = spring(),
+            decayAnimationSpec = exponentialDecay(),
+        )
+    }
+    LaunchedEffect(dragState) {
+        snapshotFlow { dragState.settledValue }.collect { value ->
+            when (value) {
+                PlayerDragValue.Dismiss -> {
+                    onClose()
+                    dragState.snapTo(PlayerDragValue.Rest)
+                }
+                PlayerDragValue.Queue -> {
+                    onOpenQueue()
+                    dragState.snapTo(PlayerDragValue.Rest)
+                }
+                PlayerDragValue.Rest -> Unit
+            }
+        }
+    }
 
     LaunchedEffect(playerState.isPlaying, item?.mediaId) {
         while (true) {
@@ -265,12 +308,8 @@ private fun NowPlayingPane(
     Column(
         Modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
-                detectVerticalDragGestures { _, dragAmount ->
-                    if (dragAmount > 18f) onClose()
-                    if (dragAmount < -18f) onOpenQueue()
-                }
-            },
+            .graphicsLayer { translationY = dragState.requireOffset() }
+            .anchoredDraggable(dragState, Orientation.Vertical),
     ) {
         // Top bar
         Row(
@@ -453,7 +492,10 @@ private fun NowPlayingPane(
     }
 }
 
+private enum class QueueDragValue { Rest, Collapse }
+
 /** Queue lives inside the player. Header swipes down to Now Playing; the list scrolls itself. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun QueuePane(
     player: PlayerController,
@@ -462,21 +504,45 @@ private fun QueuePane(
     val state by player.state.collectAsStateWithLifecycle()
     val endless by player.endless.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
-    val itemHeightPx = with(LocalDensity.current) { 64.dp.toPx() }
+    val density = LocalDensity.current
+    val itemHeightPx = with(density) { 64.dp.toPx() }
 
     var draggingIndex by remember { mutableIntStateOf(-1) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
 
-    Column(Modifier.fillMaxSize()) {
+    // Header drag back to Now Playing — finger-tracked, cancelable
+    val headerDragState = remember {
+        AnchoredDraggableState(
+            initialValue = QueueDragValue.Rest,
+            anchors = DraggableAnchors {
+                QueueDragValue.Rest at 0f
+                QueueDragValue.Collapse at with(density) { 220.dp.toPx() }
+            },
+            positionalThreshold = { distance -> distance * 0.5f },
+            velocityThreshold = { with(density) { 125.dp.toPx() } },
+            snapAnimationSpec = spring(),
+            decayAnimationSpec = exponentialDecay(),
+        )
+    }
+    LaunchedEffect(headerDragState) {
+        snapshotFlow { headerDragState.settledValue }.collect { value ->
+            if (value == QueueDragValue.Collapse) {
+                onCollapse()
+                headerDragState.snapTo(QueueDragValue.Rest)
+            }
+        }
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .graphicsLayer { translationY = headerDragState.requireOffset() },
+    ) {
         // Header: swipe-down zone
         Column(
             Modifier
                 .fillMaxWidth()
-                .pointerInput(Unit) {
-                    detectVerticalDragGestures { _, dragAmount ->
-                        if (dragAmount > 18f) onCollapse()
-                    }
-                },
+                .anchoredDraggable(headerDragState, Orientation.Vertical),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),

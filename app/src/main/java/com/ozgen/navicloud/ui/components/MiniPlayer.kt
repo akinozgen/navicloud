@@ -1,9 +1,20 @@
 package com.ozgen.navicloud.ui.components
 
+import androidx.compose.animation.core.exponentialDecay
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.AnchoredDraggableState
+import androidx.compose.foundation.gestures.DraggableAnchors
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.gestures.snapTo
+import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,6 +47,9 @@ import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.playback.PlayerUiState
 import kotlinx.coroutines.delay
 
+private enum class MiniDragValue { Rest, Expand }
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MiniPlayer(
     state: PlayerUiState,
@@ -45,6 +59,30 @@ fun MiniPlayer(
 ) {
     val item = state.currentItem ?: return
     var progress by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
+
+    // Finger-tracking swipe-up: commits past 50% / fling, springs back otherwise
+    val dragState = remember {
+        AnchoredDraggableState(
+            initialValue = MiniDragValue.Rest,
+            anchors = DraggableAnchors {
+                MiniDragValue.Rest at 0f
+                MiniDragValue.Expand at with(density) { -110.dp.toPx() }
+            },
+            positionalThreshold = { distance -> distance * 0.5f },
+            velocityThreshold = { with(density) { 125.dp.toPx() } },
+            snapAnimationSpec = spring(),
+            decayAnimationSpec = exponentialDecay(),
+        )
+    }
+    LaunchedEffect(dragState) {
+        snapshotFlow { dragState.settledValue }.collect { value ->
+            if (value == MiniDragValue.Expand) {
+                onExpand()
+                dragState.snapTo(MiniDragValue.Rest)
+            }
+        }
+    }
 
     LaunchedEffect(state.isPlaying, item.mediaId) {
         while (true) {
@@ -57,15 +95,11 @@ fun MiniPlayer(
     Column(
         modifier = modifier
             .padding(horizontal = 8.dp)
+            .offset { IntOffset(0, dragState.requireOffset().roundToInt().coerceAtMost(0)) }
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .clickable(onClick = onExpand)
-            .pointerInput(Unit) {
-                // Swipe up on the mini player expands the full player
-                detectVerticalDragGestures { _, dragAmount ->
-                    if (dragAmount < -12f) onExpand()
-                }
-            },
+            .anchoredDraggable(dragState, Orientation.Vertical),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
