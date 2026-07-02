@@ -81,20 +81,20 @@ class ArtistViewModel @Inject constructor(
     private val _state = MutableStateFlow(ArtistUiState())
     val state: StateFlow<ArtistUiState> = _state
 
-    init { load() }
+    init { load(force = false) }
 
     fun refresh() {
         _state.value = _state.value.copy(refreshing = true)
-        load()
+        load(force = true)
     }
 
-    private fun load() {
+    private fun load(force: Boolean) {
         viewModelScope.launch {
-            runCatching { repo.artist(artistId) }
+            runCatching { repo.artist(artistId, force) }
                 .onSuccess { detail ->
                     _state.value = _state.value.copy(loading = false, refreshing = false, detail = detail, error = null)
                     // getTopSongs needs a Last.fm agent on the server; fall back to album tracks
-                    val top = repo.topSongs(detail.artist.name).ifEmpty {
+                    val top = repo.topSongs(detail.artist.name, force).ifEmpty {
                         detail.albums.take(3).flatMap { album ->
                             runCatching { repo.album(album.id).songs }.getOrDefault(emptyList())
                         }.take(10)

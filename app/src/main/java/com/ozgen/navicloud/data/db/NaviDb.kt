@@ -81,12 +81,42 @@ interface DownloadDao {
     suspend fun delete(songId: String)
 }
 
+/**
+ * Metadata cache: Subsonic yanıtlarının JSON'u, TTL kararını okuyan verir.
+ * Anahtar her zaman "serverId:..." önekli — sunucular birbirine karışmaz.
+ */
+@Entity(tableName = "api_cache")
+data class ApiCacheEntity(
+    @PrimaryKey val key: String,
+    val json: String,
+    val updatedAt: Long,
+)
+
+@Dao
+interface ApiCacheDao {
+    @Query("SELECT * FROM api_cache WHERE `key` = :key")
+    suspend fun get(key: String): ApiCacheEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun put(entry: ApiCacheEntity)
+
+    @Query("DELETE FROM api_cache WHERE `key` LIKE :prefix || '%'")
+    suspend fun deleteByPrefix(prefix: String)
+
+    @Query("DELETE FROM api_cache")
+    suspend fun clear()
+
+    @Query("SELECT COALESCE(SUM(LENGTH(json)), 0) FROM api_cache")
+    suspend fun sizeBytes(): Long
+}
+
 @Database(
-    entities = [ServerEntity::class, DownloadEntity::class],
-    version = 1,
+    entities = [ServerEntity::class, DownloadEntity::class, ApiCacheEntity::class],
+    version = 2,
     exportSchema = false,
 )
 abstract class NaviDb : RoomDatabase() {
     abstract fun serverDao(): ServerDao
     abstract fun downloadDao(): DownloadDao
+    abstract fun apiCacheDao(): ApiCacheDao
 }

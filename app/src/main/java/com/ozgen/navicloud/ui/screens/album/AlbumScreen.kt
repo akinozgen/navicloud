@@ -115,7 +115,7 @@ class AlbumViewModel @Inject constructor(
     fun refresh() {
         _state.value = _state.value.copy(refreshing = true)
         viewModelScope.launch {
-            runCatching { repo.album(albumId) }
+            runCatching { repo.album(albumId, force = true) }
                 .onSuccess {
                     _state.value = _state.value.copy(refreshing = false, detail = it, starred = it.album.starred)
                 }

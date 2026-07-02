@@ -1,5 +1,7 @@
 package com.ozgen.navicloud.core.model
 
+import kotlinx.serialization.Serializable
+
 data class Server(
     val id: Long,
     val name: String,
@@ -8,6 +10,7 @@ data class Server(
     val password: String,
 )
 
+@Serializable
 data class Album(
     val id: String,
     val name: String,
@@ -21,6 +24,7 @@ data class Album(
     val starred: Boolean,
 )
 
+@Serializable
 data class Song(
     val id: String,
     val title: String,
@@ -41,6 +45,7 @@ data class Song(
     val samplingRate: Int? = null,
 )
 
+@Serializable
 data class Artist(
     val id: String,
     val name: String,
@@ -50,6 +55,7 @@ data class Artist(
     val starred: Boolean,
 )
 
+@Serializable
 data class Playlist(
     val id: String,
     val name: String,
@@ -59,14 +65,17 @@ data class Playlist(
     val coverArt: String?,
 )
 
+@Serializable
 data class SearchResult(
     val artists: List<Artist>,
     val albums: List<Album>,
     val songs: List<Song>,
 )
 
+@Serializable
 data class LyricsLine(val startMs: Long?, val text: String)
 
+@Serializable
 data class Lyrics(
     val synced: Boolean,
     val lines: List<LyricsLine>,
@@ -80,4 +89,5 @@ enum class HomeSectionType(val subsonicType: String, val title: String) {
     STARRED("starred", "Favori albümler"),
 }
 
+@Serializable
 data class HomeSection(val type: HomeSectionType, val albums: List<Album>)

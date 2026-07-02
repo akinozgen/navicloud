@@ -97,7 +97,7 @@ class PlaylistViewModel @Inject constructor(
     fun refresh() {
         _state.value = _state.value.copy(refreshing = true)
         viewModelScope.launch {
-            runCatching { repo.playlist(playlistId) }
+            runCatching { repo.playlist(playlistId, force = true) }
                 .onSuccess { _state.value = _state.value.copy(refreshing = false, detail = it) }
                 .onFailure { _state.value = _state.value.copy(refreshing = false) }
         }

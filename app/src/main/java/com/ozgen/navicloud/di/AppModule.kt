@@ -5,6 +5,9 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+import com.ozgen.navicloud.data.db.ApiCacheDao
 import com.ozgen.navicloud.data.db.DownloadDao
 import com.ozgen.navicloud.data.db.NaviDb
 import com.ozgen.navicloud.data.db.ServerDao
@@ -44,14 +47,31 @@ object AppModule {
     fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
         context.prefsDataStore
 
+    // v1→v2: metadata cache tablosu. Destructive migration YASAK —
+    // sunucu kayıtları ve indirme listesi bu DB'de yaşıyor.
+    private val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `api_cache` (" +
+                    "`key` TEXT NOT NULL, `json` TEXT NOT NULL, " +
+                    "`updatedAt` INTEGER NOT NULL, PRIMARY KEY(`key`))"
+            )
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDb(@ApplicationContext context: Context): NaviDb =
-        Room.databaseBuilder(context, NaviDb::class.java, "navicloud.db").build()
+        Room.databaseBuilder(context, NaviDb::class.java, "navicloud.db")
+            .addMigrations(MIGRATION_1_2)
+            .build()
 
     @Provides
     fun provideServerDao(db: NaviDb): ServerDao = db.serverDao()
 
     @Provides
     fun provideDownloadDao(db: NaviDb): DownloadDao = db.downloadDao()
+
+    @Provides
+    fun provideApiCacheDao(db: NaviDb): ApiCacheDao = db.apiCacheDao()
 }

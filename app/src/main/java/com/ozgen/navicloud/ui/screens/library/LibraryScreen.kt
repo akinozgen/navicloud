@@ -142,41 +142,44 @@ class LibraryViewModel @Inject constructor(
 
     fun selectTab(tab: LibraryTab) {
         _state.value = _state.value.copy(tab = tab)
-        refresh()
+        load(force = false)
     }
 
     fun toggleAlbumSort() {
         _state.value = _state.value.copy(albumsByRecent = !_state.value.albumsByRecent)
-        if (_state.value.tab == LibraryTab.ALBUMS) refresh()
+        if (_state.value.tab == LibraryTab.ALBUMS) load(force = false)
     }
 
     fun toggleAlbumView() {
         _state.value = _state.value.copy(albumsAsGrid = !_state.value.albumsAsGrid)
     }
 
-    fun refresh() {
+    /** Pull-to-refresh: TTL'i atla. Sekme geçişleri cache'ten döner. */
+    fun refresh() = load(force = true)
+
+    private fun load(force: Boolean) {
         val tab = _state.value.tab
         _state.value = _state.value.copy(loading = true)
         viewModelScope.launch {
             runCatching {
                 when (tab) {
-                    LibraryTab.PLAYLISTS -> _state.value = _state.value.copy(playlists = repo.playlists())
+                    LibraryTab.PLAYLISTS -> _state.value = _state.value.copy(playlists = repo.playlists(force))
                     LibraryTab.ALBUMS -> _state.value = _state.value.copy(
                         albums = if (_state.value.albumsByRecent) {
-                            repo.albumList(com.ozgen.navicloud.core.model.HomeSectionType.NEWEST, size = 500)
+                            repo.albumList(com.ozgen.navicloud.core.model.HomeSectionType.NEWEST, size = 500, force = force)
                         } else {
-                            repo.albumsAlphabetical(size = 500)
+                            repo.albumsAlphabetical(size = 500, force = force)
                         }
                     )
-                    LibraryTab.ARTISTS -> _state.value = _state.value.copy(artists = repo.artists())
+                    LibraryTab.ARTISTS -> _state.value = _state.value.copy(artists = repo.artists(force))
                     LibraryTab.SONGS -> {
-                        val first = repo.allSongs(offset = 0, size = SONGS_PAGE).distinctBy { it.id }
+                        val first = repo.allSongs(offset = 0, size = SONGS_PAGE, force = force).distinctBy { it.id }
                         _state.value = _state.value.copy(
                             songs = first,
                             songsEndReached = first.size < SONGS_PAGE,
                         )
                     }
-                    LibraryTab.FAVORITES -> _state.value = _state.value.copy(starred = repo.starred())
+                    LibraryTab.FAVORITES -> _state.value = _state.value.copy(starred = repo.starred(force))
                     LibraryTab.DOWNLOADS -> Unit // reactive flow keeps it fresh
                 }
             }

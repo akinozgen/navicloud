@@ -57,13 +57,16 @@ class HomeViewModel @Inject constructor(
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state
 
-    init { refresh() }
+    init { load(force = false) }
 
-    fun refresh() {
+    /** Pull-to-refresh: TTL'i atla, sunucudan tazele. İlk açılış cache'ten. */
+    fun refresh() = load(force = true)
+
+    private fun load(force: Boolean) {
         viewModelScope.launch {
             val initial = _state.value.sections.isEmpty()
             _state.value = _state.value.copy(loading = initial, refreshing = !initial, error = null)
-            runCatching { repo.homeSections() }
+            runCatching { repo.homeSections(force) }
                 .onSuccess { _state.value = HomeUiState(loading = false, refreshing = false, sections = it) }
                 .onFailure { _state.value = HomeUiState(loading = false, refreshing = false, error = it.message) }
         }
