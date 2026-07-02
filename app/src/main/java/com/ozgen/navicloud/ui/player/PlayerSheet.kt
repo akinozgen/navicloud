@@ -909,7 +909,9 @@ private fun QueuePanel(
                                         true
                                     }
                                     SwipeToDismissBoxValue.EndToStart -> {
-                                        player.playNextByUid(uid)
+                                        // Adds a copy right after the current track;
+                                        // the swiped row stays where it is
+                                        player.playNext(listOf(queueItem.toSong()))
                                         false
                                     }
                                     else -> false
@@ -962,7 +964,9 @@ private fun QueuePanel(
                                         Icons.Rounded.DragHandle,
                                         contentDescription = "Sürükle",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = with(dragScope) { Modifier.draggableHandle() },
+                                        // Long-press to reorder: an always-on handle swallows
+                                        // horizontal swipes too, killing swipe-to-play-next
+                                        modifier = with(dragScope) { Modifier.longPressDraggableHandle() },
                                     )
                                 },
                             )
