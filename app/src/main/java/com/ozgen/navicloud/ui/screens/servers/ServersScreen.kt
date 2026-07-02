@@ -19,7 +19,11 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DownloadForOffline
+import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -70,27 +74,76 @@ data class SettingsUiState(
     val offlineMode: Boolean = false,
     val downloadCount: Int = 0,
     val downloadBytes: Long = 0L,
+    val streamCacheMaxMb: Int = 512,
+    val downloadWifiOnly: Boolean = true,
+    val prefetchEnabled: Boolean = true,
+    val prefetchWifiOnly: Boolean = true,
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val serverRepo: ServerRepository,
     private val settings: SettingsRepository,
     private val downloads: DownloadRepository,
     private val music: MusicRepository,
+    private val streamCache: com.ozgen.navicloud.playback.StreamCache,
 ) : ViewModel() {
 
     val state: StateFlow<SettingsUiState> = combine(
         serverRepo.servers,
         serverRepo.activeServer,
-        settings.streamQuality,
-        settings.offlineMode,
+        combine(settings.streamQuality, settings.offlineMode, settings.streamCacheMaxMb) { q, o, mb -> Triple(q, o, mb) },
+        combine(settings.downloadWifiOnly, settings.prefetchEnabled, settings.prefetchWifiOnly) { w, p, pw -> Triple(w, p, pw) },
         combine(downloads.totalCount, downloads.totalSizeBytes) { c, b -> c to b },
-    ) { servers, active, quality, offline, dl ->
-        SettingsUiState(servers, active?.id, quality, offline, dl.first, dl.second)
+    ) { servers, active, playback, net, dl ->
+        SettingsUiState(
+            servers = servers,
+            activeId = active?.id,
+            quality = playback.first,
+            offlineMode = playback.second,
+            downloadCount = dl.first,
+            downloadBytes = dl.second,
+            streamCacheMaxMb = playback.third,
+            downloadWifiOnly = net.first,
+            prefetchEnabled = net.second,
+            prefetchWifiOnly = net.third,
+        )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SettingsUiState())
 
     val activeDownload: StateFlow<ActiveDownload?> = downloads.active
+
+    // Önbellek boyutları — disk ölçümü IO'da, ekrana girişte tazelenir
+    private val _streamCacheBytes = MutableStateFlow(0L)
+    val streamCacheBytes: StateFlow<Long> = _streamCacheBytes
+    private val _imageCacheBytes = MutableStateFlow(0L)
+    val imageCacheBytes: StateFlow<Long> = _imageCacheBytes
+
+    fun refreshCacheSizes() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            _streamCacheBytes.value = streamCache.cacheSpaceBytes()
+            _imageCacheBytes.value = coil.Coil.imageLoader(context).diskCache?.size ?: 0L
+        }
+    }
+
+    fun clearStreamCache() = viewModelScope.launch {
+        streamCache.clear()
+        refreshCacheSizes()
+    }
+
+    fun clearImageCache() {
+        val loader = coil.Coil.imageLoader(context)
+        loader.memoryCache?.clear()
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            loader.diskCache?.clear()
+            refreshCacheSizes()
+        }
+    }
+
+    fun setStreamCacheMax(mb: Int) = viewModelScope.launch { settings.setStreamCacheMaxMb(mb) }
+    fun setDownloadWifiOnly(on: Boolean) = viewModelScope.launch { settings.setDownloadWifiOnly(on) }
+    fun setPrefetchEnabled(on: Boolean) = viewModelScope.launch { settings.setPrefetchEnabled(on) }
+    fun setPrefetchWifiOnly(on: Boolean) = viewModelScope.launch { settings.setPrefetchWifiOnly(on) }
 
     // Kütüphane taraması
     private val _scanning = MutableStateFlow<Pair<Boolean, Long>?>(null)
@@ -120,14 +173,22 @@ private fun formatBytes(bytes: Long): String = when {
     else -> "%.0f KB".format(bytes / 1024.0)
 }
 
+private fun formatMb(mb: Int): String =
+    if (mb >= 1024) "%.0f GB".format(mb / 1024.0) else "$mb MB"
+
 @Composable
 fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val active by vm.activeDownload.collectAsStateWithLifecycle()
     val scan by vm.scanning.collectAsStateWithLifecycle()
+    val streamCacheBytes by vm.streamCacheBytes.collectAsStateWithLifecycle()
+    val imageCacheBytes by vm.imageCacheBytes.collectAsStateWithLifecycle()
     var adding by remember { mutableStateOf(false) }
     var qualityDialog by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
+    var cacheSizeDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) { vm.refreshCacheSizes() }
 
     // Sunucu ekleme formundayken geri tuşu formu kapatır, Ayarlar'dan çıkarmaz
     androidx.activity.compose.BackHandler(enabled = adding) { adding = false }
@@ -211,6 +272,26 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                 Switch(checked = state.offlineMode, onCheckedChange = { vm.setOffline(it) })
             },
         )
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Downloading, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "Sıradakini önbelleğe al",
+            subtitle = "Sonraki 2 şarkının başı önceden yüklenir, geçişler beklemez",
+            onClick = { vm.setPrefetchEnabled(!state.prefetchEnabled) },
+            trailing = {
+                Switch(checked = state.prefetchEnabled, onCheckedChange = { vm.setPrefetchEnabled(it) })
+            },
+        )
+        if (state.prefetchEnabled) {
+            SettingRow(
+                icon = { Icon(Icons.Rounded.Wifi, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                title = "Önbelleğe almayı WiFi ile sınırla",
+                subtitle = "Hücresel veride sıradaki şarkılar önceden yüklenmez",
+                onClick = { vm.setPrefetchWifiOnly(!state.prefetchWifiOnly) },
+                trailing = {
+                    Switch(checked = state.prefetchWifiOnly, onCheckedChange = { vm.setPrefetchWifiOnly(it) })
+                },
+            )
+        }
 
         // ---- KÜTÜPHANE ----
         SectionHeader("Kütüphane")
@@ -233,8 +314,42 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
             },
         )
 
+        // ---- ÖNBELLEK ----
+        SectionHeader("Önbellek")
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Storage, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "Akış önbelleği",
+            subtitle = "${formatBytes(streamCacheBytes)} / ${formatMb(state.streamCacheMaxMb)} • dokunup sınırı değiştir",
+            onClick = { cacheSizeDialog = true },
+            trailing = {
+                if (streamCacheBytes > 0) {
+                    TextButton(onClick = { vm.clearStreamCache() }) { Text("Temizle") }
+                }
+            },
+        )
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "Görsel önbelleği",
+            subtitle = "${formatBytes(imageCacheBytes)} • kapaklar, en eski kendiliğinden silinir",
+            onClick = {},
+            trailing = {
+                if (imageCacheBytes > 0) {
+                    TextButton(onClick = { vm.clearImageCache() }) { Text("Temizle") }
+                }
+            },
+        )
+
         // ---- İNDİRMELER ----
         SectionHeader("İndirmeler")
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Wifi, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "Sadece WiFi'de indir",
+            subtitle = "Hücresel ağda indirme kuyruğu WiFi'yi bekler",
+            onClick = { vm.setDownloadWifiOnly(!state.downloadWifiOnly) },
+            trailing = {
+                Switch(checked = state.downloadWifiOnly, onCheckedChange = { vm.setDownloadWifiOnly(it) })
+            },
+        )
         SettingRow(
             icon = { Icon(Icons.Rounded.DownloadForOffline, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             title = "${state.downloadCount} şarkı",
@@ -252,15 +367,24 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
         if (activeDl != null) {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 Text(
-                    "İndiriliyor: ${activeDl.title}" +
-                        if (activeDl.queued > 1) " (+${activeDl.queued - 1} sırada)" else "",
+                    if (activeDl.waitingForWifi) {
+                        "WiFi bekleniyor: ${activeDl.title}" +
+                            if (activeDl.queued > 1) " (+${activeDl.queued - 1} sırada)" else ""
+                    } else {
+                        "İndiriliyor: ${activeDl.title}" +
+                            if (activeDl.queued > 1) " (+${activeDl.queued - 1} sırada)" else ""
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                LinearProgressIndicator(
-                    progress = { activeDl.progress },
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                )
+                if (activeDl.waitingForWifi) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+                } else {
+                    LinearProgressIndicator(
+                        progress = { activeDl.progress },
+                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                    )
+                }
             }
         }
         Spacer(Modifier.height(32.dp))
@@ -300,6 +424,44 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
             },
             confirmButton = {
                 TextButton(onClick = { qualityDialog = false }) { Text("Kapat") }
+            },
+        )
+    }
+
+    if (cacheSizeDialog) {
+        AlertDialog(
+            onDismissRequest = { cacheSizeDialog = false },
+            title = { Text("Akış önbelleği sınırı") },
+            text = {
+                Column {
+                    listOf(256, 512, 1024, 2048).forEach { mb ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    vm.setStreamCacheMax(mb)
+                                    cacheSizeDialog = false
+                                }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = state.streamCacheMaxMb == mb, onClick = {
+                                vm.setStreamCacheMax(mb)
+                                cacheSizeDialog = false
+                            })
+                            Text(formatMb(mb), style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                    Text(
+                        "Dinlediklerin geçici olarak burada tutulur; sınır aşılınca en eskiler kendiliğinden silinir. İndirilenler bu alandan AYRIDIR, asla silinmez.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { cacheSizeDialog = false }) { Text("Kapat") }
             },
         )
     }
