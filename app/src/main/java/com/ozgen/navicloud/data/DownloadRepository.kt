@@ -1,6 +1,9 @@
 package com.ozgen.navicloud.data
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import com.ozgen.navicloud.core.model.Song
 import com.ozgen.navicloud.data.db.DownloadDao
 import com.ozgen.navicloud.data.db.DownloadEntity
@@ -9,9 +12,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import okhttp3.Request
@@ -25,6 +31,8 @@ data class ActiveDownload(
     val title: String,
     val progress: Float,
     val queued: Int,
+    /** "Sadece WiFi'de indir" açık ve ağ metered: kuyruk WiFi'yi bekliyor. */
+    val waitingForWifi: Boolean = false,
 )
 
 @Singleton
@@ -32,6 +40,7 @@ class DownloadRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val downloadDao: DownloadDao,
     private val servers: ServerRepository,
+    private val settings: SettingsRepository,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val queue = Channel<Song>(Channel.UNLIMITED)
@@ -58,6 +67,7 @@ class DownloadRepository @Inject constructor(
     init {
         scope.launch {
             for (song in queue) {
+                awaitAllowedNetwork(song)
                 runCatching { download(song) }
                     .onFailure { android.util.Log.e("NaviDownload", "İndirme hatası: ${song.title}", it) }
                 queuedCount = (queuedCount - 1).coerceAtLeast(0)
@@ -74,6 +84,42 @@ class DownloadRepository @Inject constructor(
                     queue.send(song)
                 }
             }
+        }
+    }
+
+    /** Varsayılan ağın metered durumu; değişimlerde anında yeni değer basar. */
+    private fun meteredFlow(): Flow<Boolean> = callbackFlow {
+        val cm = context.getSystemService(ConnectivityManager::class.java)
+        if (cm == null) {
+            trySend(false)
+            awaitClose { }
+            return@callbackFlow
+        }
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                trySend(!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED))
+            }
+
+            override fun onLost(network: Network) {
+                trySend(cm.isActiveNetworkMetered)
+            }
+        }
+        cm.registerDefaultNetworkCallback(callback)
+        trySend(cm.isActiveNetworkMetered)
+        awaitClose { cm.unregisterNetworkCallback(callback) }
+    }
+
+    /**
+     * "Sadece WiFi'de indir" açıkken metered ağda kuyruğu bekletir;
+     * WiFi gelince (ya da ayar kapatılınca) kendiliğinden devam eder.
+     */
+    private suspend fun awaitAllowedNetwork(song: Song) {
+        val blocked = combine(meteredFlow(), settings.downloadWifiOnly) { metered, wifiOnly ->
+            metered && wifiOnly
+        }
+        if (blocked.first()) {
+            _active.value = ActiveDownload(song.id, song.title, 0f, queuedCount, waitingForWifi = true)
+            blocked.first { !it }
         }
     }
 
