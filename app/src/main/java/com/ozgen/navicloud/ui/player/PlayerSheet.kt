@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AllInclusive
@@ -42,6 +44,7 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
@@ -56,10 +59,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -102,6 +110,7 @@ import com.ozgen.navicloud.playback.queueUid
 import com.ozgen.navicloud.playback.toSong
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import com.ozgen.navicloud.ui.components.SongContextMenu
 import com.ozgen.navicloud.ui.components.SongItem
 import com.ozgen.navicloud.ui.components.formatDuration
 import com.ozgen.navicloud.ui.screens.nowplaying.NowPlayingViewModel
@@ -223,6 +232,12 @@ fun PlayerSheet(
             }
         }
 
+        // Media notification tap → open with the player expanded
+        val expandReq by vm.player.expandRequests.collectAsStateWithLifecycle()
+        LaunchedEffect(expandReq) {
+            if (expandReq > 0) sheetDrag.animateTo(SheetValue.Expanded)
+        }
+
         BackHandler(enabled = expanded || queueShown) {
             scope.launch {
                 if (queueShown) queueDrag.animateTo(QueuePanelValue.Hidden)
@@ -310,16 +325,37 @@ fun PlayerSheet(
                 )
             }
 
-            // The one artwork, morphing between the two slots
-            AsyncImage(
-                model = item.mediaMetadata.artworkUri,
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .offset { with(density) { IntOffset(artX.roundToPx(), artY.roundToPx()) } }
-                    .size(artSize)
-                    .clip(RoundedCornerShape(lerpDp(6.dp, 0.dp, progress))),
-            )
+            // The one artwork, morphing between the two slots. Fully expanded it
+            // becomes a pager: horizontal swipe = previous/next track.
+            val artModifier = Modifier
+                .offset { with(density) { IntOffset(artX.roundToPx(), artY.roundToPx()) } }
+                .size(artSize)
+                .clip(RoundedCornerShape(lerpDp(6.dp, 0.dp, progress)))
+            if (expanded) {
+                ArtPager(player = vm.player, modifier = artModifier)
+            } else {
+                AsyncImage(
+                    model = item.mediaMetadata.artworkUri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = artModifier,
+                )
+            }
+            // Edge blending: full-bleed art fades into the gradient instead of
+            // ending in hard cuts (plain Box — doesn't eat the pager's swipes)
+            if (progress > 0.6f) {
+                Box(
+                    artModifier.graphicsLayer { alpha = ((progress - 0.6f) / 0.4f).coerceIn(0f, 1f) }
+                        .background(
+                            Brush.verticalGradient(
+                                0f to dominantColor.copy(alpha = 0.45f),
+                                0.15f to Color.Transparent,
+                                0.82f to Color.Transparent,
+                                1f to MaterialTheme.colorScheme.background.copy(alpha = 0.75f),
+                            )
+                        ),
+                )
+            }
 
             // ---- Queue panel (only relevant once expanded) ----
             if (progress > 0.9f) {
@@ -352,6 +388,43 @@ fun PlayerSheet(
                 positionMsProvider = { vm.player.positionMs },
             )
         }
+    }
+}
+
+/** Expanded-state artwork pager: horizontal swipe skips to previous/next track. */
+@Composable
+private fun ArtPager(player: PlayerController, modifier: Modifier = Modifier) {
+    val state by player.state.collectAsStateWithLifecycle()
+    val pagerState = rememberPagerState(
+        initialPage = state.currentIndex.coerceAtLeast(0),
+    ) { state.queue.size }
+
+    // Player -> pager (track changed elsewhere)
+    LaunchedEffect(state.currentIndex, state.queue.size) {
+        if (!pagerState.isScrollInProgress &&
+            state.currentIndex in 0 until state.queue.size &&
+            pagerState.currentPage != state.currentIndex
+        ) {
+            pagerState.animateScrollToPage(state.currentIndex)
+        }
+    }
+    // Pager -> player (user swiped the art)
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage }.collect { page ->
+            val current = player.state.value
+            if (page != current.currentIndex && page in current.queue.indices) {
+                player.seekToQueueItem(page)
+            }
+        }
+    }
+
+    HorizontalPager(state = pagerState, modifier = modifier) { page ->
+        AsyncImage(
+            model = state.queue.getOrNull(page)?.mediaMetadata?.artworkUri,
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 
@@ -482,8 +555,22 @@ private fun FullPlayerContent(
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).padding(end = 48.dp),
+                modifier = Modifier.weight(1f),
             )
+            // Current song's context menu, top right
+            var menuOpen by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(Icons.Rounded.MoreVert, contentDescription = "Seçenekler", tint = Color.White)
+                }
+                item?.let {
+                    SongContextMenu(
+                        song = it.toSong(),
+                        expanded = menuOpen,
+                        onDismiss = { menuOpen = false },
+                    )
+                }
+            }
         }
 
         // Artwork lands here (drawn by the sheet as the morphing image)
@@ -622,9 +709,21 @@ private fun QueuePanel(
     val state by player.state.collectAsStateWithLifecycle()
     val endless by player.endless.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
-    // Standard reorderable-lazy-list machinery (sh.calvin.reorderable)
+    // Working copy the reorder library mutates INSTANTLY; Media3 catches up
+    // asynchronously. Feeding the async state straight back caused runaway
+    // moves (stale indices) and flicker.
+    val localQueue = remember { androidx.compose.runtime.mutableStateListOf<androidx.media3.common.MediaItem>() }
     val reorderableState = rememberReorderableLazyListState(listState) { from, to ->
-        player.moveQueueItem(from.index, to.index)
+        if (from.index in localQueue.indices && to.index in localQueue.indices) {
+            localQueue.add(to.index, localQueue.removeAt(from.index))
+            player.moveQueueItem(from.index, to.index)
+        }
+    }
+    LaunchedEffect(state.queue, reorderableState.isAnyItemDragging) {
+        if (!reorderableState.isAnyItemDragging) {
+            localQueue.clear()
+            localQueue.addAll(state.queue)
+        }
     }
 
     Box(
@@ -641,100 +740,148 @@ private fun QueuePanel(
             ),
     ) {
         Column(Modifier.fillMaxSize()) {
-            // Drag zone: up-next bar when hidden, queue header when shown
-            Column(
+            // Drag zone: both header states stay composed and crossfade —
+            // the composition swap at 50% caused a visible hitch mid-drag
+            Box(
                 Modifier
                     .fillMaxWidth()
+                    .height(64.dp)
                     .anchoredDraggable(queueDrag, Orientation.Vertical)
                     .clickable(enabled = queueProgress < 0.5f, onClick = onShow),
             ) {
-                if (queueProgress < 0.5f) {
-                    val nextItem = state.queue.getOrNull(state.currentIndex + 1)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp)
-                            .graphicsLayer { alpha = 1f - queueProgress * 2f }
-                            .padding(horizontal = 24.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null, tint = Color(0x99FFFFFF))
-                        Spacer(Modifier.width(8.dp))
+                val nextItem = state.queue.getOrNull(state.currentIndex + 1)
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = (1f - queueProgress * 2f).coerceIn(0f, 1f) }
+                        .padding(horizontal = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null, tint = Color(0x99FFFFFF))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (nextItem != null) "Sıradaki: ${nextItem.mediaMetadata.title}" else "Kuyruk",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color(0x99FFFFFF),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = ((queueProgress - 0.5f) * 2f).coerceIn(0f, 1f) }
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Rounded.DragHandle,
+                        contentDescription = null,
+                        tint = Color(0x66FFFFFF),
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text("Kuyruk", style = MaterialTheme.typography.titleLarge, color = Color.White)
                         Text(
-                            if (nextItem != null) "Sıradaki: ${nextItem.mediaMetadata.title}" else "Kuyruk",
-                            style = MaterialTheme.typography.labelLarge,
+                            "${state.queue.size} şarkı",
+                            style = MaterialTheme.typography.bodySmall,
                             color = Color(0x99FFFFFF),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                         )
                     }
-                } else {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .graphicsLayer { alpha = (queueProgress - 0.5f) * 2f }
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    IconButton(onClick = { player.stop() }) {
+                        Icon(Icons.Rounded.Stop, contentDescription = "Durdur", tint = Color(0x80FFFFFF))
+                    }
+                    IconButton(onClick = { player.toggleEndless() }) {
+                        Icon(
+                            Icons.Rounded.AllInclusive,
+                            contentDescription = "Endless",
+                            tint = if (endless) MaterialTheme.colorScheme.primary else Color(0x80FFFFFF),
+                        )
+                    }
+                    FilledIconButton(
+                        onClick = { player.togglePlayPause() },
+                        modifier = Modifier.size(44.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = Color.White,
+                            contentColor = Color(0xFF0F0F14),
+                        ),
                     ) {
                         Icon(
-                            Icons.Rounded.DragHandle,
-                            contentDescription = null,
-                            tint = Color(0x66FFFFFF),
-                            modifier = Modifier.padding(horizontal = 12.dp),
+                            if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = if (state.isPlaying) "Duraklat" else "Çal",
                         )
-                        Column(Modifier.weight(1f)) {
-                            Text("Kuyruk", style = MaterialTheme.typography.titleLarge, color = Color.White)
-                            Text(
-                                "${state.queue.size} şarkı",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0x99FFFFFF),
-                            )
-                        }
-                        IconButton(onClick = { player.stop() }) {
-                            Icon(Icons.Rounded.Stop, contentDescription = "Durdur", tint = Color(0x80FFFFFF))
-                        }
-                        IconButton(onClick = { player.toggleEndless() }) {
-                            Icon(
-                                Icons.Rounded.AllInclusive,
-                                contentDescription = "Endless",
-                                tint = if (endless) MaterialTheme.colorScheme.primary else Color(0x80FFFFFF),
-                            )
-                        }
-                        FilledIconButton(
-                            onClick = { player.togglePlayPause() },
-                            modifier = Modifier.size(44.dp),
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = Color.White,
-                                contentColor = Color(0xFF0F0F14),
-                            ),
-                        ) {
-                            Icon(
-                                if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                contentDescription = if (state.isPlaying) "Duraklat" else "Çal",
-                            )
-                        }
                     }
                 }
             }
 
-            if (queueProgress > 0.15f) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        top = 8.dp,
-                        bottom = bottomPad + 8.dp,
-                    ),
-                ) {
-                    items(
-                        state.queue.size,
-                        key = { state.queue[it].queueUid(it) },
-                        contentType = { "song" },
-                    ) { i ->
-                        val queueItem = state.queue[i]
-                        ReorderableItem(reorderableState, key = queueItem.queueUid(i)) { isDragging ->
-                            val dragScope = this
+            LazyColumn(
+                state = listState,
+                // Stays composed (no first-drag jank) but invisible & inert while hidden
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = queueProgress },
+                userScrollEnabled = queueProgress > 0.3f,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    top = 8.dp,
+                    bottom = bottomPad + 8.dp,
+                ),
+            ) {
+                items(
+                    localQueue.size,
+                    key = { localQueue[it].queueUid() },
+                    contentType = { "song" },
+                ) { i ->
+                    val queueItem = localQueue[i]
+                    ReorderableItem(reorderableState, key = queueItem.queueUid()) { isDragging ->
+                        val dragScope = this
+                        // Swipe left→right removes; right→left bumps to play-next
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { value ->
+                                when (value) {
+                                    SwipeToDismissBoxValue.StartToEnd -> {
+                                        if (i in localQueue.indices) {
+                                            localQueue.removeAt(i)
+                                            player.removeQueueItem(i)
+                                        }
+                                        true
+                                    }
+                                    SwipeToDismissBoxValue.EndToStart -> {
+                                        val target = (state.currentIndex + 1)
+                                            .coerceAtMost(localQueue.size - 1)
+                                        if (i != target && i in localQueue.indices) {
+                                            localQueue.add(target, localQueue.removeAt(i))
+                                            player.moveQueueItem(i, target)
+                                        }
+                                        false
+                                    }
+                                    else -> false
+                                }
+                            },
+                        )
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            backgroundContent = {
+                                Row(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 24.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.RemoveCircleOutline,
+                                        contentDescription = "Kuyruktan kaldır",
+                                        tint = MaterialTheme.colorScheme.error,
+                                    )
+                                    Spacer(Modifier.weight(1f))
+                                    Icon(
+                                        Icons.Rounded.PlaylistPlay,
+                                        contentDescription = "Sıradakine taşı",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            },
+                        ) {
                             SongItem(
                                 song = queueItem.toSong(),
                                 onClick = { player.seekToQueueItem(i) },
@@ -743,6 +890,7 @@ private fun QueuePanel(
                                 queueIndex = i,
                                 modifier = Modifier
                                     .height(64.dp)
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                                     .graphicsLayer { alpha = if (isDragging) 0.85f else 1f },
                                 trailingContent = {
                                     Icon(

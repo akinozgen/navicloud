@@ -136,6 +136,11 @@ class PlayerController @Inject constructor(
     fun removeQueueItem(index: Int) { _controller.value?.removeMediaItem(index) }
     fun moveQueueItem(from: Int, to: Int) { _controller.value?.moveMediaItem(from, to) }
 
+    // Bildirimden gelen "player'ı aç" istekleri (MainActivity intent'i tetikler)
+    private val _expandRequests = MutableStateFlow(0)
+    val expandRequests: StateFlow<Int> = _expandRequests
+    fun requestExpand() { _expandRequests.value++ }
+
     // Endless/autoplay switch — continuation logic hooks in here (playback context)
     private val _endless = MutableStateFlow(false)
     val endless: StateFlow<Boolean> = _endless

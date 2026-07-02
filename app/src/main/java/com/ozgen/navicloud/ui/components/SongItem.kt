@@ -116,76 +116,97 @@ fun SongItem(
             // Menu must be anchored inside a Box with its button; as a bare Row
             // child it takes layout space (icons shift) and anchors at the wrong edge
             Box {
-            IconButton(onClick = { menuOpen = true }) {
-                Icon(
-                    Icons.Rounded.MoreVert,
-                    contentDescription = "Şarkı menüsü",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                DropdownMenuItem(
-                    text = { Text("Sıradakine ekle") },
-                    leadingIcon = { Icon(Icons.Rounded.PlaylistPlay, null) },
-                    onClick = { menuOpen = false; actions.playNext(song) },
-                )
-                DropdownMenuItem(
-                    text = { Text("Kuyruğa ekle") },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
-                    onClick = { menuOpen = false; actions.addToQueue(song) },
-                )
-                DropdownMenuItem(
-                    text = { Text("Çalma listesine ekle") },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
-                    onClick = { menuOpen = false; actions.addToPlaylist(song) },
-                )
-                if (song.albumId != null) {
-                    DropdownMenuItem(
-                        text = { Text("Albüme git") },
-                        leadingIcon = { Icon(Icons.Rounded.Album, null) },
-                        onClick = { menuOpen = false; actions.goToAlbum(song.albumId) },
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(
+                        Icons.Rounded.MoreVert,
+                        contentDescription = "Şarkı menüsü",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (song.artistId != null) {
-                    DropdownMenuItem(
-                        text = { Text("Sanatçıya git") },
-                        leadingIcon = { Icon(Icons.Rounded.Person, null) },
-                        onClick = { menuOpen = false; actions.goToArtist(song.artistId) },
-                    )
-                }
-                if (inQueue && queueIndex != null) {
-                    DropdownMenuItem(
-                        text = { Text("Kuyruktan kaldır") },
-                        leadingIcon = { Icon(Icons.Rounded.RemoveCircleOutline, null) },
-                        onClick = { menuOpen = false; actions.removeFromQueue(queueIndex) },
-                    )
-                }
-                if (actions.isDownloaded(song.id)) {
-                    DropdownMenuItem(
-                        text = { Text("İndirileni kaldır") },
-                        leadingIcon = { Icon(Icons.Rounded.Delete, null) },
-                        onClick = { menuOpen = false; actions.removeDownload(song.id) },
-                    )
-                } else {
-                    DropdownMenuItem(
-                        text = { Text("İndir") },
-                        leadingIcon = { Icon(Icons.Rounded.DownloadForOffline, null) },
-                        onClick = { menuOpen = false; actions.download(song) },
-                    )
-                }
-                DropdownMenuItem(
-                    text = { Text(if (starred) "Favorilerden çıkar" else "Favorilere ekle") },
-                    leadingIcon = {
-                        Icon(if (starred) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null)
-                    },
-                    onClick = {
-                        menuOpen = false
-                        starred = !starred
-                        actions.setStarred(song, starred)
-                    },
+                SongContextMenu(
+                    song = song,
+                    expanded = menuOpen,
+                    onDismiss = { menuOpen = false },
+                    inQueue = inQueue,
+                    queueIndex = queueIndex,
                 )
-            }
             }
         }
+    }
+}
+
+/** The shared song context menu — anchor it inside a Box with its trigger. */
+@Composable
+fun SongContextMenu(
+    song: Song,
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    inQueue: Boolean = false,
+    queueIndex: Int? = null,
+) {
+    val actions = LocalSongMenu.current ?: return
+    var starred by rememberSaveable(song.id) { mutableStateOf(song.starred) }
+
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        DropdownMenuItem(
+            text = { Text("Sıradakine ekle") },
+            leadingIcon = { Icon(Icons.Rounded.PlaylistPlay, null) },
+            onClick = { onDismiss(); actions.playNext(song) },
+        )
+        DropdownMenuItem(
+            text = { Text("Kuyruğa ekle") },
+            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
+            onClick = { onDismiss(); actions.addToQueue(song) },
+        )
+        DropdownMenuItem(
+            text = { Text("Çalma listesine ekle") },
+            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
+            onClick = { onDismiss(); actions.addToPlaylist(song) },
+        )
+        if (song.albumId != null) {
+            DropdownMenuItem(
+                text = { Text("Albüme git") },
+                leadingIcon = { Icon(Icons.Rounded.Album, null) },
+                onClick = { onDismiss(); actions.goToAlbum(song.albumId) },
+            )
+        }
+        if (song.artistId != null) {
+            DropdownMenuItem(
+                text = { Text("Sanatçıya git") },
+                leadingIcon = { Icon(Icons.Rounded.Person, null) },
+                onClick = { onDismiss(); actions.goToArtist(song.artistId) },
+            )
+        }
+        if (inQueue && queueIndex != null) {
+            DropdownMenuItem(
+                text = { Text("Kuyruktan kaldır") },
+                leadingIcon = { Icon(Icons.Rounded.RemoveCircleOutline, null) },
+                onClick = { onDismiss(); actions.removeFromQueue(queueIndex) },
+            )
+        }
+        if (actions.isDownloaded(song.id)) {
+            DropdownMenuItem(
+                text = { Text("İndirileni kaldır") },
+                leadingIcon = { Icon(Icons.Rounded.Delete, null) },
+                onClick = { onDismiss(); actions.removeDownload(song.id) },
+            )
+        } else {
+            DropdownMenuItem(
+                text = { Text("İndir") },
+                leadingIcon = { Icon(Icons.Rounded.DownloadForOffline, null) },
+                onClick = { onDismiss(); actions.download(song) },
+            )
+        }
+        DropdownMenuItem(
+            text = { Text(if (starred) "Favorilerden çıkar" else "Favorilere ekle") },
+            leadingIcon = {
+                Icon(if (starred) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null)
+            },
+            onClick = {
+                onDismiss()
+                starred = !starred
+                actions.setStarred(song, starred)
+            },
+        )
     }
 }

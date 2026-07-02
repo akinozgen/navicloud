@@ -17,8 +17,9 @@ object MediaKeys {
     const val UID = "queueUid"
 }
 
-fun MediaItem.queueUid(fallbackIndex: Int): String =
-    mediaMetadata.extras?.getString(MediaKeys.UID) ?: "$fallbackIndex-$mediaId"
+fun MediaItem.queueUid(): String =
+    mediaMetadata.extras?.getString(MediaKeys.UID)
+        ?: "$mediaId-${System.identityHashCode(this)}"
 
 /** Rebuilds a domain Song from a queue MediaItem (metadata + extras round-trip). */
 fun MediaItem.toSong(): Song {

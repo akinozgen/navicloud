@@ -38,7 +38,24 @@ class PlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
         player.addListener(scrobbleListener(player))
-        mediaSession = MediaSession.Builder(this, player).build()
+        // Notification tap opens the app with the player expanded
+        val sessionIntent = android.content.Intent(this, com.ozgen.navicloud.MainActivity::class.java).apply {
+            action = ACTION_OPEN_PLAYER
+            flags = android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val sessionActivity = android.app.PendingIntent.getActivity(
+            this,
+            0,
+            sessionIntent,
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        mediaSession = MediaSession.Builder(this, player)
+            .setSessionActivity(sessionActivity)
+            .build()
+    }
+
+    companion object {
+        const val ACTION_OPEN_PLAYER = "com.ozgen.navicloud.OPEN_PLAYER"
     }
 
     /**
