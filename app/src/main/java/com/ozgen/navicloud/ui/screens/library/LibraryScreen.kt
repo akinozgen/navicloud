@@ -263,10 +263,21 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.weight(1f),
             )
+            // Aktif indirme varsa ilerleme rozeti — dokununca indirme yönetimi
+            val activeDl = state.activeDownload
+            if (activeDl != null) {
+                IconButton(onClick = { navController.navigate("servers") }) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        progress = { activeDl.progress },
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.5.dp,
+                    )
+                }
+            }
             IconButton(onClick = { navController.navigate("servers") }) {
                 Icon(
                     Icons.Rounded.Settings,
-                    contentDescription = "Sunucular / Ayarlar",
+                    contentDescription = "Ayarlar",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

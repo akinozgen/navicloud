@@ -684,6 +684,29 @@ private fun FullPlayerContent(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    // Self-host gururu: kaynak dosyanın gerçek kalitesi.
+                    // Streaming'ler gizler, biz gösteririz.
+                    val extras = item?.mediaMetadata?.extras
+                    val suffix = extras?.getString(MediaKeys.SUFFIX)?.uppercase()
+                    val kbps = extras?.getInt(MediaKeys.BIT_RATE, 0)?.takeIf { it > 0 }
+                    val hz = extras?.getInt(MediaKeys.SAMPLE_RATE, 0)?.takeIf { it > 0 }
+                    val quality by vm.player.streamQuality.collectAsStateWithLifecycle()
+                    val badge = buildString {
+                        suffix?.let { append(it) }
+                        kbps?.let { if (isNotEmpty()) append(" • "); append("$it kbps") }
+                        hz?.let { if (isNotEmpty()) append(" • "); append("%.1f kHz".format(it / 1000f)) }
+                        if (quality.kbps != null && isNotEmpty()) append("  →  MP3 ${quality.kbps}")
+                    }
+                    if (badge.isNotEmpty()) {
+                        Text(
+                            badge,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0x80FFFFFF),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 3.dp),
+                        )
+                    }
                 }
                 IconButton(onClick = onOpenLyrics) {
                     Icon(Icons.Rounded.Lyrics, contentDescription = "Şarkı sözleri", tint = Color(0xB3FFFFFF))

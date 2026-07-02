@@ -13,6 +13,9 @@ object MediaKeys {
     const val COVER_ART = "coverArt"
     const val DURATION = "durationSec"
     const val STARRED = "starred"
+    const val SUFFIX = "suffix"
+    const val BIT_RATE = "bitRate"
+    const val SAMPLE_RATE = "sampleRate"
     /** Unique per queue entry (a song can be queued twice) — stable reorder identity. */
     const val UID = "queueUid"
 }
@@ -36,11 +39,12 @@ fun MediaItem.toSong(): Song {
         track = null,
         discNumber = null,
         year = null,
-        bitRate = null,
-        suffix = null,
+        bitRate = extras?.getInt(MediaKeys.BIT_RATE, 0)?.takeIf { it > 0 },
+        suffix = extras?.getString(MediaKeys.SUFFIX),
         contentType = null,
         size = null,
         starred = extras?.getBoolean(MediaKeys.STARRED, false) ?: false,
+        samplingRate = extras?.getInt(MediaKeys.SAMPLE_RATE, 0)?.takeIf { it > 0 },
     )
 }
 
@@ -51,6 +55,9 @@ fun Song.toMediaItem(streamUrl: String, artworkUrl: String?): MediaItem {
         putString(MediaKeys.COVER_ART, coverArt)
         putInt(MediaKeys.DURATION, duration)
         putBoolean(MediaKeys.STARRED, starred)
+        putString(MediaKeys.SUFFIX, suffix)
+        putInt(MediaKeys.BIT_RATE, bitRate ?: 0)
+        putInt(MediaKeys.SAMPLE_RATE, samplingRate ?: 0)
         putString(MediaKeys.UID, java.util.UUID.randomUUID().toString())
     }
     val metadata = MediaMetadata.Builder()

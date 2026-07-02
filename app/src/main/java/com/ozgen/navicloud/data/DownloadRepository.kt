@@ -41,8 +41,16 @@ class DownloadRepository @Inject constructor(
     val active: StateFlow<ActiveDownload?> = _active
 
     val downloadedIds: Flow<List<String>> = downloadDao.observeIds()
+    val totalSizeBytes: Flow<Long> = downloadDao.observeTotalSize()
+    val totalCount: Flow<Int> = downloadDao.observeCount()
 
     fun downloadsFor(serverId: Long): Flow<List<DownloadEntity>> = downloadDao.observeAll(serverId)
+
+    /** Tüm indirilenleri siler (dosyalar + kayıtlar). */
+    suspend fun clearAll() {
+        downloadDao.all().forEach { File(it.filePath).delete() }
+        downloadDao.deleteAll()
+    }
 
     init {
         scope.launch {

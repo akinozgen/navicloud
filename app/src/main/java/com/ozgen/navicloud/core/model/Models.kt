@@ -38,6 +38,7 @@ data class Song(
     val contentType: String?,
     val size: Long?,
     val starred: Boolean,
+    val samplingRate: Int? = null,
 )
 
 data class Artist(

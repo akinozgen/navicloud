@@ -87,6 +87,12 @@ interface SubsonicApi {
         @Query("songIdToAdd") songIdToAdd: String? = null,
     ): SubsonicEnvelope
 
+    @GET("startScan")
+    suspend fun startScan(@Query("fullScan") fullScan: Boolean = false): SubsonicEnvelope
+
+    @GET("getScanStatus")
+    suspend fun getScanStatus(): SubsonicEnvelope
+
     @GET("getSimilarSongs2")
     suspend fun getSimilarSongs2(
         @Query("id") artistId: String,

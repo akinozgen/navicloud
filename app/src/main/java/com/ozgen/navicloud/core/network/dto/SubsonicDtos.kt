@@ -69,6 +69,8 @@ data class SongDto(
     val contentType: String? = null,
     val size: Long? = null,
     val starred: String? = null,
+    val samplingRate: Int? = null,
+    val bitDepth: Int? = null,
 )
 
 @Serializable

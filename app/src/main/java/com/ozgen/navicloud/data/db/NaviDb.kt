@@ -62,6 +62,18 @@ interface DownloadDao {
     @Query("SELECT songId FROM downloads")
     fun observeIds(): Flow<List<String>>
 
+    @Query("SELECT COALESCE(SUM(sizeBytes), 0) FROM downloads")
+    fun observeTotalSize(): Flow<Long>
+
+    @Query("SELECT COUNT(*) FROM downloads")
+    fun observeCount(): Flow<Int>
+
+    @Query("SELECT * FROM downloads")
+    suspend fun all(): List<DownloadEntity>
+
+    @Query("DELETE FROM downloads")
+    suspend fun deleteAll()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(download: DownloadEntity)
 

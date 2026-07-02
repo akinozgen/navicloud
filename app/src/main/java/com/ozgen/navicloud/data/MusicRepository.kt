@@ -49,6 +49,7 @@ private fun SongDto.toModel() = Song(
     contentType = contentType,
     size = size,
     starred = starred != null,
+    samplingRate = samplingRate,
 )
 
 private fun ArtistDto.toModel() = Artist(
@@ -211,5 +212,16 @@ class MusicRepository @Inject constructor(
     suspend fun coverArtUrl(coverArtId: String?, size: Int? = null): String? =
         coverArtId?.let { servers.activeClient().coverArtUrl(it, size) }
 
-    suspend fun streamUrl(songId: String): String = servers.activeClient().streamUrl(songId)
+    suspend fun streamUrl(songId: String, maxKbps: Int? = null, format: String? = null): String =
+        servers.activeClient().streamUrl(songId, maxKbps, format)
+
+    suspend fun startScan(fullScan: Boolean): Pair<Boolean, Long> {
+        val s = api().startScan(fullScan).unwrap().scanStatus
+        return (s?.scanning ?: true) to (s?.count ?: 0)
+    }
+
+    suspend fun scanStatus(): Pair<Boolean, Long> {
+        val s = api().getScanStatus().unwrap().scanStatus
+        return (s?.scanning ?: false) to (s?.count ?: 0)
+    }
 }
