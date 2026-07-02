@@ -1,20 +1,29 @@
 package com.ozgen.navicloud.playback
 
 import android.content.Intent
+import android.net.ConnectivityManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.cache.CacheWriter
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.ozgen.navicloud.data.MusicRepository
+import com.ozgen.navicloud.data.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -22,6 +31,7 @@ class PlaybackService : MediaSessionService() {
 
     @Inject lateinit var musicRepository: MusicRepository
     @Inject lateinit var streamCache: StreamCache
+    @Inject lateinit var settings: SettingsRepository
 
     private var mediaSession: MediaSession? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -46,6 +56,7 @@ class PlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
         player.addListener(scrobbleListener(player))
+        player.addListener(prefetchListener(player))
         // Notification tap opens the app with the player expanded
         val sessionIntent = android.content.Intent(this, com.ozgen.navicloud.MainActivity::class.java).apply {
             action = ACTION_OPEN_PLAYER
@@ -64,6 +75,64 @@ class PlaybackService : MediaSessionService() {
 
     companion object {
         const val ACTION_OPEN_PLAYER = "com.ozgen.navicloud.OPEN_PLAYER"
+
+        /** Sıradaki kaç parça ısıtılır ve her birinden kaç bayt (≈50sn @320kbps). */
+        private const val PREFETCH_TRACKS = 2
+        private const val PREFETCH_BYTES = 2L * 1024 * 1024
+    }
+
+    private var prefetchJob: Job? = null
+
+    /**
+     * Sıradaki 1-2 parçanın ilk chunk'ını akış cache'ine önden yazar; parça
+     * geçişinde ısınma sesi anında başlar. Track değişince eski iş iptal olur,
+     * indirilmiş (file://) parçalar atlanır, metered ağda ayara uyar.
+     */
+    private fun prefetchListener(player: Player) = object : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) =
+            schedulePrefetch(player)
+
+        override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) =
+            schedulePrefetch(player)
+    }
+
+    private fun schedulePrefetch(player: Player) {
+        prefetchJob?.cancel()
+        prefetchJob = scope.launch {
+            // Önce çalan parça buffer'lansın; art arda queue değişikliklerini
+            // de tek işe indirger
+            delay(3_000)
+            if (!settings.prefetchEnabled.first()) return@launch
+            val cm = getSystemService(ConnectivityManager::class.java)
+            if (cm != null && cm.isActiveNetworkMetered && settings.prefetchWifiOnly.first()) return@launch
+
+            // Player'a yalnız main thread'den dokunulur
+            val nextUris = withContext(Dispatchers.Main) {
+                val from = player.currentMediaItemIndex
+                (1..PREFETCH_TRACKS).mapNotNull { off ->
+                    val i = from + off
+                    if (i < player.mediaItemCount) {
+                        player.getMediaItemAt(i).localConfiguration?.uri
+                            ?.takeIf { it.scheme == "http" || it.scheme == "https" }
+                    } else null
+                }
+            }
+            for (uri in nextUris) {
+                val dataSpec = DataSpec.Builder()
+                    .setUri(uri).setPosition(0).setLength(PREFETCH_BYTES)
+                    .build()
+                val writer = CacheWriter(
+                    streamCache.cacheDataSourceFactory().createDataSource(),
+                    dataSpec,
+                    /* temporaryBuffer = */ null,
+                    /* progressListener = */ null,
+                )
+                runCatching {
+                    // cache() bloklar; iptal Thread.interrupt ile ulaşır
+                    runInterruptible(Dispatchers.IO) { writer.cache() }
+                }
+            }
+        }
     }
 
     /**
