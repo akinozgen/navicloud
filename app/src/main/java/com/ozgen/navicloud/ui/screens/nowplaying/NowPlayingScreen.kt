@@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -171,6 +172,11 @@ fun NowPlayingScreen(
     // Back: queue -> now playing -> mini player
     BackHandler {
         if (queueMode) queueMode = false else onClose()
+    }
+
+    // Stop (or anything else emptying the queue) closes the player
+    LaunchedEffect(item) {
+        if (item == null) onClose()
     }
 
     LaunchedEffect(item?.mediaId) {
@@ -557,6 +563,14 @@ private fun QueuePane(
                         "${state.queue.size} şarkı",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0x99FFFFFF),
+                    )
+                }
+                // Stop: durdur + kuyruğu temizle + player'ı kapat
+                IconButton(onClick = { player.stop() }) {
+                    Icon(
+                        Icons.Rounded.Stop,
+                        contentDescription = "Durdur",
+                        tint = Color(0x80FFFFFF),
                     )
                 }
                 // Endless toggle

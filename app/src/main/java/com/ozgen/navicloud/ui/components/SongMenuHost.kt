@@ -82,6 +82,7 @@ class SongMenuViewModel @Inject constructor(
 @Composable
 fun SongMenuHost(
     navController: NavController,
+    onBeforeNavigate: () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     val vm: SongMenuViewModel = hiltViewModel()
@@ -103,8 +104,15 @@ fun SongMenuHost(
                 vm.loadPlaylists()
                 playlistPickerSong = song
             },
-            goToAlbum = { albumId -> navController.navigate("album/$albumId") },
-            goToArtist = { artistId -> navController.navigate("artist/$artistId") },
+            // Navigating from an open player/queue must dismiss the overlay first
+            goToAlbum = { albumId ->
+                onBeforeNavigate()
+                navController.navigate("album/$albumId")
+            },
+            goToArtist = { artistId ->
+                onBeforeNavigate()
+                navController.navigate("artist/$artistId")
+            },
             download = { song ->
                 vm.download(song)
                 Toast.makeText(context, "İndirme kuyruğa alındı", Toast.LENGTH_SHORT).show()

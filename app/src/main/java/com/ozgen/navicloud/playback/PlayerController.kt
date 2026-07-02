@@ -199,6 +199,15 @@ class PlayerController @Inject constructor(
         _controller.value?.run { shuffleModeEnabled = !shuffleModeEnabled }
     }
 
+    /** Stop control: halts playback, clears the queue, closes the player UI (currentItem → null). */
+    fun stop() {
+        _controller.value?.run {
+            stop()
+            clearMediaItems()
+        }
+        playbackContext = null
+    }
+
     fun cycleRepeat() {
         _controller.value?.run {
             repeatMode = when (repeatMode) {

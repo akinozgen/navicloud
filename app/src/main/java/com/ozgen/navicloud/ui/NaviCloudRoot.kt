@@ -88,7 +88,7 @@ private fun MainShell(vm: AppViewModel, server: Server) {
     val artResolver = remember(server.id) { vm.artResolverFor(server) }
 
     CompositionLocalProvider(LocalArtResolver provides artResolver) {
-        SongMenuHost(navController) {
+        SongMenuHost(navController, onBeforeNavigate = { nowPlayingOpen = false }) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             bottomBar = {
@@ -104,15 +104,18 @@ private fun MainShell(vm: AppViewModel, server: Server) {
                         containerColor = MaterialTheme.colorScheme.background,
                         windowInsets = NavigationBarDefaults.windowInsets,
                     ) {
+                        // On a detail page restoreState would resurrect the very detail
+                        // we're leaving ("button does nothing") — jump clean to tab root instead
+                        val onTabRoot = tabs.any { it.route == currentRoute }
                         tabs.forEach { tab ->
                             val selected = currentRoute == tab.route
                             NavigationBarItem(
                                 selected = selected,
                                 onClick = {
                                     navController.navigate(tab.route) {
-                                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                        popUpTo(navController.graph.startDestinationId) { saveState = onTabRoot }
                                         launchSingleTop = true
-                                        restoreState = true
+                                        restoreState = onTabRoot
                                     }
                                 },
                                 icon = {
