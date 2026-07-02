@@ -99,12 +99,17 @@ class DownloadRepository @Inject constructor(
                 tmp.outputStream().use { output ->
                     val buffer = ByteArray(64 * 1024)
                     var copied = 0L
+                    var lastEmit = 0L
                     while (true) {
                         val read = input.read(buffer)
                         if (read < 0) break
                         output.write(buffer, 0, read)
                         copied += read
-                        if (total > 0) {
+                        // Her 64KB'da state basmak UI'ı recomposition fırtınasına
+                        // boğuyordu — en fazla ~6 emisyon/sn
+                        val now = System.currentTimeMillis()
+                        if (total > 0 && now - lastEmit > 150) {
+                            lastEmit = now
                             _active.value = ActiveDownload(
                                 song.id, song.title, copied.toFloat() / total, queuedCount,
                             )

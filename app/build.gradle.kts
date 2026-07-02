@@ -27,6 +27,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Geliştirme telefonuna adb ile kurulabilsin diye debug imzası —
+            // gerçek dağıtımda kendi keystore'unla değiştir
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {

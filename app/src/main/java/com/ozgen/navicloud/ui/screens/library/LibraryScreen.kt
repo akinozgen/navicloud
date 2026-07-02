@@ -200,12 +200,20 @@ class LibraryViewModel @Inject constructor(
         _state.value = _state.value.copy(query = q)
     }
 
-    /** Shuffle all: paged random batch, endless picks up from there. Never loads the full library. */
+    /**
+     * Shuffle all: iki aşamalı — küçük ilk parti ANINDA çalmaya başlar
+     * (1-2 sn'lik 'suratıma bakıyor' beklemesi buydu), kalanı arkadan eklenir.
+     */
     fun shuffleAll() {
         viewModelScope.launch {
-            runCatching { repo.randomSongs(200) }.onSuccess { songs ->
-                if (songs.isNotEmpty()) {
-                    player.play(songs, context = PlaybackContext.AllSongs, contextLabel = "Karışık çalma")
+            runCatching { repo.randomSongs(40) }.onSuccess { first ->
+                if (first.isNotEmpty()) {
+                    player.play(first, context = PlaybackContext.AllSongs, contextLabel = "Karışık çalma")
+                    runCatching { repo.randomSongs(160) }.onSuccess { more ->
+                        val seen = first.map { it.id }.toSet()
+                        val extra = more.filter { it.id !in seen }
+                        if (extra.isNotEmpty()) player.addToQueue(extra)
+                    }
                 }
             }
         }
@@ -292,7 +300,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
         ) {
             when (state.tab) {
                 LibraryTab.PLAYLISTS -> {
-                    val items = state.playlists.filter { q.isEmpty() || it.name.contains(q, ignoreCase = true) }
+                    val items = remember(state.playlists, q) { state.playlists.filter { q.isEmpty() || it.name.contains(q, ignoreCase = true) } }
                     val listState = rememberLazyListState()
                     SyncFabExpansion(listState, fabExpanded)
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
@@ -320,8 +328,10 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                     }
                 }
                 LibraryTab.ALBUMS -> {
-                    val items = state.albums.filter {
-                        q.isEmpty() || it.name.contains(q, true) || it.artist.contains(q, true)
+                    val items = remember(state.albums, q) {
+                        state.albums.filter {
+                            q.isEmpty() || it.name.contains(q, true) || it.artist.contains(q, true)
+                        }
                     }
                     Column(Modifier.fillMaxSize()) {
                         // Sort (left) + view toggle (right)
@@ -395,7 +405,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                     }
                 }
                 LibraryTab.ARTISTS -> {
-                    val items = state.artists.filter { q.isEmpty() || it.name.contains(q, true) }
+                    val items = remember(state.artists, q) { state.artists.filter { q.isEmpty() || it.name.contains(q, true) } }
                     val listState = rememberLazyListState()
                     SyncFabExpansion(listState, fabExpanded)
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
@@ -423,8 +433,10 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                     }
                 }
                 LibraryTab.SONGS -> {
-                    val items = if (q.isEmpty()) state.songs
-                    else state.songs.filter { it.title.contains(q, true) || it.artist?.contains(q, true) == true }
+                    val items = remember(state.songs, q) {
+                        if (q.isEmpty()) state.songs
+                        else state.songs.filter { it.title.contains(q, true) || it.artist?.contains(q, true) == true }
+                    }
                     val listState: LazyListState = rememberLazyListState()
                     SyncFabExpansion(listState, fabExpanded)
                     // Load next page as the user approaches the end (only meaningful unfiltered)
@@ -448,8 +460,10 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                     }
                 }
                 LibraryTab.FAVORITES -> {
-                    val all = state.starred?.songs.orEmpty()
-                    val items = all.filter { q.isEmpty() || it.title.contains(q, true) || it.artist?.contains(q, true) == true }
+                    val items = remember(state.starred, q) {
+                        state.starred?.songs.orEmpty()
+                            .filter { q.isEmpty() || it.title.contains(q, true) || it.artist?.contains(q, true) == true }
+                    }
                     val listState = rememberLazyListState()
                     SyncFabExpansion(listState, fabExpanded)
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
@@ -459,7 +473,9 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                     }
                 }
                 LibraryTab.DOWNLOADS -> {
-                    val items = state.downloads.filter { q.isEmpty() || it.title.contains(q, true) || it.artist?.contains(q, true) == true }
+                    val items = remember(state.downloads, q) {
+                        state.downloads.filter { q.isEmpty() || it.title.contains(q, true) || it.artist?.contains(q, true) == true }
+                    }
                     val listState = rememberLazyListState()
                     SyncFabExpansion(listState, fabExpanded)
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
