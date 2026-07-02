@@ -278,6 +278,16 @@ fun PlayerSheet(
                     alpha = (1f - progress * 2.5f).coerceIn(0f, 1f),
                     onClick = { scope.launch { sheetDrag.animateTo(SheetValue.Expanded) } },
                 )
+                // Thin progress line pinned to the mini bar's bottom edge
+                MiniProgressLine(
+                    player = vm.player,
+                    isPlaying = playerState.isPlaying,
+                    mediaId = item.mediaId,
+                    alpha = (1f - progress * 2.5f).coerceIn(0f, 1f),
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(y = 62.dp),
+                )
             }
 
             // Full player content (fades in)
@@ -339,6 +349,38 @@ fun PlayerSheet(
                 positionMsProvider = { vm.player.positionMs },
             )
         }
+    }
+}
+
+@Composable
+private fun MiniProgressLine(
+    player: PlayerController,
+    isPlaying: Boolean,
+    mediaId: String,
+    alpha: Float,
+    modifier: Modifier = Modifier,
+) {
+    var progress by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(isPlaying, mediaId) {
+        while (true) {
+            val dur = player.durationMs
+            progress = if (dur > 0) player.positionMs.toFloat() / dur else 0f
+            delay(500)
+        }
+    }
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(2.dp)
+            .graphicsLayer { this.alpha = alpha }
+            .background(Color(0x33FFFFFF)),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .height(2.dp)
+                .background(MaterialTheme.colorScheme.primary),
+        )
     }
 }
 

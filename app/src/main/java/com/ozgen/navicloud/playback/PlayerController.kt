@@ -88,7 +88,8 @@ class PlayerController @Inject constructor(
     private suspend fun Song.toItem(): MediaItem {
         val localUri = downloads.localFile(id)?.toUri()?.toString()
         val uri = localUri ?: musicRepository.streamUrl(id)
-        val art = runCatching { musicRepository.coverArtUrl(coverArt, 600) }.getOrNull()
+        // Full-width player art on 1080p screens — 600px looked soft
+        val art = runCatching { musicRepository.coverArtUrl(coverArt, 1200) }.getOrNull()
         return toMediaItem(streamUrl = uri, artworkUrl = art)
     }
 
