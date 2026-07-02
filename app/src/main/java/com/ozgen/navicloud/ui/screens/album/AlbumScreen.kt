@@ -47,11 +47,16 @@ import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.playback.PlaybackContext
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.Artwork
+import com.ozgen.navicloud.ui.components.CollectionActionRow
+import com.ozgen.navicloud.ui.components.DownloadState
 import com.ozgen.navicloud.ui.components.SongItem
 import com.ozgen.navicloud.ui.components.formatDuration
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -92,6 +97,16 @@ class AlbumViewModel @Inject constructor(
 
     fun playbackContext(): PlaybackContext =
         PlaybackContext.Album(albumId, _state.value.detail?.album?.artistId)
+
+    val downloadedIds = downloadRepo.downloadedIds
+        .map { it.toSet() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet<String>())
+    val activeDownload = downloadRepo.active
+
+    fun removeDownloads() {
+        val songs = _state.value.detail?.songs ?: return
+        viewModelScope.launch { songs.forEach { downloadRepo.delete(it.id) } }
+    }
 
     fun refresh() {
         _state.value = _state.value.copy(refreshing = true)
@@ -148,17 +163,6 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Geri")
                         }
                         Spacer(Modifier.weight(1f))
-                        IconButton(onClick = {
-                            if (vm.downloadAll()) {
-                                Toast.makeText(context, "İndirme kuyruğa alındı", Toast.LENGTH_SHORT).show()
-                            }
-                        }) {
-                            Icon(
-                                Icons.Rounded.DownloadForOffline,
-                                contentDescription = "İndir",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
                         IconButton(onClick = { vm.toggleStar() }) {
                             Icon(
                                 if (state.starred) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
@@ -196,18 +200,27 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                             modifier = Modifier.padding(top = 4.dp),
                         )
                         Spacer(Modifier.height(16.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Button(onClick = { vm.player.play(detail.songs, context = vm.playbackContext()) }) {
-                                Icon(Icons.Rounded.PlayArrow, contentDescription = null)
-                                Spacer(Modifier.size(4.dp))
-                                Text("Çal")
-                            }
-                            OutlinedButton(onClick = { vm.player.play(detail.songs.shuffled(), context = vm.playbackContext()) }) {
-                                Icon(Icons.Rounded.Shuffle, contentDescription = null)
-                                Spacer(Modifier.size(4.dp))
-                                Text("Karıştır")
-                            }
+                        val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
+                        val active by vm.activeDownload.collectAsStateWithLifecycle()
+                        val songIds = detail.songs.map { it.id }
+                        val downloadState = when {
+                            active != null && songIds.contains(active!!.songId) -> DownloadState.DOWNLOADING
+                            songIds.isNotEmpty() && songIds.all { it in downloadedIds } -> DownloadState.DONE
+                            else -> DownloadState.NONE
                         }
+                        CollectionActionRow(
+                            onPlay = { vm.player.play(detail.songs, context = vm.playbackContext()) },
+                            onShuffle = { vm.player.play(detail.songs.shuffled(), context = vm.playbackContext()) },
+                            onPlayNext = { vm.player.playNext(detail.songs) },
+                            onAddToQueue = { vm.player.addToQueue(detail.songs) },
+                            onDownload = {
+                                if (vm.downloadAll()) {
+                                    Toast.makeText(context, "İndirme kuyruğa alındı", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            onRemoveDownload = { vm.removeDownloads() },
+                            downloadState = downloadState,
+                        )
                         Spacer(Modifier.height(8.dp))
                     }
                 }
