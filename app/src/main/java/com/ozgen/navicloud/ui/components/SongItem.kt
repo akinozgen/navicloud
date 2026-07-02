@@ -34,8 +34,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.foundation.background
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ozgen.navicloud.core.model.Song
@@ -70,6 +72,9 @@ fun SongItem(
     highlighted: Boolean = false,
     inQueue: Boolean = false,
     queueIndex: Int? = null,
+    /** null = off; true/false = show equalizer bars (animating / frozen). */
+    playingBars: Boolean? = null,
+    barsTint: Color? = null,
     trailingContent: (@Composable () -> Unit)? = null,
 )  {
     val actions = LocalSongMenu.current
@@ -93,7 +98,25 @@ fun SongItem(
                 modifier = Modifier.width(24.dp),
             )
         } else if (showArt) {
-            Artwork(song.coverArt, sizePx = 150, cornerRadius = 6.dp, modifier = Modifier.size(48.dp))
+            Box {
+                Artwork(song.coverArt, sizePx = 150, cornerRadius = 6.dp, modifier = Modifier.size(48.dp))
+                if (playingBars != null) {
+                    Box(
+                        Modifier
+                            .size(48.dp)
+                            .background(
+                                Color.Black.copy(alpha = 0.45f),
+                                androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        PlayingBars(
+                            playing = playingBars,
+                            tint = barsTint ?: MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
         }
         Column(Modifier.weight(1f)) {
             Text(

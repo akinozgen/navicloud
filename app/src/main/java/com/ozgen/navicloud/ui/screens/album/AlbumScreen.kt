@@ -46,6 +46,7 @@ import com.ozgen.navicloud.data.AlbumDetail
 import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.playback.PlaybackContext
 import com.ozgen.navicloud.playback.PlayerController
+import com.ozgen.navicloud.ui.components.AmbientBackdrop
 import com.ozgen.navicloud.ui.components.Artwork
 import com.ozgen.navicloud.ui.components.CollectionActionRow
 import com.ozgen.navicloud.ui.components.DownloadState
@@ -147,6 +148,8 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
         else -> {
             val detail = state.detail!!
             val context = LocalContext.current
+            Box(Modifier.fillMaxSize()) {
+            AmbientBackdrop(detail.album.coverArt)
             LazyColumn(
                 modifier = Modifier.fillMaxSize().statusBarsPadding(),
                 contentPadding = PaddingValues(bottom = 24.dp),
@@ -256,6 +259,7 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                         modifier = Modifier.padding(16.dp),
                     )
                 }
+            }
             }
         }
     }

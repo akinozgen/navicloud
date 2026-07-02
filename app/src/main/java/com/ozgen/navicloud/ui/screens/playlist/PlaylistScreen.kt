@@ -44,6 +44,7 @@ import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.data.PlaylistDetail
 import com.ozgen.navicloud.playback.PlaybackContext
 import com.ozgen.navicloud.playback.PlayerController
+import com.ozgen.navicloud.ui.components.AmbientBackdrop
 import com.ozgen.navicloud.ui.components.CollectionActionRow
 import com.ozgen.navicloud.ui.components.DownloadState
 import com.ozgen.navicloud.ui.components.PlaylistCoverMosaic
@@ -128,6 +129,8 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
         else -> {
             val detail = state.detail!!
             val context = LocalContext.current
+            Box(Modifier.fillMaxSize()) {
+            AmbientBackdrop(detail.songs.firstOrNull()?.coverArt)
             LazyColumn(
                 modifier = Modifier.fillMaxSize().statusBarsPadding(),
                 contentPadding = PaddingValues(bottom = 24.dp),
@@ -214,6 +217,7 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                 items(detail.songs.size, key = { "${detail.songs[it].id}-$it" }, contentType = { "song" }) { i ->
                     SongItem(detail.songs[i], onClick = { vm.player.play(detail.songs, i, context = vm.playbackContext(), contextLabel = vm.contextLabel()) })
                 }
+            }
             }
         }
     }

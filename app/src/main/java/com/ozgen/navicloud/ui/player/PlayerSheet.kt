@@ -2,8 +2,12 @@ package com.ozgen.navicloud.ui.player
 
 import android.graphics.drawable.BitmapDrawable
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -129,6 +133,15 @@ import kotlin.math.roundToInt
 private enum class SheetValue { Collapsed, Expanded }
 private enum class QueuePanelValue { Hidden, Shown }
 
+// Track başına 1 kez palette: (dominant, accent). LRU, recomposition'da hesap yok.
+private val paletteCache = java.util.Collections.synchronizedMap(
+    object : LinkedHashMap<String, Pair<Color, Color?>>(16, 0.75f, true) {
+        override fun removeEldestEntry(
+            eldest: MutableMap.MutableEntry<String, Pair<Color, Color?>>,
+        ): Boolean = size > 24
+    },
+)
+
 /**
  * Single persistent player surface: the mini bar and the full player are the
  * same sheet whose artwork, content and background morph continuously with
@@ -151,7 +164,8 @@ fun PlayerSheet(
     val navBarPad = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val statusPad = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
-    var dominantColor by remember { mutableStateOf(Color(0xFF17171E)) }
+    var dominantTarget by remember { mutableStateOf(Color(0xFF17171E)) }
+    var accentTarget by remember { mutableStateOf<Color?>(null) }
     var showLyrics by remember { mutableStateOf(false) }
 
     LaunchedEffect(item.mediaId) {
@@ -159,26 +173,46 @@ fun PlayerSheet(
             item.mediaId,
             item.mediaMetadata.extras?.getBoolean(MediaKeys.STARRED, false) ?: false,
         )
-        val artUri = item.mediaMetadata.artworkUri
-        if (artUri != null) {
-            withContext(Dispatchers.IO) {
-                val result = ImageLoader(context).execute(
-                    ImageRequest.Builder(context).data(artUri).allowHardware(false).size(128).build()
+        val artUri = item.mediaMetadata.artworkUri?.toString()
+        if (artUri == null) {
+            dominantTarget = Color(0xFF17171E)
+            accentTarget = null
+            return@LaunchedEffect
+        }
+        paletteCache[artUri]?.let { (dom, acc) ->
+            dominantTarget = dom
+            accentTarget = acc
+            return@LaunchedEffect
+        }
+        withContext(Dispatchers.IO) {
+            val result = ImageLoader(context).execute(
+                ImageRequest.Builder(context).data(artUri).allowHardware(false).size(128).build()
+            )
+            val bitmap = (result.drawable as? BitmapDrawable)?.bitmap ?: return@withContext
+            val palette = Palette.from(bitmap).generate()
+            val domRaw = Color(
+                palette.getDarkVibrantColor(
+                    palette.getDarkMutedColor(palette.getMutedColor(0xFF17171E.toInt()))
                 )
-                val bitmap = (result.drawable as? BitmapDrawable)?.bitmap
-                if (bitmap != null) {
-                    val palette = Palette.from(bitmap).generate()
-                    val rgb = palette.getDarkVibrantColor(
-                        palette.getDarkMutedColor(palette.getMutedColor(0xFF17171E.toInt()))
-                    )
-                    val base = Color(rgb)
-                    dominantColor = if (base.luminance() > 0.25f) lerp(base, Color.Black, 0.55f) else base
-                }
-            }
-        } else {
-            dominantColor = Color(0xFF17171E)
+            )
+            val dom = if (domRaw.luminance() > 0.25f) lerp(domRaw, Color.Black, 0.55f) else domRaw
+            val accRaw = palette.getVibrantColor(palette.getLightVibrantColor(0))
+            val acc = if (accRaw != 0) {
+                // Koyu zeminde okunur kalsın
+                Color(accRaw).let { if (it.luminance() < 0.2f) lerp(it, Color.White, 0.45f) else it }
+            } else null
+            paletteCache[artUri] = dom to acc
+            dominantTarget = dom
+            accentTarget = acc
         }
     }
+    // İçerikten türeyen renkler; parça değişiminde yumuşak geçiş
+    val dominantColor by animateColorAsState(dominantTarget, tween(600), label = "dominant")
+    val accentColor by animateColorAsState(
+        accentTarget ?: MaterialTheme.colorScheme.primary,
+        tween(600),
+        label = "accent",
+    )
 
     BoxWithConstraints(modifier.fillMaxSize()) {
         val sheetHpx = constraints.maxHeight.toFloat()
@@ -274,6 +308,19 @@ fun PlayerSheet(
                     enabled = expanded,
                 ) { /* consume stray taps behind the full player */ },
         ) {
+            // Depth: blurred artwork as ambient backdrop (single blur layer,
+            // RenderEffect — minSdk 31), the dominant gradient tames it on top
+            if (progress > 0.1f) {
+                AsyncImage(
+                    model = item.mediaMetadata.artworkUri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = 0.35f * progress }
+                        .blur(48.dp),
+                )
+            }
             // Gradient grows in as the sheet expands
             Box(
                 Modifier
@@ -281,7 +328,7 @@ fun PlayerSheet(
                     .graphicsLayer { alpha = progress }
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(dominantColor, MaterialTheme.colorScheme.background),
+                            colors = listOf(dominantColor.copy(alpha = 0.9f), MaterialTheme.colorScheme.background),
                             endY = 1800f,
                         )
                     ),
@@ -322,6 +369,7 @@ fun PlayerSheet(
                 FullPlayerContent(
                     vm = vm,
                     starred = uiState.starred,
+                    accent = accentColor,
                     statusPad = statusPad,
                     artSpace = screenWdp - 32.dp,
                     // fades in while expanding, fades out again as the queue rises
@@ -371,6 +419,7 @@ fun PlayerSheet(
                     queueOffset = queueOffset,
                     queueProgress = queueProgress,
                     contextLabel = ctxLabel,
+                    accent = accentColor,
                     bottomPad = navBarPad + statusPad + 8.dp,
                     onShow = { scope.launch { queueDrag.animateTo(QueuePanelValue.Shown) } },
                 )
@@ -511,6 +560,7 @@ private fun MiniRow(
 private fun FullPlayerContent(
     vm: NowPlayingViewModel,
     starred: Boolean,
+    accent: Color,
     statusPad: androidx.compose.ui.unit.Dp,
     artSpace: androidx.compose.ui.unit.Dp,
     contentAlpha: Float,
@@ -612,11 +662,21 @@ private fun FullPlayerContent(
                 IconButton(onClick = onOpenLyrics) {
                     Icon(Icons.Rounded.Lyrics, contentDescription = "Şarkı sözleri", tint = Color(0xB3FFFFFF))
                 }
+                // One-shot pop on favourite toggle — state change, not a loop
+                val starScale = remember { Animatable(1f) }
+                LaunchedEffect(starred) {
+                    starScale.snapTo(0.7f)
+                    starScale.animateTo(1f, spring(dampingRatio = 0.45f))
+                }
                 IconButton(onClick = { item?.mediaId?.let { vm.toggleStar(it) } }) {
                     Icon(
                         if (starred) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                         contentDescription = "Favori",
-                        tint = if (starred) MaterialTheme.colorScheme.primary else Color(0xB3FFFFFF),
+                        tint = if (starred) accent else Color(0xB3FFFFFF),
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = starScale.value
+                            scaleY = starScale.value
+                        },
                     )
                 }
             }
@@ -635,7 +695,7 @@ private fun FullPlayerContent(
                 },
                 colors = SliderDefaults.colors(
                     thumbColor = Color.White,
-                    activeTrackColor = Color.White,
+                    activeTrackColor = accent,
                     inactiveTrackColor = Color(0x4DFFFFFF),
                 ),
             )
@@ -661,7 +721,7 @@ private fun FullPlayerContent(
                     Icon(
                         Icons.Rounded.Shuffle,
                         contentDescription = "Karıştır",
-                        tint = if (playerState.shuffle) MaterialTheme.colorScheme.primary else Color(0xB3FFFFFF),
+                        tint = if (playerState.shuffle) accent else Color(0xB3FFFFFF),
                     )
                 }
                 IconButton(onClick = { vm.player.skipPrevious() }) {
@@ -672,9 +732,20 @@ private fun FullPlayerContent(
                         modifier = Modifier.size(40.dp),
                     )
                 }
+                // One-shot spring pop on play/pause state change
+                val playScale = remember { Animatable(1f) }
+                LaunchedEffect(playerState.isPlaying) {
+                    playScale.snapTo(0.88f)
+                    playScale.animateTo(1f, spring(dampingRatio = 0.5f))
+                }
                 FilledIconButton(
                     onClick = { vm.player.togglePlayPause() },
-                    modifier = Modifier.size(68.dp),
+                    modifier = Modifier
+                        .size(68.dp)
+                        .graphicsLayer {
+                            scaleX = playScale.value
+                            scaleY = playScale.value
+                        },
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = Color.White,
                         contentColor = Color(0xFF0F0F14),
@@ -699,7 +770,7 @@ private fun FullPlayerContent(
                         if (playerState.repeatMode == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne
                         else Icons.Rounded.Repeat,
                         contentDescription = "Tekrar",
-                        tint = if (playerState.repeatMode != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary
+                        tint = if (playerState.repeatMode != Player.REPEAT_MODE_OFF) accent
                         else Color(0xB3FFFFFF),
                     )
                 }
@@ -717,6 +788,7 @@ private fun QueuePanel(
     queueOffset: Float,
     queueProgress: Float,
     contextLabel: String?,
+    accent: Color,
     bottomPad: androidx.compose.ui.unit.Dp,
     onShow: () -> Unit,
 ) {
@@ -990,11 +1062,18 @@ private fun QueuePanel(
                                         .background(bg)
                                         .padding(horizontal = 24.dp),
                                 ) {
+                                    // Icon grows with swipe progress — the threshold is felt
                                     Icon(
                                         icon,
                                         contentDescription = null,
                                         tint = tint,
-                                        modifier = Modifier.align(align),
+                                        modifier = Modifier
+                                            .align(align)
+                                            .graphicsLayer {
+                                                val s = 0.7f + 0.4f * dismissState.progress.coerceIn(0f, 1f)
+                                                scaleX = s
+                                                scaleY = s
+                                            },
                                     )
                                 }
                             },
@@ -1005,12 +1084,14 @@ private fun QueuePanel(
                                 highlighted = i == state.currentIndex,
                                 inQueue = true,
                                 queueIndex = i,
+                                playingBars = if (i == state.currentIndex) state.isPlaying else null,
+                                barsTint = accent,
                                 modifier = Modifier
                                     .height(64.dp)
                                     .background(
-                                        // Playing row separates with a primary tint
+                                        // Playing row separates with the content-derived accent
                                         if (i == state.currentIndex) {
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                            accent.copy(alpha = 0.14f)
                                                 .compositeOver(MaterialTheme.colorScheme.surfaceContainerHigh)
                                         } else {
                                             MaterialTheme.colorScheme.surfaceContainerHigh
