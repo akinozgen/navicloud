@@ -13,7 +13,12 @@ object MediaKeys {
     const val COVER_ART = "coverArt"
     const val DURATION = "durationSec"
     const val STARRED = "starred"
+    /** Unique per queue entry (a song can be queued twice) — stable reorder identity. */
+    const val UID = "queueUid"
 }
+
+fun MediaItem.queueUid(fallbackIndex: Int): String =
+    mediaMetadata.extras?.getString(MediaKeys.UID) ?: "$fallbackIndex-$mediaId"
 
 /** Rebuilds a domain Song from a queue MediaItem (metadata + extras round-trip). */
 fun MediaItem.toSong(): Song {
@@ -45,6 +50,7 @@ fun Song.toMediaItem(streamUrl: String, artworkUrl: String?): MediaItem {
         putString(MediaKeys.COVER_ART, coverArt)
         putInt(MediaKeys.DURATION, duration)
         putBoolean(MediaKeys.STARRED, starred)
+        putString(MediaKeys.UID, java.util.UUID.randomUUID().toString())
     }
     val metadata = MediaMetadata.Builder()
         .setTitle(title)

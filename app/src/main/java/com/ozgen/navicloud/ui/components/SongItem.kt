@@ -2,6 +2,7 @@ package com.ozgen.navicloud.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -112,6 +113,9 @@ fun SongItem(
         }
         trailingContent?.invoke()
         if (actions != null) {
+            // Menu must be anchored inside a Box with its button; as a bare Row
+            // child it takes layout space (icons shift) and anchors at the wrong edge
+            Box {
             IconButton(onClick = { menuOpen = true }) {
                 Icon(
                     Icons.Rounded.MoreVert,
@@ -180,6 +184,7 @@ fun SongItem(
                         actions.setStarred(song, starred)
                     },
                 )
+            }
             }
         }
     }

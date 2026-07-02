@@ -98,7 +98,10 @@ import coil.request.ImageRequest
 import com.ozgen.navicloud.core.model.Lyrics
 import com.ozgen.navicloud.playback.MediaKeys
 import com.ozgen.navicloud.playback.PlayerController
+import com.ozgen.navicloud.playback.queueUid
 import com.ozgen.navicloud.playback.toSong
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.ozgen.navicloud.ui.components.SongItem
 import com.ozgen.navicloud.ui.components.formatDuration
 import com.ozgen.navicloud.ui.screens.nowplaying.NowPlayingViewModel
@@ -619,11 +622,10 @@ private fun QueuePanel(
     val state by player.state.collectAsStateWithLifecycle()
     val endless by player.endless.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
-    val density = LocalDensity.current
-    val itemHeightPx = with(density) { 64.dp.toPx() }
-
-    var draggingIndex by remember { mutableIntStateOf(-1) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
+    // Standard reorderable-lazy-list machinery (sh.calvin.reorderable)
+    val reorderableState = rememberReorderableLazyListState(listState) { from, to ->
+        player.moveQueueItem(from.index, to.index)
+    }
 
     Box(
         Modifier
@@ -727,52 +729,31 @@ private fun QueuePanel(
                 ) {
                     items(
                         state.queue.size,
-                        key = { "$it-${state.queue[it].mediaId}" },
+                        key = { state.queue[it].queueUid(it) },
                         contentType = { "song" },
                     ) { i ->
-                        SongItem(
-                            song = state.queue[i].toSong(),
-                            onClick = { player.seekToQueueItem(i) },
-                            highlighted = i == state.currentIndex,
-                            inQueue = true,
-                            queueIndex = i,
-                            modifier = Modifier
-                                .height(64.dp)
-                                .zIndex(if (i == draggingIndex) 1f else 0f)
-                                .graphicsLayer {
-                                    translationY = if (i == draggingIndex) dragOffset else 0f
+                        val queueItem = state.queue[i]
+                        ReorderableItem(reorderableState, key = queueItem.queueUid(i)) { isDragging ->
+                            val dragScope = this
+                            SongItem(
+                                song = queueItem.toSong(),
+                                onClick = { player.seekToQueueItem(i) },
+                                highlighted = i == state.currentIndex,
+                                inQueue = true,
+                                queueIndex = i,
+                                modifier = Modifier
+                                    .height(64.dp)
+                                    .graphicsLayer { alpha = if (isDragging) 0.85f else 1f },
+                                trailingContent = {
+                                    Icon(
+                                        Icons.Rounded.DragHandle,
+                                        contentDescription = "Sürükle",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = with(dragScope) { Modifier.draggableHandle() },
+                                    )
                                 },
-                            trailingContent = {
-                                Icon(
-                                    Icons.Rounded.DragHandle,
-                                    contentDescription = "Sürükle",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.pointerInput(i) {
-                                        detectDragGestures(
-                                            onDragStart = {
-                                                draggingIndex = i
-                                                dragOffset = 0f
-                                            },
-                                            onDragEnd = { draggingIndex = -1; dragOffset = 0f },
-                                            onDragCancel = { draggingIndex = -1; dragOffset = 0f },
-                                        ) { change, dragAmount ->
-                                            change.consume()
-                                            dragOffset += dragAmount.y
-                                            val steps = (dragOffset / itemHeightPx).roundToInt()
-                                            if (steps != 0) {
-                                                val target = (draggingIndex + steps)
-                                                    .coerceIn(0, state.queue.size - 1)
-                                                if (target != draggingIndex) {
-                                                    player.moveQueueItem(draggingIndex, target)
-                                                    dragOffset -= steps * itemHeightPx
-                                                    draggingIndex = target
-                                                }
-                                            }
-                                        }
-                                    },
-                                )
-                            },
-                        )
+                            )
+                        }
                     }
                 }
             }

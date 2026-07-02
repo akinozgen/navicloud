@@ -126,11 +126,6 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
         else -> {
             val detail = state.detail!!
             val context = LocalContext.current
-            PullToRefreshBox(
-                isRefreshing = state.refreshing,
-                onRefresh = { vm.refresh() },
-                modifier = Modifier.fillMaxSize(),
-            ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().statusBarsPadding(),
                 contentPadding = PaddingValues(bottom = 24.dp),
@@ -191,7 +186,6 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                 items(detail.songs.size, key = { "${detail.songs[it].id}-$it" }, contentType = { "song" }) { i ->
                     SongItem(detail.songs[i], onClick = { vm.player.play(detail.songs, i, context = vm.playbackContext()) })
                 }
-            }
             }
         }
     }

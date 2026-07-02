@@ -145,11 +145,6 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
         else -> {
             val detail = state.detail!!
             val context = LocalContext.current
-            PullToRefreshBox(
-                isRefreshing = state.refreshing,
-                onRefresh = { vm.refresh() },
-                modifier = Modifier.fillMaxSize(),
-            ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().statusBarsPadding(),
                 contentPadding = PaddingValues(bottom = 24.dp),
@@ -240,7 +235,6 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                         modifier = Modifier.padding(16.dp),
                     )
                 }
-            }
             }
         }
     }
