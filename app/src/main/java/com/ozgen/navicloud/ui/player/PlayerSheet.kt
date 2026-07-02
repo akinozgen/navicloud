@@ -122,6 +122,7 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.ozgen.navicloud.ui.components.SongContextMenu
 import com.ozgen.navicloud.ui.components.SongItem
+import com.ozgen.navicloud.ui.components.WavySeekBar
 import com.ozgen.navicloud.ui.components.formatDuration
 import com.ozgen.navicloud.ui.screens.nowplaying.NowPlayingViewModel
 import kotlinx.coroutines.Dispatchers
@@ -573,10 +574,21 @@ private fun FullPlayerContent(
     var durationMs by remember { mutableLongStateOf(0L) }
     var dragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableFloatStateOf(0f) }
+    // seekTo async: hedef oturana kadar poll'u bastır, yoksa eski pozisyona
+    // "pop-back" görünür. (hedefMs, setAtMs)
+    var pendingSeek by remember { mutableStateOf<Pair<Long, Long>?>(null) }
 
     LaunchedEffect(playerState.isPlaying, item?.mediaId) {
         while (true) {
-            positionMs = vm.player.positionMs
+            val reported = vm.player.positionMs
+            val pending = pendingSeek
+            val settled = pending == null ||
+                kotlin.math.abs(reported - pending.first) < 1200 ||
+                System.currentTimeMillis() - pending.second > 1500
+            if (settled) {
+                pendingSeek = null
+                if (!dragging) positionMs = reported
+            }
             durationMs = vm.player.durationMs
             delay(500)
         }
@@ -683,21 +695,21 @@ private fun FullPlayerContent(
 
             val sliderValue = if (dragging) dragValue
             else if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
-            Slider(
+            WavySeekBar(
                 value = sliderValue.coerceIn(0f, 1f),
+                playing = playerState.isPlaying,
+                accent = accent,
                 onValueChange = {
                     dragging = true
                     dragValue = it
                 },
                 onValueChangeFinished = {
-                    vm.player.seekTo((dragValue * durationMs).toLong())
+                    val target = (dragValue * durationMs).toLong()
+                    pendingSeek = target to System.currentTimeMillis()
+                    positionMs = target // optimistic: bar bırakıldığı yerde kalır
+                    vm.player.seekTo(target)
                     dragging = false
                 },
-                colors = SliderDefaults.colors(
-                    thumbColor = Color.White,
-                    activeTrackColor = accent,
-                    inactiveTrackColor = Color(0x4DFFFFFF),
-                ),
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
