@@ -52,6 +52,7 @@ import com.ozgen.navicloud.data.DownloadRepository
 import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.data.ServerRepository
 import com.ozgen.navicloud.data.toSong
+import com.ozgen.navicloud.playback.PlaybackContext
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.AlbumCard
 import com.ozgen.navicloud.ui.components.Artwork
@@ -167,7 +168,8 @@ class LibraryViewModel @Inject constructor(
         _state.value = _state.value.copy(query = q)
     }
 
-    fun playSongs(songs: List<Song>, index: Int) = player.play(songs, index)
+    fun playSongs(songs: List<Song>, index: Int, context: PlaybackContext? = null) =
+        player.play(songs, index, context)
     fun removeDownload(songId: String) = viewModelScope.launch { downloadRepo.delete(songId) }
 }
 
@@ -308,7 +310,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                     }
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
                         items(items.size, key = { items[it].id }, contentType = { "song" }) { i ->
-                            SongItem(items[i], onClick = { vm.playSongs(items, i) })
+                            SongItem(items[i], onClick = { vm.playSongs(items, i, PlaybackContext.AllSongs) })
                         }
                         if (state.songsLoadingMore) {
                             item(key = "loading-more") {

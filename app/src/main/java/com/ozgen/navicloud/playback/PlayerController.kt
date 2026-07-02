@@ -21,6 +21,15 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** What started playback — drives endless continuation when the queue runs out. */
+sealed interface PlaybackContext {
+    data class Album(val albumId: String, val artistId: String?) : PlaybackContext
+    data class Artist(val artistId: String) : PlaybackContext
+    data class Playlist(val playlistId: String) : PlaybackContext
+    data object AllSongs : PlaybackContext
+    data class Genre(val genre: String) : PlaybackContext
+}
+
 data class PlayerUiState(
     val currentItem: MediaItem? = null,
     val isPlaying: Boolean = false,
@@ -52,6 +61,7 @@ class PlayerController @Inject constructor(
             mediaController.addListener(object : Player.Listener {
                 override fun onEvents(player: Player, events: Player.Events) {
                     syncState(player)
+                    maybeContinueEndless(player)
                 }
             })
             _controller.value = mediaController
@@ -82,7 +92,8 @@ class PlayerController @Inject constructor(
         return toMediaItem(streamUrl = uri, artworkUrl = art)
     }
 
-    fun play(songs: List<Song>, startIndex: Int = 0) {
+    fun play(songs: List<Song>, startIndex: Int = 0, context: PlaybackContext? = null) {
+        playbackContext = context
         scope.launch {
             val items = songs.map { it.toItem() }
             _controller.value?.run {
@@ -127,7 +138,62 @@ class PlayerController @Inject constructor(
     // Endless/autoplay switch — continuation logic hooks in here (playback context)
     private val _endless = MutableStateFlow(false)
     val endless: StateFlow<Boolean> = _endless
-    fun toggleEndless() { _endless.value = !_endless.value }
+    fun toggleEndless() {
+        _endless.value = !_endless.value
+        _controller.value?.let { maybeContinueEndless(it) }
+    }
+
+    private var playbackContext: PlaybackContext? = null
+    private var fetchingContinuation = false
+    private val continuationChunk = 20
+
+    /** Near the end of the queue with endless on → append a small chunk based on context. */
+    private fun maybeContinueEndless(player: Player) {
+        if (!_endless.value || fetchingContinuation) return
+        val count = player.mediaItemCount
+        if (count == 0 || player.currentMediaItemIndex < count - 3) return
+        fetchingContinuation = true
+        scope.launch {
+            try {
+                val c = _controller.value ?: return@launch
+                val existingIds = buildSet {
+                    repeat(c.mediaItemCount) { add(c.getMediaItemAt(it).mediaId) }
+                }
+                val candidates = fetchContinuation().filter { it.id !in existingIds }
+                if (candidates.isNotEmpty()) {
+                    val items = candidates.take(continuationChunk).map { it.toItem() }
+                    _controller.value?.addMediaItems(items)
+                }
+            } finally {
+                fetchingContinuation = false
+            }
+        }
+    }
+
+    private suspend fun fetchContinuation(): List<Song> = runCatching {
+        when (val ctx = playbackContext) {
+            is PlaybackContext.Album -> {
+                // Continue with more from the same artist
+                val artistId = ctx.artistId
+                if (artistId != null) {
+                    val albums = musicRepository.artist(artistId).albums.shuffled()
+                    albums.firstOrNull { it.id != ctx.albumId }?.let { album ->
+                        musicRepository.album(album.id).songs
+                    } ?: musicRepository.randomSongs(continuationChunk)
+                } else {
+                    musicRepository.randomSongs(continuationChunk)
+                }
+            }
+            is PlaybackContext.Artist ->
+                musicRepository.similarSongs(ctx.artistId, continuationChunk)
+                    .ifEmpty { musicRepository.randomSongs(continuationChunk) }
+            is PlaybackContext.Playlist,
+            is PlaybackContext.Genre,
+            PlaybackContext.AllSongs,
+            null,
+            -> musicRepository.randomSongs(continuationChunk)
+        }
+    }.getOrDefault(emptyList())
 
     fun toggleShuffle() {
         _controller.value?.run { shuffleModeEnabled = !shuffleModeEnabled }

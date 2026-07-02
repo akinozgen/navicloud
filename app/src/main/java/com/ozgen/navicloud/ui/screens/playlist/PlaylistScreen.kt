@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.data.PlaylistDetail
+import com.ozgen.navicloud.playback.PlaybackContext
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.Artwork
 import com.ozgen.navicloud.ui.components.SongItem
@@ -71,6 +72,8 @@ class PlaylistViewModel @Inject constructor(
         downloadRepo.enqueue(detail.songs)
         return true
     }
+
+    fun playbackContext(): PlaybackContext = PlaybackContext.Playlist(playlistId)
 
     fun refresh() {
         _state.value = _state.value.copy(refreshing = true)
@@ -160,12 +163,12 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                         )
                         Spacer(Modifier.height(16.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Button(onClick = { vm.player.play(detail.songs) }) {
+                            Button(onClick = { vm.player.play(detail.songs, context = vm.playbackContext()) }) {
                                 Icon(Icons.Rounded.PlayArrow, contentDescription = null)
                                 Spacer(Modifier.size(4.dp))
                                 Text("Çal")
                             }
-                            OutlinedButton(onClick = { vm.player.play(detail.songs.shuffled()) }) {
+                            OutlinedButton(onClick = { vm.player.play(detail.songs.shuffled(), context = vm.playbackContext()) }) {
                                 Icon(Icons.Rounded.Shuffle, contentDescription = null)
                                 Spacer(Modifier.size(4.dp))
                                 Text("Karıştır")
@@ -175,7 +178,7 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                     }
                 }
                 items(detail.songs.size, key = { "${detail.songs[it].id}-$it" }, contentType = { "song" }) { i ->
-                    SongItem(detail.songs[i], onClick = { vm.player.play(detail.songs, i) })
+                    SongItem(detail.songs[i], onClick = { vm.player.play(detail.songs, i, context = vm.playbackContext()) })
                 }
             }
             }

@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.ozgen.navicloud.core.model.SearchResult
 import com.ozgen.navicloud.data.MusicRepository
+import com.ozgen.navicloud.playback.PlaybackContext
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.AlbumCard
 import com.ozgen.navicloud.ui.components.ArtistCard
@@ -149,7 +150,7 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = hiltViewMod
                     if (topSongs.isNotEmpty()) {
                         item(key = "h-songs") { SectionTitle("Şarkılar") }
                         items(topSongs.size, key = { "s-" + topSongs[it].id }, contentType = { "song" }) { i ->
-                            SongItem(topSongs[i], onClick = { vm.player.play(topSongs, i) })
+                            SongItem(topSongs[i], onClick = { vm.player.play(topSongs, i, context = PlaybackContext.AllSongs) })
                         }
                     }
                     if (result.albums.isNotEmpty()) {
@@ -183,7 +184,7 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = hiltViewMod
                 }
                 SearchFilter.SONGS -> {
                     items(result.songs.size, key = { result.songs[it].id }, contentType = { "song" }) { i ->
-                        SongItem(result.songs[i], onClick = { vm.player.play(result.songs, i) })
+                        SongItem(result.songs[i], onClick = { vm.player.play(result.songs, i, context = PlaybackContext.AllSongs) })
                     }
                 }
                 SearchFilter.ALBUMS -> {

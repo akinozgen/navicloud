@@ -51,6 +51,7 @@ import androidx.navigation.NavController
 import com.ozgen.navicloud.core.model.Song
 import com.ozgen.navicloud.data.ArtistDetail
 import com.ozgen.navicloud.data.MusicRepository
+import com.ozgen.navicloud.playback.PlaybackContext
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.AlbumCard
 import com.ozgen.navicloud.ui.components.ArtistCard
@@ -106,11 +107,13 @@ class ArtistViewModel @Inject constructor(
         }
     }
 
+    fun playbackContext(): PlaybackContext = PlaybackContext.Artist(artistId)
+
     /** Top songs when available, otherwise everything from the artist's albums would be heavy — shuffle albums instead. */
     fun playArtist(shuffle: Boolean) {
         val top = _state.value.topSongs
         if (top.isNotEmpty()) {
-            player.play(if (shuffle) top.shuffled() else top)
+            player.play(if (shuffle) top.shuffled() else top, context = playbackContext())
         }
     }
 }
@@ -211,7 +214,7 @@ fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewM
                         item(key = "h-popular") { SectionTitle("Popüler") }
                         val top = state.topSongs.take(10)
                         items(top.size, key = { "top-" + top[it].id }, contentType = { "song" }) { i ->
-                            SongItem(top[i], onClick = { vm.player.play(top, i) })
+                            SongItem(top[i], onClick = { vm.player.play(top, i, context = vm.playbackContext()) })
                         }
                     }
                     if (detail.albums.isNotEmpty()) {

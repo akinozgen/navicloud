@@ -44,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.ozgen.navicloud.data.AlbumDetail
 import com.ozgen.navicloud.data.MusicRepository
+import com.ozgen.navicloud.playback.PlaybackContext
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.Artwork
 import com.ozgen.navicloud.ui.components.SongItem
@@ -88,6 +89,9 @@ class AlbumViewModel @Inject constructor(
         downloadRepo.enqueue(detail.songs)
         return true
     }
+
+    fun playbackContext(): PlaybackContext =
+        PlaybackContext.Album(albumId, _state.value.detail?.album?.artistId)
 
     fun refresh() {
         _state.value = _state.value.copy(refreshing = true)
@@ -193,12 +197,12 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                         )
                         Spacer(Modifier.height(16.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Button(onClick = { vm.player.play(detail.songs) }) {
+                            Button(onClick = { vm.player.play(detail.songs, context = vm.playbackContext()) }) {
                                 Icon(Icons.Rounded.PlayArrow, contentDescription = null)
                                 Spacer(Modifier.size(4.dp))
                                 Text("Çal")
                             }
-                            OutlinedButton(onClick = { vm.player.play(detail.songs.shuffled()) }) {
+                            OutlinedButton(onClick = { vm.player.play(detail.songs.shuffled(), context = vm.playbackContext()) }) {
                                 Icon(Icons.Rounded.Shuffle, contentDescription = null)
                                 Spacer(Modifier.size(4.dp))
                                 Text("Karıştır")
@@ -212,7 +216,7 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                         detail.songs[i],
                         trackNumber = detail.songs[i].track ?: (i + 1),
                         showArt = false,
-                        onClick = { vm.player.play(detail.songs, i) },
+                        onClick = { vm.player.play(detail.songs, i, context = vm.playbackContext()) },
                     )
                 }
                 item(key = "footer") {
