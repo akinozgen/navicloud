@@ -28,10 +28,15 @@ fun AmbientBackdrop(
     height: Dp = 420.dp,
 ) {
     val resolver = LocalArtResolver.current
-    val url = resolver(coverArt, 200) ?: return
+    val url = resolver.url(coverArt, 200) ?: return
+    val key = resolver.cacheKey(coverArt, 200)
     Box(modifier.fillMaxWidth().height(height)) {
         AsyncImage(
-            model = url,
+            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                .data(url)
+                .diskCacheKey(key)
+                .memoryCacheKey(key)
+                .build(),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier

@@ -111,7 +111,7 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import androidx.palette.graphics.Palette
-import coil.ImageLoader
+import coil.imageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.ozgen.navicloud.core.model.Lyrics
@@ -170,6 +170,7 @@ fun PlayerSheet(
     var accentTarget by remember { mutableStateOf<Color?>(null) }
     var showLyrics by remember { mutableStateOf(false) }
 
+    val artResolver = com.ozgen.navicloud.ui.components.LocalArtResolver.current
     LaunchedEffect(item.mediaId) {
         vm.onSongChanged(
             item.mediaId,
@@ -181,14 +182,20 @@ fun PlayerSheet(
             accentTarget = null
             return@LaunchedEffect
         }
-        paletteCache[artUri]?.let { (dom, acc) ->
+        val coverId = item.mediaMetadata.extras?.getString(MediaKeys.COVER_ART)
+        paletteCache[coverId ?: artUri]?.let { (dom, acc) ->
             dominantTarget = dom
             accentTarget = acc
             return@LaunchedEffect
         }
         withContext(Dispatchers.IO) {
-            val result = ImageLoader(context).execute(
-                ImageRequest.Builder(context).data(artUri).allowHardware(false).size(128).build()
+            // Uygulama geneli tek ImageLoader (disk cache'li) — her palet
+            // çıkarımı için yeni loader kurmak hem cache'i ıskalıyor hem pahalı
+            val result = context.imageLoader.execute(
+                ImageRequest.Builder(context).data(artUri)
+                    .diskCacheKey(artResolver.cacheKey(coverId))
+                    .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                    .allowHardware(false).size(128).build()
             )
             val bitmap = (result.drawable as? BitmapDrawable)?.bitmap ?: return@withContext
             val palette = Palette.from(bitmap).generate()
@@ -208,7 +215,7 @@ fun PlayerSheet(
                 if (c.luminance() < 0.3f) c = lerp(c, Color.White, 0.35f)
                 c
             } else null
-            paletteCache[artUri] = dom to acc
+            paletteCache[coverId ?: artUri] = dom to acc
             dominantTarget = dom
             accentTarget = acc
         }
@@ -317,9 +324,13 @@ fun PlayerSheet(
         ) {
             // Depth: blurred artwork as ambient backdrop (single blur layer,
             // RenderEffect — minSdk 31), the dominant gradient tames it on top
+            val artKey = artResolver.cacheKey(item.mediaMetadata.extras?.getString(MediaKeys.COVER_ART))
             if (progress > 0.1f) {
                 AsyncImage(
-                    model = item.mediaMetadata.artworkUri,
+                    model = ImageRequest.Builder(context)
+                        .data(item.mediaMetadata.artworkUri)
+                        .diskCacheKey(artKey).memoryCacheKey(artKey)
+                        .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -408,7 +419,10 @@ fun PlayerSheet(
                 ArtPager(player = vm.player, modifier = artModifier)
             } else {
                 AsyncImage(
-                    model = item.mediaMetadata.artworkUri,
+                    model = ImageRequest.Builder(context)
+                        .data(item.mediaMetadata.artworkUri)
+                        .diskCacheKey(artKey).memoryCacheKey(artKey)
+                        .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Fit,
                     modifier = artModifier,
@@ -479,9 +493,16 @@ private fun ArtPager(player: PlayerController, modifier: Modifier = Modifier) {
         }
     }
 
+    val resolver = com.ozgen.navicloud.ui.components.LocalArtResolver.current
+    val ctx = LocalContext.current
     HorizontalPager(state = pagerState, modifier = modifier) { page ->
+        val qItem = state.queue.getOrNull(page)
+        val key = resolver.cacheKey(qItem?.mediaMetadata?.extras?.getString(MediaKeys.COVER_ART))
         AsyncImage(
-            model = state.queue.getOrNull(page)?.mediaMetadata?.artworkUri,
+            model = ImageRequest.Builder(ctx)
+                .data(qItem?.mediaMetadata?.artworkUri)
+                .diskCacheKey(key).memoryCacheKey(key)
+                .build(),
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxSize(),

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.ozgen.navicloud.core.model.Server
 import com.ozgen.navicloud.data.ServerRepository
 import com.ozgen.navicloud.playback.PlayerController
+import com.ozgen.navicloud.ui.components.ArtResolver
 import com.ozgen.navicloud.playback.PlayerUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,8 +38,8 @@ class AppViewModel @Inject constructor(
     val playerState: StateFlow<PlayerUiState> = player.state
 
     /** Cover-art URL resolver bound to a server's authenticated client. */
-    fun artResolverFor(server: Server): (String?, Int?) -> String? {
+    fun artResolverFor(server: Server): ArtResolver {
         val client = serverRepository.clientFor(server)
-        return { coverArt, size -> coverArt?.let { client.coverArtUrl(it, size) } }
+        return ArtResolver(server.id) { coverArt, size -> client.coverArtUrl(coverArt, size) }
     }
 }

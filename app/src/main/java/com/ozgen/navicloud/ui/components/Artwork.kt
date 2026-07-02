@@ -21,8 +21,21 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
-/** Resolves a Subsonic coverArt id (+ optional pixel size) to an authenticated URL. */
-val LocalArtResolver = staticCompositionLocalOf<(String?, Int?) -> String?> { { _, _ -> null } }
+/**
+ * Resolves a Subsonic coverArt id (+ optional pixel size) to an authenticated URL
+ * ve Coil için SABİT cache anahtarı üretir. URL'deki auth salt'ı her uygulama
+ * açılışında değiştiği için URL disk cache anahtarı olarak kullanılamaz.
+ */
+class ArtResolver(
+    private val serverId: Long,
+    private val urlFor: (String, Int?) -> String?,
+) {
+    fun url(coverArt: String?, sizePx: Int?): String? = coverArt?.let { urlFor(it, sizePx) }
+    fun cacheKey(coverArt: String?, sizePx: Int? = null): String? =
+        coverArt?.let { "art:$serverId:$it:${sizePx ?: "full"}" }
+}
+
+val LocalArtResolver = staticCompositionLocalOf { ArtResolver(0L) { _, _ -> null } }
 
 @Composable
 fun Artwork(
@@ -32,15 +45,18 @@ fun Artwork(
     cornerRadius: Dp = 8.dp,
 ) {
     val resolver = LocalArtResolver.current
-    val url = resolver(coverArt, sizePx)
+    val url = resolver.url(coverArt, sizePx)
     Box(
         modifier = modifier.clip(RoundedCornerShape(cornerRadius)),
         contentAlignment = Alignment.Center,
     ) {
         if (url != null) {
+            val key = resolver.cacheKey(coverArt, sizePx)
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(url)
+                    .diskCacheKey(key)
+                    .memoryCacheKey(key)
                     .crossfade(true)
                     .build(),
                 contentDescription = null,
