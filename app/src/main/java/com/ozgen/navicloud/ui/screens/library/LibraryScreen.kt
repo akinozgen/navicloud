@@ -182,7 +182,9 @@ class LibraryViewModel @Inject constructor(
     fun shuffleAll() {
         viewModelScope.launch {
             runCatching { repo.randomSongs(200) }.onSuccess { songs ->
-                if (songs.isNotEmpty()) player.play(songs, context = PlaybackContext.AllSongs)
+                if (songs.isNotEmpty()) {
+                    player.play(songs, context = PlaybackContext.AllSongs, contextLabel = "Karışık çalma")
+                }
             }
         }
     }
@@ -191,8 +193,8 @@ class LibraryViewModel @Inject constructor(
         _state.value = _state.value.copy(downloadsGrouped = !_state.value.downloadsGrouped)
     }
 
-    fun playSongs(songs: List<Song>, index: Int, context: PlaybackContext? = null) =
-        player.play(songs, index, context)
+    fun playSongs(songs: List<Song>, index: Int, context: PlaybackContext? = null, label: String? = null) =
+        player.play(songs, index, context, label)
     fun removeDownload(songId: String) = viewModelScope.launch { downloadRepo.delete(songId) }
 }
 
@@ -360,7 +362,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                     }
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
                         items(items.size, key = { items[it].id }, contentType = { "song" }) { i ->
-                            SongItem(items[i], onClick = { vm.playSongs(items, i, PlaybackContext.AllSongs) })
+                            SongItem(items[i], onClick = { vm.playSongs(items, i, PlaybackContext.AllSongs, "Tüm şarkılar") })
                         }
                         if (state.songsLoadingMore) {
                             item(key = "loading-more") {

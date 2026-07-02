@@ -93,8 +93,18 @@ class PlayerController @Inject constructor(
         return toMediaItem(streamUrl = uri, artworkUrl = art)
     }
 
-    fun play(songs: List<Song>, startIndex: Int = 0, context: PlaybackContext? = null) {
+    // Queue header's "Şuradan çalınıyor: X" label
+    private val _contextLabel = MutableStateFlow<String?>(null)
+    val contextLabel: StateFlow<String?> = _contextLabel
+
+    fun play(
+        songs: List<Song>,
+        startIndex: Int = 0,
+        context: PlaybackContext? = null,
+        contextLabel: String? = null,
+    ) {
         playbackContext = context
+        _contextLabel.value = contextLabel
         scope.launch {
             val items = songs.map { it.toItem() }
             _controller.value?.run {

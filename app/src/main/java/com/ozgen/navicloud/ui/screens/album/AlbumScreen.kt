@@ -98,6 +98,8 @@ class AlbumViewModel @Inject constructor(
     fun playbackContext(): PlaybackContext =
         PlaybackContext.Album(albumId, _state.value.detail?.album?.artistId)
 
+    fun contextLabel(): String? = _state.value.detail?.album?.name
+
     val downloadedIds = downloadRepo.downloadedIds
         .map { it.toSet() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet<String>())
@@ -204,8 +206,8 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                             else -> DownloadState.NONE
                         }
                         CollectionActionRow(
-                            onPlay = { vm.player.play(detail.songs, context = vm.playbackContext()) },
-                            onShuffle = { vm.player.play(detail.songs.shuffled(), context = vm.playbackContext()) },
+                            onPlay = { vm.player.play(detail.songs, context = vm.playbackContext(), contextLabel = vm.contextLabel()) },
+                            onShuffle = { vm.player.play(detail.songs.shuffled(), context = vm.playbackContext(), contextLabel = vm.contextLabel()) },
                             onPlayNext = { vm.player.playNext(detail.songs) },
                             onAddToQueue = { vm.player.addToQueue(detail.songs) },
                             onDownload = {
@@ -224,7 +226,7 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                         detail.songs[i],
                         trackNumber = detail.songs[i].track ?: (i + 1),
                         showArt = false,
-                        onClick = { vm.player.play(detail.songs, i, context = vm.playbackContext()) },
+                        onClick = { vm.player.play(detail.songs, i, context = vm.playbackContext(), contextLabel = vm.contextLabel()) },
                     )
                 }
                 item(key = "footer") {

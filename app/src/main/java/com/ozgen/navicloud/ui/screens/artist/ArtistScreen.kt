@@ -113,7 +113,11 @@ class ArtistViewModel @Inject constructor(
     fun playArtist(shuffle: Boolean) {
         val top = _state.value.topSongs
         if (top.isNotEmpty()) {
-            player.play(if (shuffle) top.shuffled() else top, context = playbackContext())
+            player.play(
+                if (shuffle) top.shuffled() else top,
+                context = playbackContext(),
+                contextLabel = _state.value.detail?.artist?.name,
+            )
         }
     }
 }
@@ -230,7 +234,7 @@ fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewM
                         item(key = "h-popular") { SectionTitle("Popüler") }
                         val top = state.topSongs.take(10)
                         items(top.size, key = { "top-" + top[it].id }, contentType = { "song" }) { i ->
-                            SongItem(top[i], onClick = { vm.player.play(top, i, context = vm.playbackContext()) })
+                            SongItem(top[i], onClick = { vm.player.play(top, i, context = vm.playbackContext(), contextLabel = detail.artist.name) })
                         }
                     }
                     if (detail.albums.isNotEmpty()) {

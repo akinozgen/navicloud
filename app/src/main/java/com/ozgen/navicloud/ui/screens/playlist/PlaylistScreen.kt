@@ -80,6 +80,8 @@ class PlaylistViewModel @Inject constructor(
 
     fun playbackContext(): PlaybackContext = PlaybackContext.Playlist(playlistId)
 
+    fun contextLabel(): String? = _state.value.detail?.playlist?.name
+
     val downloadedIds = downloadRepo.downloadedIds
         .map { it.toSet() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet<String>())
@@ -168,8 +170,8 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                             else -> DownloadState.NONE
                         }
                         CollectionActionRow(
-                            onPlay = { vm.player.play(detail.songs, context = vm.playbackContext()) },
-                            onShuffle = { vm.player.play(detail.songs.shuffled(), context = vm.playbackContext()) },
+                            onPlay = { vm.player.play(detail.songs, context = vm.playbackContext(), contextLabel = vm.contextLabel()) },
+                            onShuffle = { vm.player.play(detail.songs.shuffled(), context = vm.playbackContext(), contextLabel = vm.contextLabel()) },
                             onPlayNext = { vm.player.playNext(detail.songs) },
                             onAddToQueue = { vm.player.addToQueue(detail.songs) },
                             onDownload = {
@@ -184,7 +186,7 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                     }
                 }
                 items(detail.songs.size, key = { "${detail.songs[it].id}-$it" }, contentType = { "song" }) { i ->
-                    SongItem(detail.songs[i], onClick = { vm.player.play(detail.songs, i, context = vm.playbackContext()) })
+                    SongItem(detail.songs[i], onClick = { vm.player.play(detail.songs, i, context = vm.playbackContext(), contextLabel = vm.contextLabel()) })
                 }
             }
         }
