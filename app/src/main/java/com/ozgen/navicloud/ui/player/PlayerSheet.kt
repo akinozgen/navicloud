@@ -1,0 +1,774 @@
+package com.ozgen.navicloud.ui.player
+
+import android.graphics.drawable.BitmapDrawable
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.exponentialDecay
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.AnchoredDraggableState
+import androidx.compose.foundation.gestures.DraggableAnchors
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.gestures.animateTo
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AllInclusive
+import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp as lerpDp
+import androidx.compose.ui.zIndex
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.Player
+import androidx.palette.graphics.Palette
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.ozgen.navicloud.core.model.Lyrics
+import com.ozgen.navicloud.playback.MediaKeys
+import com.ozgen.navicloud.playback.PlayerController
+import com.ozgen.navicloud.playback.toSong
+import com.ozgen.navicloud.ui.components.SongItem
+import com.ozgen.navicloud.ui.components.formatDuration
+import com.ozgen.navicloud.ui.screens.nowplaying.NowPlayingViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
+
+private enum class SheetValue { Collapsed, Expanded }
+private enum class QueuePanelValue { Hidden, Shown }
+
+/**
+ * Single persistent player surface: the mini bar and the full player are the
+ * same sheet whose artwork, content and background morph continuously with
+ * the drag offset — no hard state jump.
+ */
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun PlayerSheet(
+    vm: NowPlayingViewModel,
+    collapseTick: Int,
+    modifier: Modifier = Modifier,
+) {
+    val playerState by vm.player.state.collectAsStateWithLifecycle()
+    val uiState by vm.state.collectAsStateWithLifecycle()
+    val item = playerState.currentItem ?: return
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+
+    val navBarPad = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val statusPad = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
+    var dominantColor by remember { mutableStateOf(Color(0xFF17171E)) }
+    var showLyrics by remember { mutableStateOf(false) }
+
+    LaunchedEffect(item.mediaId) {
+        vm.onSongChanged(
+            item.mediaId,
+            item.mediaMetadata.extras?.getBoolean(MediaKeys.STARRED, false) ?: false,
+        )
+        val artUri = item.mediaMetadata.artworkUri
+        if (artUri != null) {
+            withContext(Dispatchers.IO) {
+                val result = ImageLoader(context).execute(
+                    ImageRequest.Builder(context).data(artUri).allowHardware(false).size(128).build()
+                )
+                val bitmap = (result.drawable as? BitmapDrawable)?.bitmap
+                if (bitmap != null) {
+                    val palette = Palette.from(bitmap).generate()
+                    val rgb = palette.getDarkVibrantColor(
+                        palette.getDarkMutedColor(palette.getMutedColor(0xFF17171E.toInt()))
+                    )
+                    val base = Color(rgb)
+                    dominantColor = if (base.luminance() > 0.25f) lerp(base, Color.Black, 0.55f) else base
+                }
+            }
+        } else {
+            dominantColor = Color(0xFF17171E)
+        }
+    }
+
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val sheetHpx = constraints.maxHeight.toFloat()
+        val screenWdp = maxWidth
+        val miniHpx = with(density) { 64.dp.toPx() }
+        // Collapsed: mini bar sits right above the bottom navigation bar
+        val bottomBarPx = with(density) { (80.dp + navBarPad).toPx() }
+        val collapsedOffset = (sheetHpx - miniHpx - bottomBarPx).coerceAtLeast(1f)
+
+        val sheetDrag = remember(collapsedOffset) {
+            AnchoredDraggableState(
+                initialValue = SheetValue.Collapsed,
+                anchors = DraggableAnchors {
+                    SheetValue.Expanded at 0f
+                    SheetValue.Collapsed at collapsedOffset
+                },
+                positionalThreshold = { it * 0.4f },
+                velocityThreshold = { with(density) { 125.dp.toPx() } },
+                snapAnimationSpec = spring(),
+                decayAnimationSpec = exponentialDecay(),
+            )
+        }
+        val sheetOffset = sheetDrag.requireOffset().coerceIn(0f, collapsedOffset)
+        // 0 = mini bar, 1 = full player
+        val progress = 1f - (sheetOffset / collapsedOffset)
+        val expanded = progress > 0.98f
+
+        // Queue panel: slides up over the player (YTMusic up-next panel)
+        val upNextHpx = with(density) { (44.dp + navBarPad).toPx() }
+        val queueHidden = (sheetHpx - upNextHpx).coerceAtLeast(1f)
+        val queueDrag = remember(queueHidden) {
+            AnchoredDraggableState(
+                initialValue = QueuePanelValue.Hidden,
+                anchors = DraggableAnchors {
+                    QueuePanelValue.Shown at 0f
+                    QueuePanelValue.Hidden at queueHidden
+                },
+                positionalThreshold = { it * 0.4f },
+                velocityThreshold = { with(density) { 125.dp.toPx() } },
+                snapAnimationSpec = spring(),
+                decayAnimationSpec = exponentialDecay(),
+            )
+        }
+        val queueOffset = queueDrag.requireOffset().coerceIn(0f, queueHidden)
+        val queueProgress = 1f - (queueOffset / queueHidden)
+        val queueShown = queueProgress > 0.98f
+
+        // External collapse requests (e.g. menu navigation)
+        LaunchedEffect(collapseTick) {
+            if (collapseTick > 0) {
+                queueDrag.animateTo(QueuePanelValue.Hidden)
+                sheetDrag.animateTo(SheetValue.Collapsed)
+            }
+        }
+
+        BackHandler(enabled = expanded || queueShown) {
+            scope.launch {
+                if (queueShown) queueDrag.animateTo(QueuePanelValue.Hidden)
+                else sheetDrag.animateTo(SheetValue.Collapsed)
+            }
+        }
+
+        // ---- Sheet surface (height grows with the drag so the nav bar stays visible when collapsed) ----
+        val sheetHeightDp = with(density) { lerpDp(64.dp, sheetHpx.toDp(), progress) }
+        Box(
+            Modifier
+                .offset { IntOffset(0, sheetOffset.roundToInt()) }
+                .fillMaxWidth()
+                .height(sheetHeightDp)
+                .padding(horizontal = lerpDp(8.dp, 0.dp, progress))
+                .clip(RoundedCornerShape(lerpDp(10.dp, 0.dp, progress)))
+                .background(
+                    lerp(
+                        MaterialTheme.colorScheme.surfaceContainerHigh,
+                        MaterialTheme.colorScheme.background,
+                        progress,
+                    )
+                )
+                .anchoredDraggable(sheetDrag, Orientation.Vertical)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    enabled = expanded,
+                ) { /* consume stray taps behind the full player */ },
+        ) {
+            // Gradient grows in as the sheet expands
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = progress }
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(dominantColor, MaterialTheme.colorScheme.background),
+                            endY = 1800f,
+                        )
+                    ),
+            )
+
+            // ---- Morph geometry: mini slot <-> full slot ----
+            val artSize = lerpDp(48.dp, screenWdp, progress)
+            val artX = lerpDp(8.dp, 0.dp, progress)
+            val artY = lerpDp(8.dp, statusPad + 56.dp, progress)
+
+            // Mini row (fades out quickly)
+            if (progress < 0.4f) {
+                MiniRow(
+                    vm = vm,
+                    isPlaying = playerState.isPlaying,
+                    title = item.mediaMetadata.title?.toString() ?: "",
+                    artist = item.mediaMetadata.artist?.toString() ?: "",
+                    alpha = (1f - progress * 2.5f).coerceIn(0f, 1f),
+                    onClick = { scope.launch { sheetDrag.animateTo(SheetValue.Expanded) } },
+                )
+            }
+
+            // Full player content (fades in)
+            if (progress > 0.05f) {
+                FullPlayerContent(
+                    vm = vm,
+                    starred = uiState.starred,
+                    dominantAlpha = progress,
+                    statusPad = statusPad,
+                    artSpace = screenWdp,
+                    contentAlpha = ((progress - 0.35f) / 0.65f).coerceIn(0f, 1f),
+                    onCollapse = { scope.launch { sheetDrag.animateTo(SheetValue.Collapsed) } },
+                    onOpenLyrics = {
+                        vm.loadLyrics(item.mediaId)
+                        showLyrics = true
+                    },
+                )
+            }
+
+            // The one artwork, morphing between the two slots
+            AsyncImage(
+                model = item.mediaMetadata.artworkUri,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .offset { with(density) { IntOffset(artX.roundToPx(), artY.roundToPx()) } }
+                    .size(artSize)
+                    .clip(RoundedCornerShape(lerpDp(6.dp, 0.dp, progress))),
+            )
+
+            // ---- Queue panel (only relevant once expanded) ----
+            if (progress > 0.9f) {
+                QueuePanel(
+                    player = vm.player,
+                    queueDrag = queueDrag,
+                    queueOffset = queueOffset,
+                    queueProgress = queueProgress,
+                    navBarPadPx = with(density) { navBarPad.toPx() },
+                    onShow = { scope.launch { queueDrag.animateTo(QueuePanelValue.Shown) } },
+                )
+            }
+        }
+    }
+
+    if (showLyrics) {
+        ModalBottomSheet(onDismissRequest = { showLyrics = false }) {
+            LyricsSheet(
+                lyrics = uiState.lyrics,
+                loading = uiState.lyricsLoading,
+                positionMsProvider = { vm.player.positionMs },
+            )
+        }
+    }
+}
+
+@Composable
+private fun MiniRow(
+    vm: NowPlayingViewModel,
+    isPlaying: Boolean,
+    title: String,
+    artist: String,
+    alpha: Float,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .graphicsLayer { this.alpha = alpha }
+            .clickable(onClick = onClick)
+            .padding(start = 64.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                artist,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        IconButton(onClick = { vm.player.togglePlayPause() }) {
+            Icon(
+                if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                contentDescription = if (isPlaying) "Duraklat" else "Çal",
+            )
+        }
+        IconButton(onClick = { vm.player.skipNext() }) {
+            Icon(Icons.Rounded.SkipNext, contentDescription = "Sonraki")
+        }
+    }
+}
+
+@Composable
+private fun FullPlayerContent(
+    vm: NowPlayingViewModel,
+    starred: Boolean,
+    dominantAlpha: Float,
+    statusPad: androidx.compose.ui.unit.Dp,
+    artSpace: androidx.compose.ui.unit.Dp,
+    contentAlpha: Float,
+    onCollapse: () -> Unit,
+    onOpenLyrics: () -> Unit,
+) {
+    val playerState by vm.player.state.collectAsStateWithLifecycle()
+    val item = playerState.currentItem
+    var positionMs by remember { mutableLongStateOf(0L) }
+    var durationMs by remember { mutableLongStateOf(0L) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragValue by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(playerState.isPlaying, item?.mediaId) {
+        while (true) {
+            positionMs = vm.player.positionMs
+            durationMs = vm.player.durationMs
+            delay(500)
+        }
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .graphicsLayer { alpha = contentAlpha }
+            .padding(top = statusPad),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onCollapse) {
+                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Kapat", tint = Color.White)
+            }
+            Text(
+                item?.mediaMetadata?.albumTitle?.toString() ?: "Şu an çalıyor",
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(end = 48.dp),
+            )
+        }
+
+        // Artwork lands here (drawn by the sheet as the morphing image)
+        Spacer(Modifier.height(artSpace))
+
+        Column(Modifier.padding(horizontal = 24.dp).padding(top = 16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        item?.mediaMetadata?.title?.toString() ?: "",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        item?.mediaMetadata?.artist?.toString() ?: "",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color(0xB3FFFFFF),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                IconButton(onClick = { item?.mediaId?.let { vm.toggleStar(it) } }) {
+                    Icon(
+                        if (starred) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                        contentDescription = "Favori",
+                        tint = if (starred) MaterialTheme.colorScheme.primary else Color(0xB3FFFFFF),
+                    )
+                }
+            }
+
+            val sliderValue = if (dragging) dragValue
+            else if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
+            Slider(
+                value = sliderValue.coerceIn(0f, 1f),
+                onValueChange = {
+                    dragging = true
+                    dragValue = it
+                },
+                onValueChangeFinished = {
+                    vm.player.seekTo((dragValue * durationMs).toLong())
+                    dragging = false
+                },
+                colors = SliderDefaults.colors(
+                    thumbColor = Color.White,
+                    activeTrackColor = Color.White,
+                    inactiveTrackColor = Color(0x4DFFFFFF),
+                ),
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    formatDuration((if (dragging) (dragValue * durationMs / 1000).toInt() else (positionMs / 1000).toInt())),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0x99FFFFFF),
+                )
+                Text(
+                    formatDuration((durationMs / 1000).toInt()),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0x99FFFFFF),
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                IconButton(onClick = { vm.player.toggleShuffle() }) {
+                    Icon(
+                        Icons.Rounded.Shuffle,
+                        contentDescription = "Karıştır",
+                        tint = if (playerState.shuffle) MaterialTheme.colorScheme.primary else Color(0xB3FFFFFF),
+                    )
+                }
+                IconButton(onClick = { vm.player.skipPrevious() }) {
+                    Icon(
+                        Icons.Rounded.SkipPrevious,
+                        contentDescription = "Önceki",
+                        tint = Color.White,
+                        modifier = Modifier.size(40.dp),
+                    )
+                }
+                FilledIconButton(
+                    onClick = { vm.player.togglePlayPause() },
+                    modifier = Modifier.size(68.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = Color.White,
+                        contentColor = Color(0xFF0F0F14),
+                    ),
+                ) {
+                    Icon(
+                        if (playerState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = if (playerState.isPlaying) "Duraklat" else "Çal",
+                        modifier = Modifier.size(38.dp),
+                    )
+                }
+                IconButton(onClick = { vm.player.skipNext() }) {
+                    Icon(
+                        Icons.Rounded.SkipNext,
+                        contentDescription = "Sonraki",
+                        tint = Color.White,
+                        modifier = Modifier.size(40.dp),
+                    )
+                }
+                IconButton(onClick = { vm.player.cycleRepeat() }) {
+                    Icon(
+                        if (playerState.repeatMode == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne
+                        else Icons.Rounded.Repeat,
+                        contentDescription = "Tekrar",
+                        tint = if (playerState.repeatMode != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary
+                        else Color(0xB3FFFFFF),
+                    )
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                IconButton(onClick = onOpenLyrics) {
+                    Icon(Icons.Rounded.Lyrics, contentDescription = "Şarkı sözleri", tint = Color(0xB3FFFFFF))
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun QueuePanel(
+    player: PlayerController,
+    queueDrag: AnchoredDraggableState<QueuePanelValue>,
+    queueOffset: Float,
+    queueProgress: Float,
+    navBarPadPx: Float,
+    onShow: () -> Unit,
+) {
+    val state by player.state.collectAsStateWithLifecycle()
+    val endless by player.endless.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val itemHeightPx = with(density) { 64.dp.toPx() }
+
+    var draggingIndex by remember { mutableIntStateOf(-1) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+
+    Box(
+        Modifier
+            .offset { IntOffset(0, queueOffset.roundToInt()) }
+            .fillMaxSize()
+            .zIndex(2f)
+            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            // Drag zone: up-next bar when hidden, queue header when shown
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .anchoredDraggable(queueDrag, Orientation.Vertical)
+                    .clickable(enabled = queueProgress < 0.5f, onClick = onShow),
+            ) {
+                if (queueProgress < 0.5f) {
+                    val nextItem = state.queue.getOrNull(state.currentIndex + 1)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .graphicsLayer { alpha = 1f - queueProgress * 2f }
+                            .padding(horizontal = 24.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null, tint = Color(0x99FFFFFF))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            if (nextItem != null) "Sıradaki: ${nextItem.mediaMetadata.title}" else "Kuyruk",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color(0x99FFFFFF),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer { alpha = (queueProgress - 0.5f) * 2f }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Rounded.DragHandle,
+                            contentDescription = null,
+                            tint = Color(0x66FFFFFF),
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                        )
+                        Column(Modifier.weight(1f)) {
+                            Text("Kuyruk", style = MaterialTheme.typography.titleLarge, color = Color.White)
+                            Text(
+                                "${state.queue.size} şarkı",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0x99FFFFFF),
+                            )
+                        }
+                        IconButton(onClick = { player.stop() }) {
+                            Icon(Icons.Rounded.Stop, contentDescription = "Durdur", tint = Color(0x80FFFFFF))
+                        }
+                        IconButton(onClick = { player.toggleEndless() }) {
+                            Icon(
+                                Icons.Rounded.AllInclusive,
+                                contentDescription = "Endless",
+                                tint = if (endless) MaterialTheme.colorScheme.primary else Color(0x80FFFFFF),
+                            )
+                        }
+                        FilledIconButton(
+                            onClick = { player.togglePlayPause() },
+                            modifier = Modifier.size(44.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = Color.White,
+                                contentColor = Color(0xFF0F0F14),
+                            ),
+                        ) {
+                            Icon(
+                                if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                contentDescription = if (state.isPlaying) "Duraklat" else "Çal",
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (queueProgress > 0.15f) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        top = 8.dp,
+                        bottom = with(density) { navBarPadPx.toDp() } + 8.dp,
+                    ),
+                ) {
+                    items(
+                        state.queue.size,
+                        key = { "$it-${state.queue[it].mediaId}" },
+                        contentType = { "song" },
+                    ) { i ->
+                        SongItem(
+                            song = state.queue[i].toSong(),
+                            onClick = { player.seekToQueueItem(i) },
+                            highlighted = i == state.currentIndex,
+                            inQueue = true,
+                            queueIndex = i,
+                            modifier = Modifier
+                                .height(64.dp)
+                                .zIndex(if (i == draggingIndex) 1f else 0f)
+                                .graphicsLayer {
+                                    translationY = if (i == draggingIndex) dragOffset else 0f
+                                },
+                            trailingContent = {
+                                Icon(
+                                    Icons.Rounded.DragHandle,
+                                    contentDescription = "Sürükle",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.pointerInput(i) {
+                                        detectDragGestures(
+                                            onDragStart = {
+                                                draggingIndex = i
+                                                dragOffset = 0f
+                                            },
+                                            onDragEnd = { draggingIndex = -1; dragOffset = 0f },
+                                            onDragCancel = { draggingIndex = -1; dragOffset = 0f },
+                                        ) { change, dragAmount ->
+                                            change.consume()
+                                            dragOffset += dragAmount.y
+                                            val steps = (dragOffset / itemHeightPx).roundToInt()
+                                            if (steps != 0) {
+                                                val target = (draggingIndex + steps)
+                                                    .coerceIn(0, state.queue.size - 1)
+                                                if (target != draggingIndex) {
+                                                    player.moveQueueItem(draggingIndex, target)
+                                                    dragOffset -= steps * itemHeightPx
+                                                    draggingIndex = target
+                                                }
+                                            }
+                                        }
+                                    },
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LyricsSheet(
+    lyrics: Lyrics?,
+    loading: Boolean,
+    positionMsProvider: () -> Long,
+) {
+    var positionMs by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            positionMs = positionMsProvider()
+            delay(300)
+        }
+    }
+
+    when {
+        loading -> Box(
+            Modifier.fillMaxWidth().height(200.dp),
+            contentAlignment = Alignment.Center,
+        ) { Text("Sözler yükleniyor…") }
+        lyrics == null || lyrics.lines.isEmpty() -> Box(
+            Modifier.fillMaxWidth().height(200.dp),
+            contentAlignment = Alignment.Center,
+        ) { Text("Bu şarkı için söz bulunamadı", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        else -> {
+            val listState = rememberLazyListState()
+            val activeIndex = if (lyrics.synced) {
+                lyrics.lines.indexOfLast { (it.startMs ?: 0) <= positionMs }.coerceAtLeast(0)
+            } else -1
+
+            LaunchedEffect(activeIndex) {
+                if (activeIndex >= 0) listState.animateScrollToItem(maxOf(activeIndex - 3, 0))
+            }
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxWidth().height(500.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(24.dp),
+            ) {
+                items(lyrics.lines.size) { i ->
+                    val line = lyrics.lines[i]
+                    Text(
+                        line.text.ifBlank { "♪" },
+                        style = MaterialTheme.typography.titleLarge,
+                        color = when {
+                            !lyrics.synced -> MaterialTheme.colorScheme.onSurface
+                            i == activeIndex -> MaterialTheme.colorScheme.primary
+                            i < activeIndex -> MaterialTheme.colorScheme.onSurfaceVariant
+                            else -> MaterialTheme.colorScheme.onSurface
+                        },
+                        modifier = Modifier.padding(vertical = 6.dp),
+                    )
+                }
+            }
+        }
+    }
+}

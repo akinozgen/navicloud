@@ -1,10 +1,6 @@
 package com.ozgen.navicloud.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -27,7 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,14 +39,14 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.ozgen.navicloud.core.model.Server
 import com.ozgen.navicloud.ui.components.LocalArtResolver
-import com.ozgen.navicloud.ui.components.MiniPlayer
 import com.ozgen.navicloud.ui.components.SongMenuHost
+import com.ozgen.navicloud.ui.player.PlayerSheet
 import com.ozgen.navicloud.ui.screens.album.AlbumScreen
 import com.ozgen.navicloud.ui.screens.artist.ArtistScreen
 import com.ozgen.navicloud.ui.screens.home.HomeScreen
 import com.ozgen.navicloud.ui.screens.library.LibraryScreen
 import com.ozgen.navicloud.ui.screens.login.LoginScreen
-import com.ozgen.navicloud.ui.screens.nowplaying.NowPlayingScreen
+import com.ozgen.navicloud.ui.screens.nowplaying.NowPlayingViewModel
 import com.ozgen.navicloud.ui.screens.playlist.PlaylistScreen
 import com.ozgen.navicloud.ui.screens.search.SearchScreen
 import com.ozgen.navicloud.ui.screens.servers.ServersScreen
@@ -84,94 +80,84 @@ private val tabs = listOf(
 private fun MainShell(vm: AppViewModel, server: Server) {
     val navController: NavHostController = rememberNavController()
     val playerState by vm.playerState.collectAsStateWithLifecycle()
-    var nowPlayingOpen by remember { mutableStateOf(false) }
     val artResolver = remember(server.id) { vm.artResolverFor(server) }
+    var collapseTick by remember { mutableIntStateOf(0) }
 
     CompositionLocalProvider(LocalArtResolver provides artResolver) {
-        SongMenuHost(navController, onBeforeNavigate = { nowPlayingOpen = false }) {
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            bottomBar = {
-                Column {
-                    MiniPlayer(
-                        state = playerState,
-                        player = vm.player,
-                        onExpand = { nowPlayingOpen = true },
-                    )
-                    val backStack by navController.currentBackStackEntryAsState()
-                    val currentRoute = backStack?.destination?.route
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        windowInsets = NavigationBarDefaults.windowInsets,
-                    ) {
+        SongMenuHost(navController, onBeforeNavigate = { collapseTick++ }) {
+            Box(Modifier.fillMaxSize()) {
+                Scaffold(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    bottomBar = {
+                        val backStack by navController.currentBackStackEntryAsState()
+                        val currentRoute = backStack?.destination?.route
                         // On a detail page restoreState would resurrect the very detail
                         // we're leaving ("button does nothing") — jump clean to tab root instead
                         val onTabRoot = tabs.any { it.route == currentRoute }
-                        tabs.forEach { tab ->
-                            val selected = currentRoute == tab.route
-                            NavigationBarItem(
-                                selected = selected,
-                                onClick = {
-                                    navController.navigate(tab.route) {
-                                        popUpTo(navController.graph.startDestinationId) { saveState = onTabRoot }
-                                        launchSingleTop = true
-                                        restoreState = onTabRoot
-                                    }
-                                },
-                                icon = {
-                                    Icon(
-                                        if (selected) tab.selectedIcon else tab.icon,
-                                        contentDescription = tab.label,
-                                    )
-                                },
-                                label = { Text(tab.label, style = MaterialTheme.typography.labelMedium) },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = MaterialTheme.colorScheme.onBackground,
-                                    selectedTextColor = MaterialTheme.colorScheme.onBackground,
-                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    indicatorColor = Color.Transparent,
-                                ),
-                            )
+                        NavigationBar(
+                            containerColor = MaterialTheme.colorScheme.background,
+                            windowInsets = NavigationBarDefaults.windowInsets,
+                        ) {
+                            tabs.forEach { tab ->
+                                val selected = currentRoute == tab.route
+                                NavigationBarItem(
+                                    selected = selected,
+                                    onClick = {
+                                        navController.navigate(tab.route) {
+                                            popUpTo(navController.graph.startDestinationId) { saveState = onTabRoot }
+                                            launchSingleTop = true
+                                            restoreState = onTabRoot
+                                        }
+                                    },
+                                    icon = {
+                                        Icon(
+                                            if (selected) tab.selectedIcon else tab.icon,
+                                            contentDescription = tab.label,
+                                        )
+                                    },
+                                    label = { Text(tab.label, style = MaterialTheme.typography.labelMedium) },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = MaterialTheme.colorScheme.onBackground,
+                                        selectedTextColor = MaterialTheme.colorScheme.onBackground,
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        indicatorColor = Color.Transparent,
+                                    ),
+                                )
+                            }
                         }
+                    },
+                ) { padding ->
+                    val hasPlayer = playerState.currentItem != null
+                    NavHost(
+                        navController = navController,
+                        startDestination = "home",
+                        modifier = Modifier
+                            .padding(padding)
+                            .padding(bottom = if (hasPlayer) 64.dp else 0.dp),
+                    ) {
+                        composable("home") { HomeScreen(navController) }
+                        composable("search") { SearchScreen(navController) }
+                        composable("library") { LibraryScreen(navController) }
+                        composable("album/{id}") { entry ->
+                            AlbumScreen(navController, entry.arguments?.getString("id").orEmpty())
+                        }
+                        composable("artist/{id}") { entry ->
+                            ArtistScreen(navController, entry.arguments?.getString("id").orEmpty())
+                        }
+                        composable("playlist/{id}") { entry ->
+                            PlaylistScreen(navController, entry.arguments?.getString("id").orEmpty())
+                        }
+                        composable("servers") { ServersScreen(navController) }
                     }
                 }
-            },
-        ) { padding ->
-            NavHost(
-                navController = navController,
-                startDestination = "home",
-                modifier = Modifier.padding(padding),
-            ) {
-                composable("home") { HomeScreen(navController) }
-                composable("search") { SearchScreen(navController) }
-                composable("library") { LibraryScreen(navController) }
-                composable("album/{id}") { entry ->
-                    AlbumScreen(navController, entry.arguments?.getString("id").orEmpty())
-                }
-                composable("artist/{id}") { entry ->
-                    ArtistScreen(navController, entry.arguments?.getString("id").orEmpty())
-                }
-                composable("playlist/{id}") { entry ->
-                    PlaylistScreen(navController, entry.arguments?.getString("id").orEmpty())
-                }
-                composable("servers") { ServersScreen(navController) }
-            }
-        }
 
-        AnimatedVisibility(
-            visible = nowPlayingOpen,
-            enter = slideInVertically(initialOffsetY = { it }),
-            exit = slideOutVertically(targetOffsetY = { it }),
-        ) {
-            NowPlayingScreen(
-                onClose = { nowPlayingOpen = false },
-                onOpenAlbum = { albumId ->
-                    nowPlayingOpen = false
-                    navController.navigate("album/$albumId")
-                },
-            )
-        }
+                // Persistent morphing player sheet (mini bar <-> full player)
+                if (playerState.currentItem != null) {
+                    val npVm: NowPlayingViewModel = hiltViewModel()
+                    PlayerSheet(vm = npVm, collapseTick = collapseTick)
+                }
+            }
         }
     }
 }
