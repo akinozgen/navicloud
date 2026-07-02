@@ -8,6 +8,7 @@ import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -363,6 +364,7 @@ fun PlayerSheet(
                     player = vm.player,
                     isPlaying = playerState.isPlaying,
                     mediaId = item.mediaId,
+                    accent = accentColor,
                     alpha = (1f - progress * 2.5f).coerceIn(0f, 1f),
                     modifier = Modifier
                         .align(Alignment.TopStart)
@@ -395,6 +397,12 @@ fun PlayerSheet(
                 .offset { with(density) { IntOffset(artX.roundToPx(), artY.roundToPx()) } }
                 .size(artSize)
                 .zIndex(3f) // stays visible above the rising queue panel (dock slot)
+                // Depth: soft shadow grows with expansion, fades as art docks
+                .shadow(
+                    elevation = lerpDp(0.dp, 18.dp, progress * (1f - queueProgress)),
+                    shape = RoundedCornerShape(lerpDp(6.dp, 12.dp, progress)),
+                    clip = false,
+                )
                 .clip(RoundedCornerShape(lerpDp(6.dp, 12.dp, progress)))
             if (expanded && !queueShown) {
                 ArtPager(player = vm.player, modifier = artModifier)
@@ -486,6 +494,7 @@ private fun MiniProgressLine(
     player: PlayerController,
     isPlaying: Boolean,
     mediaId: String,
+    accent: Color,
     alpha: Float,
     modifier: Modifier = Modifier,
 ) {
@@ -508,7 +517,7 @@ private fun MiniProgressLine(
             Modifier
                 .fillMaxWidth(progress.coerceIn(0f, 1f))
                 .height(2.dp)
-                .background(MaterialTheme.colorScheme.primary),
+                .background(accent),
         )
     }
 }
@@ -739,6 +748,12 @@ private fun FullPlayerContent(
                         Icons.Rounded.Shuffle,
                         contentDescription = "Karıştır",
                         tint = if (playerState.shuffle) accent else Color(0xB3FFFFFF),
+                        modifier = Modifier
+                            .background(
+                                if (playerState.shuffle) accent.copy(alpha = 0.16f) else Color.Transparent,
+                                androidx.compose.foundation.shape.CircleShape,
+                            )
+                            .padding(6.dp),
                     )
                 }
                 IconButton(onClick = { vm.player.skipPrevious() }) {
@@ -783,12 +798,18 @@ private fun FullPlayerContent(
                     )
                 }
                 IconButton(onClick = { vm.player.cycleRepeat() }) {
+                    val repeatActive = playerState.repeatMode != Player.REPEAT_MODE_OFF
                     Icon(
                         if (playerState.repeatMode == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne
                         else Icons.Rounded.Repeat,
                         contentDescription = "Tekrar",
-                        tint = if (playerState.repeatMode != Player.REPEAT_MODE_OFF) accent
-                        else Color(0xB3FFFFFF),
+                        tint = if (repeatActive) accent else Color(0xB3FFFFFF),
+                        modifier = Modifier
+                            .background(
+                                if (repeatActive) accent.copy(alpha = 0.16f) else Color.Transparent,
+                                androidx.compose.foundation.shape.CircleShape,
+                            )
+                            .padding(6.dp),
                     )
                 }
             }

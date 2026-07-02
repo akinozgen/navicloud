@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
@@ -160,7 +161,13 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                         PlaylistCoverMosaic(
                             playlistId = detail.playlist.id,
                             songs = detail.songs,
-                            modifier = Modifier.size(220.dp),
+                            modifier = Modifier
+                                .size(220.dp)
+                                .shadow(
+                                    20.dp,
+                                    androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                    clip = false,
+                                ),
                         )
                         Spacer(Modifier.height(16.dp))
                         Text(

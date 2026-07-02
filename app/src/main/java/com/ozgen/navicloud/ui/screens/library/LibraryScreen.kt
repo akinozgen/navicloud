@@ -68,6 +68,8 @@ import com.ozgen.navicloud.playback.PlaybackContext
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.AlbumCard
 import com.ozgen.navicloud.ui.components.Artwork
+import com.ozgen.navicloud.ui.components.NaviChip
+import com.ozgen.navicloud.ui.components.PillSearchField
 import com.ozgen.navicloud.ui.components.SongItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -269,29 +271,18 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             LibraryTab.entries.forEach { tab ->
-                FilterChip(
+                NaviChip(
                     selected = state.tab == tab,
+                    label = tab.title,
                     onClick = { vm.selectTab(tab) },
-                    label = { Text(tab.title) },
                 )
             }
         }
-        OutlinedTextField(
+        PillSearchField(
             value = state.query,
             onValueChange = vm::onQueryChange,
-            placeholder = { Text("Bu listede ara") },
-            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-            trailingIcon = {
-                if (state.query.isNotEmpty()) {
-                    IconButton(onClick = { vm.onQueryChange("") }) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Temizle")
-                    }
-                }
-            },
-            singleLine = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+            placeholder = "Bu listede ara",
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
         )
 
         PullToRefreshBox(

@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
@@ -193,7 +194,13 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                             detail.album.coverArt,
                             sizePx = 800,
                             cornerRadius = 12.dp,
-                            modifier = Modifier.size(240.dp),
+                            modifier = Modifier
+                                .size(240.dp)
+                                .shadow(
+                                    20.dp,
+                                    androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                    clip = false,
+                                ),
                         )
                         Spacer(Modifier.height(16.dp))
                         Text(

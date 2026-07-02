@@ -45,6 +45,8 @@ import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.AlbumCard
 import com.ozgen.navicloud.ui.components.ArtistCard
 import com.ozgen.navicloud.ui.components.Artwork
+import com.ozgen.navicloud.ui.components.NaviChip
+import com.ozgen.navicloud.ui.components.PillSearchField
 import com.ozgen.navicloud.ui.components.SongItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
@@ -139,22 +141,11 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = hiltViewMod
     val result = state.result
 
     Column(Modifier.fillMaxSize()) {
-        OutlinedTextField(
+        PillSearchField(
             value = state.query,
             onValueChange = vm::onQueryChange,
-            placeholder = { Text("Şarkı, albüm veya sanatçı ara") },
-            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-            trailingIcon = {
-                if (state.query.isNotEmpty()) {
-                    IconButton(onClick = { vm.onQueryChange("") }) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Temizle")
-                    }
-                }
-            },
-            singleLine = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            placeholder = "Şarkı, albüm veya sanatçı ara",
+            modifier = Modifier.padding(16.dp),
         )
         Row(
             modifier = Modifier
@@ -164,10 +155,10 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = hiltViewMod
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             SearchFilter.entries.forEach { f ->
-                FilterChip(
+                NaviChip(
                     selected = state.filter == f,
+                    label = f.title,
                     onClick = { vm.onFilterChange(f) },
-                    label = { Text(f.title) },
                 )
             }
         }
