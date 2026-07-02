@@ -75,7 +75,15 @@ data class ArtistDetail(
     val albums: List<Album>,
     val biography: String?,
     val similar: List<Artist>,
+    /** Real artist photo URL if the server has one; placeholders filtered out. */
+    val imageUrl: String? = null,
 )
+
+// Last.fm's well-known star placeholder — Navidrome serves it when no agent is configured
+private const val LASTFM_PLACEHOLDER_HASH = "2a96cbd8b46e442fc41c2b86b821562f"
+
+private fun String?.realImageUrlOrNull(): String? =
+    this?.takeIf { it.isNotBlank() && !it.contains(LASTFM_PLACEHOLDER_HASH) }
 data class PlaylistDetail(val playlist: Playlist, val songs: List<Song>)
 
 @Singleton
@@ -126,6 +134,8 @@ class MusicRepository @Inject constructor(
             albums = dto.album.map { it.toModel() },
             biography = info?.biography?.takeIf { it.isNotBlank() },
             similar = info?.similarArtist.orEmpty().map { it.toModel() },
+            imageUrl = info?.largeImageUrl.realImageUrlOrNull()
+                ?: dto.artistImageUrl.realImageUrlOrNull(),
         )
     }
 

@@ -143,12 +143,28 @@ fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewM
                 ) {
                     item(key = "hero") {
                         Box(Modifier.fillMaxWidth().height(340.dp)) {
-                            Artwork(
-                                detail.artist.coverArt,
-                                sizePx = 900,
-                                cornerRadius = 0.dp,
-                                modifier = Modifier.fillMaxSize(),
-                            )
+                            // Real artist photo when available; otherwise a deterministic
+                            // album cover (seeded by artist id — same pick every time)
+                            val heroCover = remember(detail.artist.id, detail.albums.size) {
+                                detail.albums.mapNotNull { it.coverArt }
+                                    .shuffled(kotlin.random.Random(detail.artist.id.hashCode()))
+                                    .firstOrNull()
+                            }
+                            if (detail.imageUrl != null) {
+                                coil.compose.AsyncImage(
+                                    model = detail.imageUrl,
+                                    contentDescription = null,
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else {
+                                Artwork(
+                                    heroCover ?: detail.artist.coverArt,
+                                    sizePx = 900,
+                                    cornerRadius = 0.dp,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
                             // Bottom fade into the page background so the name sits on solid ground
                             Box(
                                 Modifier
