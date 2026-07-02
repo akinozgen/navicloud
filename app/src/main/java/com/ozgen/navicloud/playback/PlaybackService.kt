@@ -21,6 +21,7 @@ import javax.inject.Inject
 class PlaybackService : MediaSessionService() {
 
     @Inject lateinit var musicRepository: MusicRepository
+    @Inject lateinit var streamCache: StreamCache
 
     private var mediaSession: MediaSession? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -28,6 +29,13 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         val player = ExoPlayer.Builder(this)
+            // Akış LRU cache üzerinden: aynı şarkı ikinci kez ağa çıkmaz;
+            // file:// (indirmeler) cache'e uğramadan doğrudan okunur
+            .setMediaSourceFactory(
+                androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
+                    streamCache.playerDataSourceFactory()
+                )
+            )
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
