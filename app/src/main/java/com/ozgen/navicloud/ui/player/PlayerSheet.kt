@@ -197,10 +197,15 @@ fun PlayerSheet(
                 )
             )
             val dom = if (domRaw.luminance() > 0.25f) lerp(domRaw, Color.Black, 0.55f) else domRaw
-            val accRaw = palette.getVibrantColor(palette.getLightVibrantColor(0))
+            // Kapağın hissedilen rengine sadık kal: vibrant → lightVibrant → dominant
+            val accRaw = palette.getVibrantColor(
+                palette.getLightVibrantColor(palette.getDominantColor(0))
+            )
             val acc = if (accRaw != 0) {
-                // Koyu zeminde okunur kalsın
-                Color(accRaw).let { if (it.luminance() < 0.2f) lerp(it, Color.White, 0.45f) else it }
+                var c = Color(accRaw)
+                // Koyu zeminde görünürlük için minimum parlaklık, tonu bozmadan
+                if (c.luminance() < 0.3f) c = lerp(c, Color.White, 0.35f)
+                c
             } else null
             paletteCache[artUri] = dom to acc
             dominantTarget = dom
