@@ -31,8 +31,11 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.ozgen.navicloud.core.model.HomeSection
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.width
 import com.ozgen.navicloud.data.MusicRepository
-import com.ozgen.navicloud.ui.components.AlbumCard
+import com.ozgen.navicloud.ui.components.OverlayAlbumCard
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -118,13 +121,38 @@ fun HomeScreen(navController: NavController, vm: HomeViewModel = hiltViewModel()
                     }
                 }
             }
+            // First section: 2-column quick-access grid (info density up top)
+            val firstSection = state.sections.firstOrNull()
+            if (firstSection != null) {
+                item(key = "quick-grid", contentType = "grid") {
+                    Column(
+                        Modifier.padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        firstSection.albums.take(6).chunked(2).forEach { pair ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                pair.forEach { album ->
+                                    OverlayAlbumCard(
+                                        album,
+                                        onClick = { navController.navigate("album/${album.id}") },
+                                        modifier = Modifier.weight(1f).aspectRatio(1f),
+                                    )
+                                }
+                                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            }
+            // Remaining sections: horizontal shelves with overlay cards
+            val shelves = state.sections.drop(1)
             items(
-                state.sections.size,
-                key = { state.sections[it].type.name },
+                shelves.size,
+                key = { shelves[it].type.name },
                 contentType = { "section" },
             ) { i ->
-                val section = state.sections[i]
-                Column(Modifier.padding(top = 8.dp, bottom = 12.dp)) {
+                val section = shelves[i]
+                Column(Modifier.padding(top = 12.dp, bottom = 8.dp)) {
                     Text(
                         section.type.title,
                         style = MaterialTheme.typography.titleLarge,
@@ -136,7 +164,11 @@ fun HomeScreen(navController: NavController, vm: HomeViewModel = hiltViewModel()
                     ) {
                         items(section.albums.size, key = { section.albums[it].id }) { j ->
                             val album = section.albums[j]
-                            AlbumCard(album, onClick = { navController.navigate("album/${album.id}") })
+                            OverlayAlbumCard(
+                                album,
+                                onClick = { navController.navigate("album/${album.id}") },
+                                modifier = Modifier.width(160.dp).aspectRatio(1f),
+                            )
                         }
                     }
                 }

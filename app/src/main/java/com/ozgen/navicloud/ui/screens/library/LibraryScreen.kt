@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -23,8 +24,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -100,6 +103,8 @@ data class LibraryUiState(
     val downloads: List<Song> = emptyList(),
     val activeDownload: ActiveDownload? = null,
     val downloadsGrouped: Boolean = true,
+    val albumsByRecent: Boolean = false,
+    val albumsAsGrid: Boolean = true,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -132,6 +137,15 @@ class LibraryViewModel @Inject constructor(
         refresh()
     }
 
+    fun toggleAlbumSort() {
+        _state.value = _state.value.copy(albumsByRecent = !_state.value.albumsByRecent)
+        if (_state.value.tab == LibraryTab.ALBUMS) refresh()
+    }
+
+    fun toggleAlbumView() {
+        _state.value = _state.value.copy(albumsAsGrid = !_state.value.albumsAsGrid)
+    }
+
     fun refresh() {
         val tab = _state.value.tab
         _state.value = _state.value.copy(loading = true)
@@ -139,7 +153,13 @@ class LibraryViewModel @Inject constructor(
             runCatching {
                 when (tab) {
                     LibraryTab.PLAYLISTS -> _state.value = _state.value.copy(playlists = repo.playlists())
-                    LibraryTab.ALBUMS -> _state.value = _state.value.copy(albums = repo.albumsAlphabetical(size = 500))
+                    LibraryTab.ALBUMS -> _state.value = _state.value.copy(
+                        albums = if (_state.value.albumsByRecent) {
+                            repo.albumList(com.ozgen.navicloud.core.model.HomeSectionType.NEWEST, size = 500)
+                        } else {
+                            repo.albumsAlphabetical(size = 500)
+                        }
+                    )
                     LibraryTab.ARTISTS -> _state.value = _state.value.copy(artists = repo.artists())
                     LibraryTab.SONGS -> {
                         val first = repo.allSongs(offset = 0, size = SONGS_PAGE).distinctBy { it.id }
@@ -224,11 +244,23 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
 
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
-        Text(
-            "Kitaplık",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "Kitaplık",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = { navController.navigate("servers") }) {
+                Icon(
+                    Icons.Rounded.Settings,
+                    contentDescription = "Sunucular / Ayarlar",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -287,7 +319,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                                 Column {
                                     Text(pl.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(
-                                        "${pl.songCount} şarkı",
+                                        "Çalma listesi • ${pl.songCount} şarkı",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -300,23 +332,74 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                     val items = state.albums.filter {
                         q.isEmpty() || it.name.contains(q, true) || it.artist.contains(q, true)
                     }
-                    val gridState = rememberLazyGridState()
-                    SyncFabExpansionGrid(gridState, fabExpanded)
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        state = gridState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        items(items.size, key = { items[it].id }, contentType = { "album" }) { i ->
-                            val album = items[i]
-                            AlbumCard(
-                                album,
-                                onClick = { navController.navigate("album/${album.id}") },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
+                    Column(Modifier.fillMaxSize()) {
+                        // Sort (left) + view toggle (right)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            androidx.compose.material3.TextButton(onClick = { vm.toggleAlbumSort() }) {
+                                Text(if (state.albumsByRecent) "Son eklenen" else "Ada göre")
+                                Icon(Icons.Rounded.ArrowDropDown, contentDescription = null)
+                            }
+                            Spacer(Modifier.weight(1f))
+                            IconButton(onClick = { vm.toggleAlbumView() }) {
+                                Icon(
+                                    if (state.albumsAsGrid) Icons.AutoMirrored.Rounded.List
+                                    else Icons.Rounded.GridView,
+                                    contentDescription = "Görünüm",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        if (state.albumsAsGrid) {
+                            val gridState = rememberLazyGridState()
+                            SyncFabExpansionGrid(gridState, fabExpanded)
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(2),
+                                state = gridState,
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                            ) {
+                                items(items.size, key = { items[it].id }, contentType = { "album" }) { i ->
+                                    val album = items[i]
+                                    AlbumCard(
+                                        album,
+                                        onClick = { navController.navigate("album/${album.id}") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                            }
+                        } else {
+                            val listState = rememberLazyListState()
+                            SyncFabExpansion(listState, fabExpanded)
+                            LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
+                                items(items.size, key = { items[it].id }, contentType = { "album-row" }) { i ->
+                                    val album = items[i]
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { navController.navigate("album/${album.id}") }
+                                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    ) {
+                                        Artwork(album.coverArt, sizePx = 150, cornerRadius = 6.dp, modifier = Modifier.size(56.dp))
+                                        Column {
+                                            Text(album.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(
+                                                "Albüm • ${album.artist}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -339,7 +422,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                                 Column {
                                     Text(artist.name, style = MaterialTheme.typography.titleSmall)
                                     Text(
-                                        "${artist.albumCount} albüm",
+                                        "Sanatçı • ${artist.albumCount} albüm",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
