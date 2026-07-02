@@ -88,8 +88,13 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
@@ -738,6 +743,34 @@ private fun QueuePanel(
         }
     }
 
+    // Swipe-down dismiss from ANYWHERE in the list: when the list is at its
+    // very top, downward drags feed the panel's AnchoredDraggable; otherwise
+    // they stay normal scrolls. Fling settles by threshold/velocity.
+    val shownPx = remember(queueDrag) { queueDrag.anchors.positionOf(QueuePanelValue.Shown) }
+    val nestedDismiss = remember(listState, queueDrag) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val atTop = listState.firstVisibleItemIndex == 0 &&
+                    listState.firstVisibleItemScrollOffset == 0
+                val panelLowered = queueDrag.requireOffset() > shownPx + 0.5f
+                return if ((available.y > 0f && atTop) || (available.y < 0f && panelLowered)) {
+                    Offset(0f, queueDrag.dispatchRawDelta(available.y))
+                } else {
+                    Offset.Zero
+                }
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                return if (queueDrag.requireOffset() > shownPx + 0.5f) {
+                    queueDrag.settle(available.y)
+                    available
+                } else {
+                    Velocity.Zero
+                }
+            }
+        }
+    }
+
     Box(
         Modifier
             .offset { IntOffset(0, queueOffset.roundToInt()) }
@@ -880,7 +913,8 @@ private fun QueuePanel(
                 // Stays composed (no first-drag jank) but invisible & inert while hidden
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer { alpha = queueProgress },
+                    .graphicsLayer { alpha = queueProgress }
+                    .nestedScroll(nestedDismiss),
                 userScrollEnabled = queueProgress > 0.3f,
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
                     top = 8.dp,
@@ -894,25 +928,28 @@ private fun QueuePanel(
                 ) { i ->
                     val queueItem = localQueue[i]
                     val uid = queueItem.queueUid()
-                    ReorderableItem(reorderableState, key = uid) { isDragging ->
+                    ReorderableItem(
+                        reorderableState,
+                        key = uid,
+                        modifier = Modifier.animateItem(),
+                    ) { isDragging ->
                         val dragScope = this
-                        // Swipe left→right removes; right→left bumps to play-next.
-                        // rememberSwipeToDismissBoxState freezes this lambda at first
-                        // composition — so it must only capture the row's immutable UID,
-                        // never its index (stale indices removed the wrong songs).
+                        // StartToEnd (sol→sağ) = sıradakine kopya ekle, EndToStart
+                        // (sağ→sol) = kuyruktan kaldır. Frozen closure yalnızca
+                        // değişmez UID'yi yakalar.
                         val dismissState = rememberSwipeToDismissBoxState(
+                            positionalThreshold = { totalDistance -> totalDistance * 0.4f },
                             confirmValueChange = { value ->
                                 when (value) {
                                     SwipeToDismissBoxValue.StartToEnd -> {
+                                        // Kopya, çalanın hemen arkasına; satır yerinde kalır
+                                        player.playNext(listOf(queueItem.toSong()))
+                                        false
+                                    }
+                                    SwipeToDismissBoxValue.EndToStart -> {
                                         localQueue.removeAll { it.queueUid() == uid }
                                         player.removeQueueItemByUid(uid)
                                         true
-                                    }
-                                    SwipeToDismissBoxValue.EndToStart -> {
-                                        // Adds a copy right after the current track;
-                                        // the swiped row stays where it is
-                                        player.playNext(listOf(queueItem.toSong()))
-                                        false
                                     }
                                     else -> false
                                 }
@@ -921,22 +958,43 @@ private fun QueuePanel(
                         SwipeToDismissBox(
                             state = dismissState,
                             backgroundContent = {
-                                Row(
+                                // Yöne göre renk + ikon
+                                val direction = dismissState.dismissDirection
+                                val bg: Color
+                                val icon: androidx.compose.ui.graphics.vector.ImageVector
+                                val tint: Color
+                                val align: Alignment
+                                when (direction) {
+                                    SwipeToDismissBoxValue.StartToEnd -> {
+                                        bg = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+                                        icon = Icons.Rounded.PlaylistPlay
+                                        tint = MaterialTheme.colorScheme.primary
+                                        align = Alignment.CenterStart
+                                    }
+                                    SwipeToDismissBoxValue.EndToStart -> {
+                                        bg = MaterialTheme.colorScheme.error.copy(alpha = 0.28f)
+                                        icon = Icons.Rounded.RemoveCircleOutline
+                                        tint = MaterialTheme.colorScheme.error
+                                        align = Alignment.CenterEnd
+                                    }
+                                    else -> {
+                                        bg = Color.Transparent
+                                        icon = Icons.Rounded.PlaylistPlay
+                                        tint = Color.Transparent
+                                        align = Alignment.Center
+                                    }
+                                }
+                                Box(
                                     Modifier
                                         .fillMaxSize()
+                                        .background(bg)
                                         .padding(horizontal = 24.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Icon(
-                                        Icons.Rounded.RemoveCircleOutline,
-                                        contentDescription = "Kuyruktan kaldır",
-                                        tint = MaterialTheme.colorScheme.error,
-                                    )
-                                    Spacer(Modifier.weight(1f))
-                                    Icon(
-                                        Icons.Rounded.PlaylistPlay,
-                                        contentDescription = "Sıradakine taşı",
-                                        tint = MaterialTheme.colorScheme.primary,
+                                        icon,
+                                        contentDescription = null,
+                                        tint = tint,
+                                        modifier = Modifier.align(align),
                                     )
                                 }
                             },
