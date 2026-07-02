@@ -1,8 +1,11 @@
 package com.ozgen.navicloud.ui.screens.nowplaying
 
 import android.graphics.drawable.BitmapDrawable
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,17 +19,20 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AllInclusive
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
@@ -40,30 +46,34 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -88,6 +98,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 data class NowPlayingUiState(
     val starred: Boolean = false,
@@ -145,18 +156,15 @@ fun NowPlayingScreen(
     val item = playerState.currentItem
     val context = LocalContext.current
 
+    var queueMode by rememberSaveable { mutableStateOf(false) }
     var dominantColor by remember { mutableStateOf(Color(0xFF17171E)) }
-    var positionMs by remember { mutableLongStateOf(0L) }
-    var durationMs by remember { mutableLongStateOf(0L) }
-    var dragging by remember { mutableStateOf(false) }
-    var dragValue by remember { mutableFloatStateOf(0f) }
     var showLyrics by remember { mutableStateOf(false) }
-    var showQueue by remember { mutableStateOf(false) }
 
-    // Back closes the overlay instead of exiting the app
-    BackHandler(onBack = onClose)
+    // Back: queue -> now playing -> mini player
+    BackHandler {
+        if (queueMode) queueMode = false else onClose()
+    }
 
-    // Track song changes: star state + palette extraction
     LaunchedEffect(item?.mediaId) {
         vm.onSongChanged(
             item?.mediaId,
@@ -174,23 +182,12 @@ fun NowPlayingScreen(
                     val rgb = palette.getDarkVibrantColor(
                         palette.getDarkMutedColor(palette.getMutedColor(0xFF17171E.toInt()))
                     )
-                    // Light covers can yield bright colors; clamp so white text stays readable
                     val base = Color(rgb)
-                    dominantColor = if (base.luminance() > 0.25f) {
-                        lerp(base, Color.Black, 0.55f)
-                    } else base
+                    dominantColor = if (base.luminance() > 0.25f) lerp(base, Color.Black, 0.55f) else base
                 }
             }
         } else {
             dominantColor = Color(0xFF17171E)
-        }
-    }
-
-    LaunchedEffect(playerState.isPlaying, item?.mediaId) {
-        while (true) {
-            positionMs = vm.player.positionMs
-            durationMs = vm.player.durationMs
-            delay(500)
         }
     }
 
@@ -202,58 +199,113 @@ fun NowPlayingScreen(
                     colors = listOf(dominantColor, MaterialTheme.colorScheme.background),
                     endY = 1800f,
                 )
-            )
-            .pointerInput(Unit) {
-                // Swipe down anywhere on the player closes it
-                detectVerticalDragGestures { _, dragAmount ->
-                    if (dragAmount > 18f) onClose()
-                }
-            },
+            ),
     ) {
         Column(
             Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp),
+                .navigationBarsPadding(),
         ) {
-            // Top bar
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onClose) {
-                    Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Kapat", tint = Color.White)
-                }
-                Text(
-                    item?.mediaMetadata?.albumTitle?.toString() ?: "Şu an çalıyor",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
+            if (!queueMode) {
+                NowPlayingPane(
+                    vm = vm,
+                    uiStarred = uiState.starred,
+                    onClose = onClose,
+                    onOpenQueue = { queueMode = true },
+                    onOpenLyrics = {
+                        item?.mediaId?.let { vm.loadLyrics(it) }
+                        showLyrics = true
+                    },
                 )
-                IconButton(onClick = { showQueue = true }) {
-                    Icon(Icons.Rounded.QueueMusic, contentDescription = "Kuyruk", tint = Color.White)
-                }
+            } else {
+                QueuePane(
+                    player = vm.player,
+                    onCollapse = { queueMode = false },
+                )
             }
+        }
+    }
 
-            Spacer(Modifier.weight(1f))
-
-            // Artwork
-            AsyncImage(
-                model = item?.mediaMetadata?.artworkUri,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+    if (showLyrics) {
+        ModalBottomSheet(onDismissRequest = { showLyrics = false }) {
+            LyricsSheet(
+                lyrics = uiState.lyrics,
+                loading = uiState.lyricsLoading,
+                positionMsProvider = { vm.player.positionMs },
             )
+        }
+    }
+}
 
-            Spacer(Modifier.weight(1f))
+/** Art + controls. No scrolling here, so vertical drags are safe to capture. */
+@Composable
+private fun NowPlayingPane(
+    vm: NowPlayingViewModel,
+    uiStarred: Boolean,
+    onClose: () -> Unit,
+    onOpenQueue: () -> Unit,
+    onOpenLyrics: () -> Unit,
+) {
+    val playerState by vm.player.state.collectAsStateWithLifecycle()
+    val item = playerState.currentItem
+    var positionMs by remember { mutableLongStateOf(0L) }
+    var durationMs by remember { mutableLongStateOf(0L) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragValue by remember { mutableFloatStateOf(0f) }
 
+    LaunchedEffect(playerState.isPlaying, item?.mediaId) {
+        while (true) {
+            positionMs = vm.player.positionMs
+            durationMs = vm.player.durationMs
+            delay(500)
+        }
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectVerticalDragGestures { _, dragAmount ->
+                    if (dragAmount > 18f) onClose()
+                    if (dragAmount < -18f) onOpenQueue()
+                }
+            },
+    ) {
+        // Top bar
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onClose) {
+                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Kapat", tint = Color.White)
+            }
+            Text(
+                item?.mediaMetadata?.albumTitle?.toString() ?: "Şu an çalıyor",
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(end = 48.dp),
+            )
+        }
+
+        Spacer(Modifier.weight(1f))
+
+        // Artwork: contain, edge to edge
+        AsyncImage(
+            model = item?.mediaMetadata?.artworkUri,
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f),
+        )
+
+        Spacer(Modifier.weight(1f))
+
+        Column(Modifier.padding(horizontal = 24.dp)) {
             // Title + star
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -274,16 +326,15 @@ fun NowPlayingScreen(
                 }
                 IconButton(onClick = { item?.mediaId?.let { vm.toggleStar(it) } }) {
                     Icon(
-                        if (uiState.starred) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                        if (uiStarred) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                         contentDescription = "Favori",
-                        tint = if (uiState.starred) MaterialTheme.colorScheme.primary else Color(0xB3FFFFFF),
+                        tint = if (uiStarred) MaterialTheme.colorScheme.primary else Color(0xB3FFFFFF),
                     )
                 }
             }
 
             Spacer(Modifier.height(8.dp))
 
-            // Seek bar
             val sliderValue = if (dragging) dragValue
             else if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
             Slider(
@@ -369,41 +420,161 @@ fun NowPlayingScreen(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-
-            // Lyrics button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
             ) {
-                IconButton(onClick = {
-                    item?.mediaId?.let { vm.loadLyrics(it) }
-                    showLyrics = true
-                }) {
-                    Icon(
-                        Icons.Rounded.Lyrics,
-                        contentDescription = "Şarkı sözleri",
-                        tint = Color(0xB3FFFFFF),
-                    )
+                IconButton(onClick = onOpenLyrics) {
+                    Icon(Icons.Rounded.Lyrics, contentDescription = "Şarkı sözleri", tint = Color(0xB3FFFFFF))
                 }
             }
-            Spacer(Modifier.height(8.dp))
         }
-    }
 
-    if (showLyrics) {
-        ModalBottomSheet(onDismissRequest = { showLyrics = false }) {
-            LyricsSheet(
-                lyrics = uiState.lyrics,
-                loading = uiState.lyricsLoading,
-                positionMsProvider = { vm.player.positionMs },
+        // Up-next indicator (YTMusic style): tap or swipe up opens the queue
+        val nextItem = playerState.queue.getOrNull(playerState.currentIndex + 1)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpenQueue)
+                .padding(horizontal = 24.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null, tint = Color(0x99FFFFFF))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (nextItem != null) "Sıradaki: ${nextItem.mediaMetadata.title}" else "Kuyruk",
+                style = MaterialTheme.typography.labelLarge,
+                color = Color(0x99FFFFFF),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
+}
 
-    if (showQueue) {
-        ModalBottomSheet(onDismissRequest = { showQueue = false }) {
-            QueueSheet(vm.player)
+/** Queue lives inside the player. Header swipes down to Now Playing; the list scrolls itself. */
+@Composable
+private fun QueuePane(
+    player: PlayerController,
+    onCollapse: () -> Unit,
+) {
+    val state by player.state.collectAsStateWithLifecycle()
+    val endless by player.endless.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    val itemHeightPx = with(LocalDensity.current) { 64.dp.toPx() }
+
+    var draggingIndex by remember { mutableIntStateOf(-1) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+
+    Column(Modifier.fillMaxSize()) {
+        // Header: swipe-down zone
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures { _, dragAmount ->
+                        if (dragAmount > 18f) onCollapse()
+                    }
+                },
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onCollapse) {
+                    Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Player'a dön", tint = Color.White)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Kuyruk", style = MaterialTheme.typography.titleLarge, color = Color.White)
+                    Text(
+                        "${state.queue.size} şarkı",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0x99FFFFFF),
+                    )
+                }
+                // Endless toggle
+                IconButton(onClick = { player.toggleEndless() }) {
+                    Icon(
+                        Icons.Rounded.AllInclusive,
+                        contentDescription = "Endless",
+                        tint = if (endless) MaterialTheme.colorScheme.primary else Color(0x80FFFFFF),
+                    )
+                }
+                // Play/pause at top right
+                FilledIconButton(
+                    onClick = { player.togglePlayPause() },
+                    modifier = Modifier.size(44.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = Color.White,
+                        contentColor = Color(0xFF0F0F14),
+                    ),
+                ) {
+                    Icon(
+                        if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = if (state.isPlaying) "Duraklat" else "Çal",
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+        }
+
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.35f)),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
+        ) {
+            items(
+                state.queue.size,
+                key = { "$it-${state.queue[it].mediaId}" },
+                contentType = { "song" },
+            ) { i ->
+                SongItem(
+                    song = state.queue[i].toSong(),
+                    onClick = { player.seekToQueueItem(i) },
+                    highlighted = i == state.currentIndex,
+                    inQueue = true,
+                    queueIndex = i,
+                    modifier = Modifier
+                        .height(64.dp)
+                        .zIndex(if (i == draggingIndex) 1f else 0f)
+                        .graphicsLayer {
+                            translationY = if (i == draggingIndex) dragOffset else 0f
+                        },
+                    trailingContent = {
+                        Icon(
+                            Icons.Rounded.DragHandle,
+                            contentDescription = "Sürükle",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.pointerInput(i) {
+                                detectDragGestures(
+                                    onDragStart = {
+                                        draggingIndex = i
+                                        dragOffset = 0f
+                                    },
+                                    onDragEnd = { draggingIndex = -1; dragOffset = 0f },
+                                    onDragCancel = { draggingIndex = -1; dragOffset = 0f },
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    dragOffset += dragAmount.y
+                                    val steps = (dragOffset / itemHeightPx).roundToInt()
+                                    if (steps != 0) {
+                                        val target = (draggingIndex + steps)
+                                            .coerceIn(0, state.queue.size - 1)
+                                        if (target != draggingIndex) {
+                                            player.moveQueueItem(draggingIndex, target)
+                                            dragOffset -= steps * itemHeightPx
+                                            draggingIndex = target
+                                        }
+                                    }
+                                }
+                            },
+                        )
+                    },
+                )
+            }
         }
     }
 }
@@ -461,25 +632,6 @@ private fun LyricsSheet(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun QueueSheet(player: PlayerController) {
-    val state by player.state.collectAsStateWithLifecycle()
-    LazyColumn(
-        modifier = Modifier.fillMaxWidth().height(500.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
-    ) {
-        items(state.queue.size, key = { "$it-${state.queue[it].mediaId}" }, contentType = { "song" }) { i ->
-            SongItem(
-                song = state.queue[i].toSong(),
-                onClick = { player.seekToQueueItem(i) },
-                highlighted = i == state.currentIndex,
-                inQueue = true,
-                queueIndex = i,
-            )
         }
     }
 }

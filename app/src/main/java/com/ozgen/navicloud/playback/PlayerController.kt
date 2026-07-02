@@ -122,6 +122,12 @@ class PlayerController @Inject constructor(
     fun skipPrevious() { _controller.value?.seekToPrevious() }
     fun seekToQueueItem(index: Int) { _controller.value?.seekTo(index, 0L) }
     fun removeQueueItem(index: Int) { _controller.value?.removeMediaItem(index) }
+    fun moveQueueItem(from: Int, to: Int) { _controller.value?.moveMediaItem(from, to) }
+
+    // Endless/autoplay switch — continuation logic hooks in here (playback context)
+    private val _endless = MutableStateFlow(false)
+    val endless: StateFlow<Boolean> = _endless
+    fun toggleEndless() { _endless.value = !_endless.value }
 
     fun toggleShuffle() {
         _controller.value?.run { shuffleModeEnabled = !shuffleModeEnabled }
