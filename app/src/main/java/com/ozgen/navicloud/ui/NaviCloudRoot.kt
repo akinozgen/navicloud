@@ -1,5 +1,10 @@
 package com.ozgen.navicloud.ui
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -132,6 +137,15 @@ private fun MainShell(vm: AppViewModel, server: Server) {
                     NavHost(
                         navController = navController,
                         startDestination = "home",
+                        // Default 700ms crossfade feels sluggish — quick, subtle slide instead
+                        enterTransition = {
+                            slideInHorizontally(tween(200)) { it / 6 } + fadeIn(tween(150))
+                        },
+                        exitTransition = { fadeOut(tween(90)) },
+                        popEnterTransition = { fadeIn(tween(120)) },
+                        popExitTransition = {
+                            slideOutHorizontally(tween(180)) { it / 6 } + fadeOut(tween(140))
+                        },
                         modifier = Modifier
                             .padding(padding)
                             .padding(bottom = if (hasPlayer) 64.dp else 0.dp),
