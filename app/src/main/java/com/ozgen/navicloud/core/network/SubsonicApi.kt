@@ -80,4 +80,16 @@ interface SubsonicApi {
 
     @GET("getLyricsBySongId")
     suspend fun getLyricsBySongId(@Query("id") id: String): SubsonicEnvelope
+
+    @GET("updatePlaylist")
+    suspend fun updatePlaylist(
+        @Query("playlistId") playlistId: String,
+        @Query("songIdToAdd") songIdToAdd: String? = null,
+    ): SubsonicEnvelope
+
+    @GET("getSimilarSongs2")
+    suspend fun getSimilarSongs2(
+        @Query("id") artistId: String,
+        @Query("count") count: Int = 25,
+    ): SubsonicEnvelope
 }

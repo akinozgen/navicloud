@@ -46,7 +46,7 @@ import com.ozgen.navicloud.data.AlbumDetail
 import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.Artwork
-import com.ozgen.navicloud.ui.components.SongRow
+import com.ozgen.navicloud.ui.components.SongItem
 import com.ozgen.navicloud.ui.components.formatDuration
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -208,7 +208,7 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                     }
                 }
                 items(detail.songs.size, key = { detail.songs[it].id }, contentType = { "song" }) { i ->
-                    SongRow(
+                    SongItem(
                         detail.songs[i],
                         trackNumber = detail.songs[i].track ?: (i + 1),
                         showArt = false,

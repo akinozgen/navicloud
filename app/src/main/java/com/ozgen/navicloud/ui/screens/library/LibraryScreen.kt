@@ -55,7 +55,7 @@ import com.ozgen.navicloud.data.toSong
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.AlbumCard
 import com.ozgen.navicloud.ui.components.Artwork
-import com.ozgen.navicloud.ui.components.SongRow
+import com.ozgen.navicloud.ui.components.SongItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -308,7 +308,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                     }
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
                         items(items.size, key = { items[it].id }, contentType = { "song" }) { i ->
-                            SongRow(items[i], onClick = { vm.playSongs(items, i) })
+                            SongItem(items[i], onClick = { vm.playSongs(items, i) })
                         }
                         if (state.songsLoadingMore) {
                             item(key = "loading-more") {
@@ -324,7 +324,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                     val items = all.filter { q.isEmpty() || it.title.contains(q, true) || it.artist?.contains(q, true) == true }
                     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
                         items(items.size, key = { items[it].id }, contentType = { "song" }) { i ->
-                            SongRow(items[i], onClick = { vm.playSongs(items, i) })
+                            SongItem(items[i], onClick = { vm.playSongs(items, i) })
                         }
                     }
                 }
@@ -349,11 +349,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                             }
                         }
                         items(items.size, key = { items[it].id }, contentType = { "song" }) { i ->
-                            SongRow(
-                                items[i],
-                                onClick = { vm.playSongs(items, i) },
-                                onMore = { vm.removeDownload(items[i].id) },
-                            )
+                            SongItem(items[i], onClick = { vm.playSongs(items, i) })
                         }
                         if (items.isEmpty() && active == null) {
                             item(key = "empty") {

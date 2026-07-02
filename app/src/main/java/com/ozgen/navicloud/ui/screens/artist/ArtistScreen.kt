@@ -55,7 +55,7 @@ import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.AlbumCard
 import com.ozgen.navicloud.ui.components.ArtistCard
 import com.ozgen.navicloud.ui.components.Artwork
-import com.ozgen.navicloud.ui.components.SongRow
+import com.ozgen.navicloud.ui.components.SongItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -211,7 +211,7 @@ fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewM
                         item(key = "h-popular") { SectionTitle("Popüler") }
                         val top = state.topSongs.take(10)
                         items(top.size, key = { "top-" + top[it].id }, contentType = { "song" }) { i ->
-                            SongRow(top[i], onClick = { vm.player.play(top, i) })
+                            SongItem(top[i], onClick = { vm.player.play(top, i) })
                         }
                     }
                     if (detail.albums.isNotEmpty()) {

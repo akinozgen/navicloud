@@ -77,6 +77,8 @@ import com.ozgen.navicloud.core.model.Lyrics
 import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.playback.MediaKeys
 import com.ozgen.navicloud.playback.PlayerController
+import com.ozgen.navicloud.playback.toSong
+import com.ozgen.navicloud.ui.components.SongItem
 import com.ozgen.navicloud.ui.components.formatDuration
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -470,33 +472,14 @@ private fun QueueSheet(player: PlayerController) {
         modifier = Modifier.fillMaxWidth().height(500.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
     ) {
-        items(state.queue.size) { i ->
-            val queueItem = state.queue[i]
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { player.seekToQueueItem(i) }
-                    .padding(horizontal = 24.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        queueItem.mediaMetadata.title?.toString() ?: "",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = if (i == state.currentIndex) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        queueItem.mediaMetadata.artist?.toString() ?: "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
+        items(state.queue.size, key = { "$it-${state.queue[it].mediaId}" }, contentType = { "song" }) { i ->
+            SongItem(
+                song = state.queue[i].toSong(),
+                onClick = { player.seekToQueueItem(i) },
+                highlighted = i == state.currentIndex,
+                inQueue = true,
+                queueIndex = i,
+            )
         }
     }
 }

@@ -44,7 +44,7 @@ import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.data.PlaylistDetail
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.Artwork
-import com.ozgen.navicloud.ui.components.SongRow
+import com.ozgen.navicloud.ui.components.SongItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -175,7 +175,7 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                     }
                 }
                 items(detail.songs.size, key = { "${detail.songs[it].id}-$it" }, contentType = { "song" }) { i ->
-                    SongRow(detail.songs[i], onClick = { vm.player.play(detail.songs, i) })
+                    SongItem(detail.songs[i], onClick = { vm.player.play(detail.songs, i) })
                 }
             }
             }

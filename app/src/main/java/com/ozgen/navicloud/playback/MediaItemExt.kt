@@ -15,6 +15,29 @@ object MediaKeys {
     const val STARRED = "starred"
 }
 
+/** Rebuilds a domain Song from a queue MediaItem (metadata + extras round-trip). */
+fun MediaItem.toSong(): Song {
+    val extras = mediaMetadata.extras
+    return Song(
+        id = mediaId,
+        title = mediaMetadata.title?.toString() ?: "",
+        album = mediaMetadata.albumTitle?.toString(),
+        albumId = extras?.getString(MediaKeys.ALBUM_ID),
+        artist = mediaMetadata.artist?.toString(),
+        artistId = extras?.getString(MediaKeys.ARTIST_ID),
+        coverArt = extras?.getString(MediaKeys.COVER_ART),
+        duration = extras?.getInt(MediaKeys.DURATION, 0) ?: 0,
+        track = null,
+        discNumber = null,
+        year = null,
+        bitRate = null,
+        suffix = null,
+        contentType = null,
+        size = null,
+        starred = extras?.getBoolean(MediaKeys.STARRED, false) ?: false,
+    )
+}
+
 fun Song.toMediaItem(streamUrl: String, artworkUrl: String?): MediaItem {
     val extras = Bundle().apply {
         putString(MediaKeys.ALBUM_ID, albumId)

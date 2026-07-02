@@ -39,7 +39,7 @@ import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.AlbumCard
 import com.ozgen.navicloud.ui.components.ArtistCard
 import com.ozgen.navicloud.ui.components.Artwork
-import com.ozgen.navicloud.ui.components.SongRow
+import com.ozgen.navicloud.ui.components.SongItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -149,7 +149,7 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = hiltViewMod
                     if (topSongs.isNotEmpty()) {
                         item(key = "h-songs") { SectionTitle("Şarkılar") }
                         items(topSongs.size, key = { "s-" + topSongs[it].id }, contentType = { "song" }) { i ->
-                            SongRow(topSongs[i], onClick = { vm.player.play(topSongs, i) })
+                            SongItem(topSongs[i], onClick = { vm.player.play(topSongs, i) })
                         }
                     }
                     if (result.albums.isNotEmpty()) {
@@ -183,7 +183,7 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = hiltViewMod
                 }
                 SearchFilter.SONGS -> {
                     items(result.songs.size, key = { result.songs[it].id }, contentType = { "song" }) { i ->
-                        SongRow(result.songs[i], onClick = { vm.player.play(result.songs, i) })
+                        SongItem(result.songs[i], onClick = { vm.player.play(result.songs, i) })
                     }
                 }
                 SearchFilter.ALBUMS -> {

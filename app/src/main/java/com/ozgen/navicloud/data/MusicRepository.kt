@@ -178,6 +178,15 @@ class MusicRepository @Inject constructor(
         runCatching { api().scrobble(songId, submission).unwrap() }
     }
 
+    suspend fun addToPlaylist(playlistId: String, songId: String) {
+        api().updatePlaylist(playlistId, songIdToAdd = songId).unwrap()
+    }
+
+    suspend fun similarSongs(artistId: String, count: Int = 25): List<Song> =
+        runCatching {
+            api().getSimilarSongs2(artistId, count).unwrap().similarSongs2?.song.orEmpty().map { it.toModel() }
+        }.getOrElse { emptyList() }
+
     suspend fun lyrics(songId: String): Lyrics? {
         val list = runCatching {
             api().getLyricsBySongId(songId).unwrap().lyricsList?.structuredLyrics

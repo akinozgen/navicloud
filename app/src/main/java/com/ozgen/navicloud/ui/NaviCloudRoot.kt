@@ -44,6 +44,7 @@ import androidx.navigation.compose.rememberNavController
 import com.ozgen.navicloud.core.model.Server
 import com.ozgen.navicloud.ui.components.LocalArtResolver
 import com.ozgen.navicloud.ui.components.MiniPlayer
+import com.ozgen.navicloud.ui.components.SongMenuHost
 import com.ozgen.navicloud.ui.screens.album.AlbumScreen
 import com.ozgen.navicloud.ui.screens.artist.ArtistScreen
 import com.ozgen.navicloud.ui.screens.home.HomeScreen
@@ -87,6 +88,7 @@ private fun MainShell(vm: AppViewModel, server: Server) {
     val artResolver = remember(server.id) { vm.artResolverFor(server) }
 
     CompositionLocalProvider(LocalArtResolver provides artResolver) {
+        SongMenuHost(navController) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             bottomBar = {
@@ -166,6 +168,7 @@ private fun MainShell(vm: AppViewModel, server: Server) {
                     navController.navigate("album/$albumId")
                 },
             )
+        }
         }
     }
 }

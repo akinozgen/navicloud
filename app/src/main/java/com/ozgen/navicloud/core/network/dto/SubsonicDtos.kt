@@ -25,6 +25,7 @@ data class SubsonicResponse(
     val topSongs: TopSongsDto? = null,
     val lyricsList: LyricsListDto? = null,
     val scanStatus: ScanStatusDto? = null,
+    val similarSongs2: SongListDto? = null,
 )
 
 @Serializable
