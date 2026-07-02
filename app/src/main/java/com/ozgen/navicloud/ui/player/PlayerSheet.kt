@@ -724,8 +724,11 @@ private fun QueuePanel(
     val localQueue = remember { androidx.compose.runtime.mutableStateListOf<androidx.media3.common.MediaItem>() }
     val reorderableState = rememberReorderableLazyListState(listState) { from, to ->
         if (from.index in localQueue.indices && to.index in localQueue.indices) {
+            // Local list moves by index (visual order); Media3 mirror resolves
+            // the item by UID so a lagging sync can't move the wrong song
+            val uid = localQueue[from.index].queueUid()
             localQueue.add(to.index, localQueue.removeAt(from.index))
-            player.moveQueueItem(from.index, to.index)
+            player.moveQueueItemUidTo(uid, to.index)
         }
     }
     LaunchedEffect(state.queue, reorderableState.isAnyItemDragging) {
@@ -890,26 +893,23 @@ private fun QueuePanel(
                     contentType = { "song" },
                 ) { i ->
                     val queueItem = localQueue[i]
-                    ReorderableItem(reorderableState, key = queueItem.queueUid()) { isDragging ->
+                    val uid = queueItem.queueUid()
+                    ReorderableItem(reorderableState, key = uid) { isDragging ->
                         val dragScope = this
-                        // Swipe left→right removes; right→left bumps to play-next
+                        // Swipe left→right removes; right→left bumps to play-next.
+                        // rememberSwipeToDismissBoxState freezes this lambda at first
+                        // composition — so it must only capture the row's immutable UID,
+                        // never its index (stale indices removed the wrong songs).
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { value ->
                                 when (value) {
                                     SwipeToDismissBoxValue.StartToEnd -> {
-                                        if (i in localQueue.indices) {
-                                            localQueue.removeAt(i)
-                                            player.removeQueueItem(i)
-                                        }
+                                        localQueue.removeAll { it.queueUid() == uid }
+                                        player.removeQueueItemByUid(uid)
                                         true
                                     }
                                     SwipeToDismissBoxValue.EndToStart -> {
-                                        val target = (state.currentIndex + 1)
-                                            .coerceAtMost(localQueue.size - 1)
-                                        if (i != target && i in localQueue.indices) {
-                                            localQueue.add(target, localQueue.removeAt(i))
-                                            player.moveQueueItem(i, target)
-                                        }
+                                        player.playNextByUid(uid)
                                         false
                                     }
                                     else -> false
@@ -941,7 +941,7 @@ private fun QueuePanel(
                         ) {
                             SongItem(
                                 song = queueItem.toSong(),
-                                onClick = { player.seekToQueueItem(i) },
+                                onClick = { player.seekToUid(uid) },
                                 highlighted = i == state.currentIndex,
                                 inQueue = true,
                                 queueIndex = i,

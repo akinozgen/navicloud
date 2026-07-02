@@ -146,6 +146,39 @@ class PlayerController @Inject constructor(
     fun removeQueueItem(index: Int) { _controller.value?.removeMediaItem(index) }
     fun moveQueueItem(from: Int, to: Int) { _controller.value?.moveMediaItem(from, to) }
 
+    // UID-based queue ops: UI closures can freeze stale indices (remember'd
+    // callbacks), but an item's UID never lies. Always resolve at call time.
+    private fun indexOfUid(uid: String): Int? {
+        val c = _controller.value ?: return null
+        repeat(c.mediaItemCount) { i ->
+            if (c.getMediaItemAt(i).queueUid() == uid) return i
+        }
+        return null
+    }
+
+    fun seekToUid(uid: String) {
+        indexOfUid(uid)?.let { _controller.value?.seekTo(it, 0L) }
+    }
+
+    fun removeQueueItemByUid(uid: String) {
+        indexOfUid(uid)?.let { _controller.value?.removeMediaItem(it) }
+    }
+
+    fun moveQueueItemUidTo(uid: String, target: Int) {
+        val c = _controller.value ?: return
+        val from = indexOfUid(uid) ?: return
+        c.moveMediaItem(from, target.coerceIn(0, c.mediaItemCount - 1))
+    }
+
+    /** Moves the item right after the currently playing one. */
+    fun playNextByUid(uid: String) {
+        val c = _controller.value ?: return
+        val from = indexOfUid(uid) ?: return
+        var target = c.currentMediaItemIndex + 1
+        if (from < target) target--
+        if (from != target) c.moveMediaItem(from, target.coerceIn(0, c.mediaItemCount - 1))
+    }
+
     // Bildirimden gelen "player'ı aç" istekleri (MainActivity intent'i tetikler)
     private val _expandRequests = MutableStateFlow(0)
     val expandRequests: StateFlow<Int> = _expandRequests
