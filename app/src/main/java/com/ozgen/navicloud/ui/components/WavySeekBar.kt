@@ -62,7 +62,7 @@ fun WavySeekBar(
         val p by transition.animateFloat(
             initialValue = 0f,
             targetValue = (2f * PI).toFloat(),
-            animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing)),
+            animationSpec = infiniteRepeatable(tween(2000, easing = LinearEasing)),
             label = "phase",
         )
         p
@@ -111,11 +111,11 @@ fun WavySeekBar(
             cap = StrokeCap.Round,
         )
 
-        // Played portion: wave (or flat line when the amplitude settles)
-        val amp = 5.dp.toPx() * amplitude
+        // Played portion: subtle wave (or flat line when the amplitude settles)
+        val amp = 2.dp.toPx() * amplitude
         if (px > 0f) {
             if (amp > 0.5f) {
-                val wavelength = 36.dp.toPx()
+                val wavelength = 52.dp.toPx()
                 val step = 4.dp.toPx()
                 val path = Path()
                 path.moveTo(0f, cy + sin(phase) * amp)
@@ -124,12 +124,12 @@ fun WavySeekBar(
                     x = (x + step).coerceAtMost(px)
                     path.lineTo(x, cy + sin(phase + (x / wavelength) * (2f * PI).toFloat()) * amp)
                 }
-                drawPath(path, accent, style = Stroke(4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                drawPath(path, accent, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
             } else {
-                drawLine(accent, Offset(0f, cy), Offset(px, cy), 4.dp.toPx(), StrokeCap.Round)
+                drawLine(accent, Offset(0f, cy), Offset(px, cy), 3.dp.toPx(), StrokeCap.Round)
             }
         }
 
-        drawCircle(Color.White, radius = 6.dp.toPx() * thumbScale, center = Offset(px, cy))
+        drawCircle(Color.White, radius = 5.dp.toPx() * thumbScale, center = Offset(px, cy))
     }
 }
