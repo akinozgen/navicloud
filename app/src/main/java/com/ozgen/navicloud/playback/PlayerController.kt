@@ -109,10 +109,24 @@ class PlayerController @Inject constructor(
             _controller.value = mediaController
             syncState(mediaController)
             restorePersistedQueue(mediaController)
+            observeOfflineMode(mediaController)
             // Pozisyonu da kaybetmemek için periyodik kayıt
             while (true) {
                 kotlinx.coroutines.delay(10_000)
                 if (mediaController.mediaItemCount > 0) saveQueueNow()
+            }
+        }
+    }
+
+    /** Offline moda geçilince mevcut kuyruktan indirilmemiş şarkıları at. */
+    private fun observeOfflineMode(c: MediaController) {
+        scope.launch {
+            settings.offlineMode.collect { offline ->
+                if (!offline) return@collect
+                val ids = downloads.downloadedIds.first().toSet()
+                for (i in c.mediaItemCount - 1 downTo 0) {
+                    if (c.getMediaItemAt(i).mediaId !in ids) c.removeMediaItem(i)
+                }
             }
         }
     }

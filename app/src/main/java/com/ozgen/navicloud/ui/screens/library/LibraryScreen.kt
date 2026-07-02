@@ -63,6 +63,7 @@ import com.ozgen.navicloud.data.ActiveDownload
 import com.ozgen.navicloud.data.DownloadRepository
 import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.data.ServerRepository
+import com.ozgen.navicloud.data.SettingsRepository
 import com.ozgen.navicloud.data.toSong
 import com.ozgen.navicloud.playback.PlaybackContext
 import com.ozgen.navicloud.playback.PlayerController
@@ -75,8 +76,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -102,8 +106,6 @@ data class LibraryUiState(
     val songsEndReached: Boolean = false,
     val songsLoadingMore: Boolean = false,
     val starred: SearchResult? = null,
-    val downloads: List<Song> = emptyList(),
-    val activeDownload: ActiveDownload? = null,
     val downloadsGrouped: Boolean = true,
     val albumsByRecent: Boolean = false,
     val albumsAsGrid: Boolean = true,
@@ -115,23 +117,27 @@ class LibraryViewModel @Inject constructor(
     private val repo: MusicRepository,
     private val servers: ServerRepository,
     private val downloadRepo: DownloadRepository,
+    private val settings: SettingsRepository,
     val player: PlayerController,
 ) : ViewModel() {
     private val _state = MutableStateFlow(LibraryUiState())
     val state: StateFlow<LibraryUiState> = _state
 
+    // İndirilenler ayrı StateFlow — _state.copy() race'ine takılmaz (eski bug buydu)
+    val downloads: StateFlow<List<Song>> =
+        servers.activeServer.filterNotNull()
+            .flatMapLatest { server -> downloadRepo.downloadsFor(server.id) }
+            .map { list -> list.map { it.toSong() } }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val activeDownload: StateFlow<ActiveDownload?> =
+        downloadRepo.active.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    val offlineMode: StateFlow<Boolean> =
+        settings.offlineMode.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     init {
         selectTab(LibraryTab.PLAYLISTS)
-        viewModelScope.launch {
-            servers.activeServer.filterNotNull().flatMapLatest { server ->
-                downloadRepo.downloadsFor(server.id)
-            }.collect { list ->
-                _state.value = _state.value.copy(downloads = list.map { it.toSong() })
-            }
-        }
-        viewModelScope.launch {
-            downloadRepo.active.collect { _state.value = _state.value.copy(activeDownload = it) }
-        }
     }
 
     fun selectTab(tab: LibraryTab) {
@@ -201,10 +207,19 @@ class LibraryViewModel @Inject constructor(
     }
 
     /**
-     * Shuffle all: iki aşamalı — küçük ilk parti ANINDA çalmaya başlar
-     * (1-2 sn'lik 'suratıma bakıyor' beklemesi buydu), kalanı arkadan eklenir.
+     * Shuffle all. İndirilenler sekmesinde VEYA offline moddayken indirilenleri
+     * karıştırır (sunucuya gitmez); aksi halde sunucudan iki aşamalı random.
      */
     fun shuffleAll() {
+        val tab = _state.value.tab
+        val offline = offlineMode.value
+        if (tab == LibraryTab.DOWNLOADS || offline) {
+            val dl = downloads.value
+            if (dl.isNotEmpty()) {
+                player.play(dl.shuffled(), context = PlaybackContext.AllSongs, contextLabel = "İndirilenler")
+            }
+            return
+        }
         viewModelScope.launch {
             runCatching { repo.randomSongs(40) }.onSuccess { first ->
                 if (first.isNotEmpty()) {
@@ -249,6 +264,8 @@ private fun SyncFabExpansionGrid(gridState: LazyGridState, expanded: androidx.co
 @Composable
 fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val downloads by vm.downloads.collectAsStateWithLifecycle()
+    val activeDownload by vm.activeDownload.collectAsStateWithLifecycle()
     val q = state.query.trim()
     val fabExpanded = remember { mutableStateOf(true) }
 
@@ -264,7 +281,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                 modifier = Modifier.weight(1f),
             )
             // Aktif indirme varsa ilerleme rozeti — dokununca indirme yönetimi
-            val activeDl = state.activeDownload
+            val activeDl = activeDownload
             if (activeDl != null) {
                 IconButton(onClick = { navController.navigate("servers") }) {
                     androidx.compose.material3.CircularProgressIndicator(
@@ -484,13 +501,13 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                     }
                 }
                 LibraryTab.DOWNLOADS -> {
-                    val items = remember(state.downloads, q) {
-                        state.downloads.filter { q.isEmpty() || it.title.contains(q, true) || it.artist?.contains(q, true) == true }
+                    val items = remember(downloads, q) {
+                        downloads.filter { q.isEmpty() || it.title.contains(q, true) || it.artist?.contains(q, true) == true }
                     }
                     val listState = rememberLazyListState()
                     SyncFabExpansion(listState, fabExpanded)
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
-                        val active = state.activeDownload
+                        val active = activeDownload
                         if (active != null) {
                             item(key = "active-download") {
                                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {

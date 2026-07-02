@@ -63,10 +63,12 @@ class LoginViewModel @Inject constructor(
 @Composable
 fun LoginScreen(vm: LoginViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
-    var name = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
-    var url = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
-    var username = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
-    var password = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    // DEBUG: test sunucusuyla otomatik doldur (yayına çıkmadan kaldırılacak)
+    val dbg = com.ozgen.navicloud.BuildConfig.DEBUG
+    var name = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(if (dbg) "NaviTest" else "") }
+    var url = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(if (dbg) "http://example.local" else "") }
+    var username = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(if (dbg) "ozgen" else "") }
+    var password = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(if (dbg) "REDACTED" else "") }
 
     Column(
         modifier = Modifier
