@@ -129,6 +129,9 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
     var qualityDialog by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
 
+    // Sunucu ekleme formundayken geri tuşu formu kapatır, Ayarlar'dan çıkarmaz
+    androidx.activity.compose.BackHandler(enabled = adding) { adding = false }
+
     if (adding) {
         // Login formu; başarılı bağlantı yeni sunucuyu aktif yapar
         LoginScreen()

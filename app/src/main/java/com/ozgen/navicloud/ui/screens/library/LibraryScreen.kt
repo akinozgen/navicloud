@@ -207,27 +207,38 @@ class LibraryViewModel @Inject constructor(
     }
 
     /**
-     * Shuffle all. İndirilenler sekmesinde VEYA offline moddayken indirilenleri
-     * karıştırır (sunucuya gitmez); aksi halde sunucudan iki aşamalı random.
+     * Context-aware shuffle: aktif sekme neyse ONU karıştırır.
+     * Favoriler → favoriler, İndirilenler (veya offline) → indirilenler,
+     * diğer sekmeler → tüm kütüphane (sunucudan iki aşamalı random).
      */
     fun shuffleAll() {
         val tab = _state.value.tab
         val offline = offlineMode.value
-        if (tab == LibraryTab.DOWNLOADS || offline) {
-            val dl = downloads.value
-            if (dl.isNotEmpty()) {
-                player.play(dl.shuffled(), context = PlaybackContext.AllSongs, contextLabel = "İndirilenler")
+        when {
+            tab == LibraryTab.DOWNLOADS || offline -> {
+                val dl = downloads.value
+                if (dl.isNotEmpty()) {
+                    player.play(dl.shuffled(), context = PlaybackContext.AllSongs, contextLabel = "İndirilenler")
+                }
             }
-            return
-        }
-        viewModelScope.launch {
-            runCatching { repo.randomSongs(40) }.onSuccess { first ->
-                if (first.isNotEmpty()) {
-                    player.play(first, context = PlaybackContext.AllSongs, contextLabel = "Karışık çalma")
-                    runCatching { repo.randomSongs(160) }.onSuccess { more ->
-                        val seen = first.map { it.id }.toSet()
-                        val extra = more.filter { it.id !in seen }
-                        if (extra.isNotEmpty()) player.addToQueue(extra)
+            tab == LibraryTab.FAVORITES -> {
+                viewModelScope.launch {
+                    val favs = _state.value.starred?.songs
+                        ?: runCatching { repo.starred().songs }.getOrDefault(emptyList())
+                    if (favs.isNotEmpty()) {
+                        player.play(favs.shuffled(), context = PlaybackContext.AllSongs, contextLabel = "Favoriler")
+                    }
+                }
+            }
+            else -> viewModelScope.launch {
+                runCatching { repo.randomSongs(40) }.onSuccess { first ->
+                    if (first.isNotEmpty()) {
+                        player.play(first, context = PlaybackContext.AllSongs, contextLabel = "Karışık çalma")
+                        runCatching { repo.randomSongs(160) }.onSuccess { more ->
+                            val seen = first.map { it.id }.toSet()
+                            val extra = more.filter { it.id !in seen }
+                            if (extra.isNotEmpty()) player.addToQueue(extra)
+                        }
                     }
                 }
             }

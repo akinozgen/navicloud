@@ -113,6 +113,12 @@ private fun MainShell(vm: AppViewModel, server: Server) {
                                             launchSingleTop = true
                                             restoreState = onTabRoot
                                         }
+                                        // restoreState bazen kaydedilmiş stack'in tepesindeki
+                                        // detayı geri getiriyor — sekme butonu HER ZAMAN
+                                        // sekme köküne indirsin
+                                        if (navController.currentDestination?.route != tab.route) {
+                                            navController.popBackStack(tab.route, inclusive = false)
+                                        }
                                     },
                                     icon = {
                                         Icon(

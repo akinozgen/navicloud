@@ -101,12 +101,7 @@ class SearchViewModel @Inject constructor(
                 }
                 _state.value = _state.value.copy(searching = true)
                 runCatching { repo.search(q) }
-                    .onSuccess {
-                        _state.value = _state.value.copy(searching = false, result = it)
-                        if (it.songs.isNotEmpty() || it.albums.isNotEmpty() || it.artists.isNotEmpty()) {
-                            saveRecent(q)
-                        }
-                    }
+                    .onSuccess { _state.value = _state.value.copy(searching = false, result = it) }
                     .onFailure { _state.value = _state.value.copy(searching = false) }
             }
         }
@@ -123,6 +118,23 @@ class SearchViewModel @Inject constructor(
 
     fun clearRecents() {
         viewModelScope.launch { dataStore.edit { it.remove(KEY_RECENT_SEARCHES) } }
+    }
+
+    /** Yalnız kullanıcı bir SONUCA tıklayınca çağrılır — yazmak kayıt etmez. */
+    fun recordSearch() {
+        val q = _state.value.query.trim()
+        if (q.length >= 2) viewModelScope.launch { saveRecent(q) }
+    }
+
+    fun removeRecent(query: String) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                val remaining = prefs[KEY_RECENT_SEARCHES]?.split('\n').orEmpty()
+                    .filter { it.isNotBlank() && !it.equals(query, ignoreCase = true) }
+                if (remaining.isEmpty()) prefs.remove(KEY_RECENT_SEARCHES)
+                else prefs[KEY_RECENT_SEARCHES] = remaining.joinToString("\n")
+            }
+        }
     }
 
     fun onQueryChange(q: String) {
@@ -201,7 +213,18 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = hiltViewMod
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Text(recents[i], style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                recents[i],
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(onClick = { vm.removeRecent(recents[i]) }) {
+                                Icon(
+                                    Icons.Rounded.Close,
+                                    contentDescription = "Kaldır",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
@@ -219,7 +242,7 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = hiltViewMod
                     if (topSongs.isNotEmpty()) {
                         item(key = "h-songs") { SectionTitle("Şarkılar") }
                         items(topSongs.size, key = { "s-" + topSongs[it].id }, contentType = { "song" }) { i ->
-                            SongItem(topSongs[i], onClick = { vm.player.play(topSongs, i, context = PlaybackContext.AllSongs) })
+                            SongItem(topSongs[i], onClick = { vm.recordSearch(); vm.player.play(topSongs, i, context = PlaybackContext.AllSongs) })
                         }
                     }
                     if (result.albums.isNotEmpty()) {
@@ -231,7 +254,7 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = hiltViewMod
                             ) {
                                 items(result.albums.size, key = { result.albums[it].id }) { i ->
                                     val album = result.albums[i]
-                                    AlbumCard(album, onClick = { navController.navigate("album/${album.id}") })
+                                    AlbumCard(album, onClick = { vm.recordSearch(); navController.navigate("album/${album.id}") })
                                 }
                             }
                         }
@@ -245,7 +268,7 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = hiltViewMod
                             ) {
                                 items(result.artists.size, key = { result.artists[it].id }) { i ->
                                     val artist = result.artists[i]
-                                    ArtistCard(artist, onClick = { navController.navigate("artist/${artist.id}") })
+                                    ArtistCard(artist, onClick = { vm.recordSearch(); navController.navigate("artist/${artist.id}") })
                                 }
                             }
                         }
@@ -253,7 +276,7 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = hiltViewMod
                 }
                 SearchFilter.SONGS -> {
                     items(result.songs.size, key = { result.songs[it].id }, contentType = { "song" }) { i ->
-                        SongItem(result.songs[i], onClick = { vm.player.play(result.songs, i, context = PlaybackContext.AllSongs) })
+                        SongItem(result.songs[i], onClick = { vm.recordSearch(); vm.player.play(result.songs, i, context = PlaybackContext.AllSongs) })
                     }
                 }
                 SearchFilter.ALBUMS -> {
@@ -262,7 +285,7 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = hiltViewMod
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { navController.navigate("album/${album.id}") }
+                                .clickable { vm.recordSearch(); navController.navigate("album/${album.id}") }
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -287,7 +310,7 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = hiltViewMod
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { navController.navigate("artist/${artist.id}") }
+                                .clickable { vm.recordSearch(); navController.navigate("artist/${artist.id}") }
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),

@@ -837,6 +837,14 @@ private fun FullPlayerContent(
                 }
             }
 
+            // Kontroller ile up-next arasındaki boşluk: progress'e senkron
+            // deterministik spektrum (track başına aynı desen, izin/CPU yok)
+            Spacer(Modifier.height(20.dp))
+            com.ozgen.navicloud.ui.components.SpectrumBar(
+                seedKey = item?.mediaId ?: "",
+                progress = sliderValue.coerceIn(0f, 1f),
+                accent = accent,
+            )
         }
     }
 }
