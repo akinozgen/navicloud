@@ -10,17 +10,24 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,6 +39,8 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,6 +99,7 @@ data class LibraryUiState(
     val starred: SearchResult? = null,
     val downloads: List<Song> = emptyList(),
     val activeDownload: ActiveDownload? = null,
+    val downloadsGrouped: Boolean = true,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -168,9 +178,39 @@ class LibraryViewModel @Inject constructor(
         _state.value = _state.value.copy(query = q)
     }
 
+    /** Shuffle all: paged random batch, endless picks up from there. Never loads the full library. */
+    fun shuffleAll() {
+        viewModelScope.launch {
+            runCatching { repo.randomSongs(200) }.onSuccess { songs ->
+                if (songs.isNotEmpty()) player.play(songs, context = PlaybackContext.AllSongs)
+            }
+        }
+    }
+
+    fun toggleDownloadsGrouped() {
+        _state.value = _state.value.copy(downloadsGrouped = !_state.value.downloadsGrouped)
+    }
+
     fun playSongs(songs: List<Song>, index: Int, context: PlaybackContext? = null) =
         player.play(songs, index, context)
     fun removeDownload(songId: String) = viewModelScope.launch { downloadRepo.delete(songId) }
+}
+
+/** Collapses the shuffle FAB once the list is scrolled away from the very top. */
+@Composable
+private fun SyncFabExpansion(listState: LazyListState, expanded: androidx.compose.runtime.MutableState<Boolean>) {
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 24 }
+            .collect { expanded.value = it }
+    }
+}
+
+@Composable
+private fun SyncFabExpansionGrid(gridState: LazyGridState, expanded: androidx.compose.runtime.MutableState<Boolean>) {
+    LaunchedEffect(gridState) {
+        snapshotFlow { gridState.firstVisibleItemIndex == 0 && gridState.firstVisibleItemScrollOffset < 24 }
+            .collect { expanded.value = it }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -178,7 +218,9 @@ class LibraryViewModel @Inject constructor(
 fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val q = state.query.trim()
+    val fabExpanded = remember { mutableStateOf(true) }
 
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         Text(
             "Kitaplık",
@@ -226,7 +268,9 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
             when (state.tab) {
                 LibraryTab.PLAYLISTS -> {
                     val items = state.playlists.filter { q.isEmpty() || it.name.contains(q, ignoreCase = true) }
-                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    val listState = rememberLazyListState()
+                    SyncFabExpansion(listState, fabExpanded)
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
                         items(items.size, key = { items[it].id }, contentType = { "playlist" }) { i ->
                             val pl = items[i]
                             Row(
@@ -254,8 +298,11 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                     val items = state.albums.filter {
                         q.isEmpty() || it.name.contains(q, true) || it.artist.contains(q, true)
                     }
+                    val gridState = rememberLazyGridState()
+                    SyncFabExpansionGrid(gridState, fabExpanded)
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
+                        state = gridState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -273,7 +320,9 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                 }
                 LibraryTab.ARTISTS -> {
                     val items = state.artists.filter { q.isEmpty() || it.name.contains(q, true) }
-                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    val listState = rememberLazyListState()
+                    SyncFabExpansion(listState, fabExpanded)
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
                         items(items.size, key = { items[it].id }, contentType = { "artist" }) { i ->
                             val artist = items[i]
                             Row(
@@ -301,6 +350,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                     val items = if (q.isEmpty()) state.songs
                     else state.songs.filter { it.title.contains(q, true) || it.artist?.contains(q, true) == true }
                     val listState: LazyListState = rememberLazyListState()
+                    SyncFabExpansion(listState, fabExpanded)
                     // Load next page as the user approaches the end (only meaningful unfiltered)
                     LaunchedEffect(listState, state.songs.size) {
                         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
@@ -324,7 +374,9 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                 LibraryTab.FAVORITES -> {
                     val all = state.starred?.songs.orEmpty()
                     val items = all.filter { q.isEmpty() || it.title.contains(q, true) || it.artist?.contains(q, true) == true }
-                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    val listState = rememberLazyListState()
+                    SyncFabExpansion(listState, fabExpanded)
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
                         items(items.size, key = { items[it].id }, contentType = { "song" }) { i ->
                             SongItem(items[i], onClick = { vm.playSongs(items, i) })
                         }
@@ -332,7 +384,9 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                 }
                 LibraryTab.DOWNLOADS -> {
                     val items = state.downloads.filter { q.isEmpty() || it.title.contains(q, true) || it.artist?.contains(q, true) == true }
-                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    val listState = rememberLazyListState()
+                    SyncFabExpansion(listState, fabExpanded)
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
                         val active = state.activeDownload
                         if (active != null) {
                             item(key = "active-download") {
@@ -350,8 +404,46 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                                 }
                             }
                         }
-                        items(items.size, key = { items[it].id }, contentType = { "song" }) { i ->
-                            SongItem(items[i], onClick = { vm.playSongs(items, i) })
+                        // Group toggle
+                        item(key = "group-toggle") {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    if (state.downloadsGrouped) "Albüme göre gruplu" else "Düz liste",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                IconButton(onClick = { vm.toggleDownloadsGrouped() }) {
+                                    Icon(
+                                        if (state.downloadsGrouped) Icons.AutoMirrored.Rounded.List
+                                        else Icons.Rounded.GridView,
+                                        contentDescription = "Gruplamayı değiştir",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                        if (state.downloadsGrouped) {
+                            val groups = items.groupBy { it.album ?: "Bilinmeyen Albüm" }.toSortedMap()
+                            groups.forEach { (albumName, songs) ->
+                                item(key = "hdr-$albumName") {
+                                    Text(
+                                        albumName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                    )
+                                }
+                                items(songs.size, key = { "g-${songs[it].id}" }, contentType = { "song" }) { i ->
+                                    SongItem(songs[i], onClick = { vm.playSongs(songs, i) })
+                                }
+                            }
+                        } else {
+                            items(items.size, key = { items[it].id }, contentType = { "song" }) { i ->
+                                SongItem(items[i], onClick = { vm.playSongs(items, i) })
+                            }
                         }
                         if (items.isEmpty() && active == null) {
                             item(key = "empty") {
@@ -367,5 +459,16 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                 }
             }
         }
+    }
+
+    ExtendedFloatingActionButton(
+        onClick = { vm.shuffleAll() },
+        expanded = fabExpanded.value,
+        icon = { Icon(Icons.Rounded.Shuffle, contentDescription = null) },
+        text = { Text("Shuffle all") },
+        modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(16.dp),
+    )
     }
 }
