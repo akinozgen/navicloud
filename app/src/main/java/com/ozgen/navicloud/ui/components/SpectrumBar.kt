@@ -36,19 +36,30 @@ fun SpectrumBar(
             (prev + h * 2f + next) / 4f
         }
     }
-    Canvas(modifier.fillMaxWidth().height(64.dp)) {
+    Canvas(modifier.fillMaxWidth().height(76.dp)) {
         val n = heights.size
         val gap = 2.dp.toPx()
         val barW = ((size.width - gap * (n - 1)) / n).coerceAtLeast(1f)
         val filled = progress.coerceIn(0f, 1f) * n
+        // Bar tabanı: üstte asıl spektrum, altında sönük yansıması (su hattı gibi)
+        val baseline = size.height * 0.62f
+        val mirrorSpace = size.height - baseline
         heights.forEachIndexed { i, h ->
             val x = i * (barW + gap)
-            val bh = size.height * h
+            val passed = i < filled
+            val bh = baseline * h
             drawRoundRect(
-                // Yarı saydam: zeminle kaynaşır, öğe gibi bağırmaz
-                color = if (i < filled) accent.copy(alpha = 0.55f) else Color(0x14FFFFFF),
-                topLeft = Offset(x, size.height - bh), // alt hizalı skyline
+                color = if (passed) accent.copy(alpha = 0.55f) else Color(0x14FFFFFF),
+                topLeft = Offset(x, baseline - bh),
                 size = Size(barW, bh),
+                cornerRadius = CornerRadius(barW / 2f),
+            )
+            // Yansıma: aynı desen, aşağı doğru, çok daha sönük
+            val rh = mirrorSpace * h * 0.8f
+            drawRoundRect(
+                color = if (passed) accent.copy(alpha = 0.18f) else Color(0x08FFFFFF),
+                topLeft = Offset(x, baseline + 2.dp.toPx()),
+                size = Size(barW, rh),
                 cornerRadius = CornerRadius(barW / 2f),
             )
         }
