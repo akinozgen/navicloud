@@ -36,9 +36,10 @@ fun main() = application {
         val okHttp = OkHttpClient()
         val servers = DesktopServerSource(okHttp, json)
         val music = MusicRepository(servers, InMemoryApiCacheStore(), json, AlwaysOnlineSource())
+        val player = MpvPlayerController(MpvEngine(), music).apply { restoreQueue() }
         AppContainer(
             music = music,
-            player = MpvPlayerController(MpvEngine(), music),
+            player = player,
             servers = servers,
             downloads = NoDownloads(),
             offline = AlwaysOnlineSource(),
@@ -68,21 +69,10 @@ fun main() = application {
         CompositionLocalProvider(LocalAppContainer provides container) {
             NaviCloudTheme {
                 NaviCloudRoot(
-                    platformSettings = { DesktopSettingsPlaceholder() },
+                    platformSettings = { nav -> DesktopSettingsScreen(nav) },
                 )
             }
         }
     }
 }
 
-@androidx.compose.runtime.Composable
-private fun DesktopSettingsPlaceholder() {
-    Column(Modifier.fillMaxSize().padding(24.dp)) {
-        Text("Ayarlar", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            "Masaüstü ayarları (ses motoru seçimi: libmpv) D5'te geliyor.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}

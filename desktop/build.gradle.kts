@@ -26,6 +26,10 @@ compose.desktop {
         nativeDistributions {
             packageName = "NaviCloud"
             packageVersion = "0.1.0"
+            description = "Navidrome istemcisi"
+            vendor = "ozgen"
         }
+        // libmpv-2.dll dağıtıma gömülür (windows-x64 altı → app/resources)
+        nativeDistributions.appResourcesRootDir.set(project.layout.projectDirectory.dir("packaging"))
     }
 }

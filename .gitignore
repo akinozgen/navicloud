@@ -13,3 +13,4 @@ desktop/libs/*.dll
 desktop/build/
 shared/build/
 sharedUi/build/
+desktop/packaging/

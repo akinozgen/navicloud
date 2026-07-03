@@ -50,7 +50,9 @@ class MpvEngine {
     /** libmpv-2.dll'i bilinen yerlerde arar (çalışma dizini, libs/, desktop/libs/). */
     private fun resolveDllDir(): String? {
         val cwd = File(System.getProperty("user.dir"))
-        val candidates = listOf(cwd, File(cwd, "libs"), File(cwd, "desktop/libs"), cwd.parentFile?.let { File(it, "desktop/libs") })
+        // jpackage dağıtımında DLL app/resources dizinine gömülür
+        val packaged = System.getProperty("compose.application.resources.dir")?.let { File(it) }
+        val candidates = listOf(packaged, cwd, File(cwd, "libs"), File(cwd, "desktop/libs"), cwd.parentFile?.let { File(it, "desktop/libs") })
         return candidates.filterNotNull().firstOrNull { dir ->
             File(dir, "libmpv-2.dll").exists() || File(dir, "mpv-2.dll").exists()
         }?.absolutePath

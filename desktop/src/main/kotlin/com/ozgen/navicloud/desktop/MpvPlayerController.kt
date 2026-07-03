@@ -15,6 +15,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import java.io.File
 import java.util.UUID
 
 /**
@@ -29,6 +31,17 @@ class MpvPlayerController(
     private val engine: MpvEngine,
     private val musicRepository: MusicRepository,
 ) : PlayerController {
+    @kotlinx.serialization.Serializable
+    private data class PersistedQueue(
+        val songs: List<Song>,
+        val index: Int,
+        val positionMs: Long,
+        val contextLabel: String? = null,
+    )
+
+    private val queueFile = File(System.getProperty("user.home"), ".navicloud/queue.json")
+    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+    private var lastSaveMs = 0L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val queue = mutableListOf<QueueTrack>()
@@ -67,12 +80,46 @@ class MpvPlayerController(
                 val idle = engine.isIdle
                 if (trackActive && idle && System.currentTimeMillis() - loadedAtMs > 3000) {
                     trackActive = false
+                    // Doğal bitiş = scrobble submission (Navidrome kuralı)
+                    queue.getOrNull(index)?.let { t ->
+                        scope.launch { runCatching { musicRepository.scrobble(t.song.id, submission = true) } }
+                    }
                     advance()
                 }
                 if (!idle && engine.positionSec > 0.5) trackActive = true
                 syncState()
                 maybeContinueEndless()
+                if (queue.isNotEmpty() && System.currentTimeMillis() - lastSaveMs > 10_000) saveQueue()
                 delay(500)
+            }
+        }
+    }
+
+    private fun saveQueue() {
+        lastSaveMs = System.currentTimeMillis()
+        runCatching {
+            queueFile.parentFile?.mkdirs()
+            val payload = PersistedQueue(
+                songs = queue.map { it.song },
+                index = index,
+                positionMs = positionMs,
+                contextLabel = _contextLabel.value,
+            )
+            queueFile.writeText(json.encodeToString(PersistedQueue.serializer(), payload))
+        }
+    }
+
+    /** Uygulama açılışında kuyruğu geri getirir — bilinçli olarak ÇALMAZ. */
+    fun restoreQueue() {
+        scope.launch {
+            runCatching {
+                if (!queueFile.exists()) return@launch
+                val saved = json.decodeFromString(PersistedQueue.serializer(), queueFile.readText())
+                if (saved.songs.isEmpty() || queue.isNotEmpty()) return@launch
+                queue.addAll(saved.songs.map { it.toQueueTrack() })
+                index = saved.index.coerceIn(0, queue.size - 1)
+                _contextLabel.value = saved.contextLabel
+                syncState()
             }
         }
     }
@@ -107,7 +154,9 @@ class MpvPlayerController(
                 loadedAtMs = System.currentTimeMillis()
                 trackActive = false
                 engine.play(url)
+                runCatching { musicRepository.scrobble(track.song.id, submission = false) }
                 syncState()
+                saveQueue()
             }
         }
     }
@@ -258,6 +307,7 @@ class MpvPlayerController(
         playbackContext = null
         _currentContext.value = null
         _contextLabel.value = null
+        runCatching { queueFile.delete() }
         syncState()
     }
 
