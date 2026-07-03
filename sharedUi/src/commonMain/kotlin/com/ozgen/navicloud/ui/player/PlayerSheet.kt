@@ -861,46 +861,54 @@ private fun FullPlayerContent(
             }
 
             // Ses seviyesi — yalnız masaüstünde (mobilde donanım tuşları var).
-            // İkona tıklayınca slider açılır; kontrollerle kuyruk arasında durur.
+            // Müzik çalar kalıbı: sağa yaslı, hep görünür kompakt slider;
+            // ikona tıklamak sessize alır / geri açar (Spotify düzeni).
             val volumeCtl = com.ozgen.navicloud.ui.LocalVolumeController.current
             if (volumeCtl != null) {
-                var volOpen by remember { mutableStateOf(false) }
                 var vol by remember { mutableFloatStateOf(volumeCtl.volume) }
+                var lastAudible by remember { mutableFloatStateOf(if (vol > 0.01f) vol else 0.7f) }
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
+                    horizontalArrangement = Arrangement.End,
                 ) {
-                    IconButton(onClick = { volOpen = !volOpen }) {
+                    IconButton(
+                        onClick = {
+                            if (vol > 0.01f) {
+                                lastAudible = vol
+                                vol = 0f
+                            } else {
+                                vol = lastAudible
+                            }
+                            volumeCtl.volume = vol
+                        },
+                        modifier = Modifier.size(32.dp),
+                    ) {
                         Icon(
                             when {
                                 vol <= 0.01f -> Icons.AutoMirrored.Rounded.VolumeOff
                                 vol < 0.5f -> Icons.AutoMirrored.Rounded.VolumeDown
                                 else -> Icons.AutoMirrored.Rounded.VolumeUp
                             },
-                            contentDescription = "Ses",
-                            tint = Color(0xB3FFFFFF),
+                            contentDescription = if (vol <= 0.01f) "Sesi aç" else "Sessize al",
+                            tint = Color(0x99FFFFFF),
+                            modifier = Modifier.size(18.dp),
                         )
                     }
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = volOpen,
-                        enter = androidx.compose.animation.expandHorizontally() + androidx.compose.animation.fadeIn(),
-                        exit = androidx.compose.animation.shrinkHorizontally() + androidx.compose.animation.fadeOut(),
-                    ) {
-                        Slider(
-                            value = vol,
-                            onValueChange = {
-                                vol = it
-                                volumeCtl.volume = it
-                            },
-                            colors = SliderDefaults.colors(
-                                thumbColor = accent,
-                                activeTrackColor = accent,
-                                inactiveTrackColor = Color(0x33FFFFFF),
-                            ),
-                            modifier = Modifier.width(180.dp),
-                        )
-                    }
+                    Slider(
+                        value = vol,
+                        onValueChange = {
+                            vol = it
+                            if (it > 0.01f) lastAudible = it
+                            volumeCtl.volume = it
+                        },
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color.White,
+                            activeTrackColor = Color(0xCCFFFFFF),
+                            inactiveTrackColor = Color(0x33FFFFFF),
+                        ),
+                        modifier = Modifier.width(120.dp).height(28.dp),
+                    )
                 }
             }
 
