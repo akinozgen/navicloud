@@ -7,6 +7,10 @@ plugins {
 
 dependencies {
     implementation(project(":shared"))
+    implementation(project(":sharedUi"))
+    implementation(libs.coil3.compose)
+    implementation(libs.coil3.network.okhttp)
+    implementation(libs.jetbrains.navigation.compose)
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     implementation(compose.materialIconsExtended)

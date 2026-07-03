@@ -88,6 +88,10 @@ object AppModule {
     @Singleton
     fun provideApiCacheStore(impl: com.ozgen.navicloud.data.RoomApiCacheStore): com.ozgen.navicloud.data.ApiCacheStore = impl
 
+    @Provides
+    @Singleton
+    fun provideRecentSearches(impl: com.ozgen.navicloud.data.DataStoreRecentSearches): com.ozgen.navicloud.data.RecentSearchesStore = impl
+
     // Platform-bağımsız PlayerController arayüzü → Android'de Media3 implementasyonu.
     // Masaüstü (KMP) portunda burası vlcj tabanlı implementasyona bağlanacak.
     @Provides

@@ -29,7 +29,7 @@ class ServerRepository @Inject constructor(
     private val baseOkHttp: OkHttpClient,
     private val json: Json,
 ) : ServerSource {
-    val servers: Flow<List<Server>> =
+    override val servers: Flow<List<Server>> =
         serverDao.observeAll().map { list -> list.map { it.toModel() } }
 
     override val activeServer: Flow<Server?> =
@@ -51,7 +51,7 @@ class ServerRepository @Inject constructor(
     }
 
     /** Validates credentials with a ping before saving. Returns the new server id. */
-    suspend fun addServer(name: String, baseUrl: String, username: String, password: String): Long {
+    override suspend fun addServer(name: String, baseUrl: String, username: String, password: String): Long {
         val candidate = Server(0, name, baseUrl.trimEnd('/'), username, password)
         SubsonicClient(candidate, baseOkHttp, json).api.ping().unwrap()
         val id = serverDao.insert(
@@ -61,12 +61,12 @@ class ServerRepository @Inject constructor(
         return id
     }
 
-    suspend fun removeServer(id: Long) {
+    override suspend fun removeServer(id: Long) {
         serverDao.byId(id)?.let { serverDao.delete(it) }
         synchronized(clientCache) { clientCache.remove(id) }
     }
 
-    suspend fun setActive(id: Long) {
+    override suspend fun setActive(id: Long) {
         dataStore.edit { it[KEY_ACTIVE_SERVER] = id }
     }
 }

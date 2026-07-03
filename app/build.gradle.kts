@@ -47,6 +47,7 @@ android {
 
 dependencies {
     implementation(project(":shared"))
+    implementation(project(":sharedUi"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -85,6 +86,7 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
-    implementation(libs.coil.compose)
+    implementation(libs.coil3.compose)
+    implementation(libs.coil3.network.okhttp)
     implementation(libs.reorderable)
 }

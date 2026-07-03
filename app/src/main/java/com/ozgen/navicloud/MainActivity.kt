@@ -5,9 +5,20 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import com.ozgen.navicloud.data.DownloadRepository
+import com.ozgen.navicloud.data.MusicRepository
+import com.ozgen.navicloud.data.RecentSearchesStore
+import com.ozgen.navicloud.data.ServerRepository
+import com.ozgen.navicloud.data.SettingsRepository
 import com.ozgen.navicloud.playback.PlaybackService
 import com.ozgen.navicloud.playback.PlayerController
+import com.ozgen.navicloud.ui.AppContainer
+import com.ozgen.navicloud.ui.LocalAppContainer
+import com.ozgen.navicloud.ui.LocalDebugAutofill
 import com.ozgen.navicloud.ui.NaviCloudRoot
+import com.ozgen.navicloud.ui.screens.servers.ServersScreen
 import com.ozgen.navicloud.ui.theme.NaviCloudTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -16,14 +27,37 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var playerController: PlayerController
+    @Inject lateinit var musicRepository: MusicRepository
+    @Inject lateinit var serverRepository: ServerRepository
+    @Inject lateinit var downloadRepository: DownloadRepository
+    @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var recentSearches: RecentSearchesStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleOpenPlayerIntent(intent)
         setContent {
-            NaviCloudTheme {
-                NaviCloudRoot()
+            // Paylaşılan UI'ın bağımlılık kabı — Hilt grafiğinden beslenir
+            val container = remember {
+                AppContainer(
+                    music = musicRepository,
+                    player = playerController,
+                    servers = serverRepository,
+                    downloads = downloadRepository,
+                    offline = settingsRepository,
+                    recents = recentSearches,
+                )
+            }
+            CompositionLocalProvider(
+                LocalAppContainer provides container,
+                LocalDebugAutofill provides BuildConfig.DEBUG,
+            ) {
+                NaviCloudTheme {
+                    NaviCloudRoot(
+                        platformSettings = { nav -> ServersScreen(nav) },
+                    )
+                }
             }
         }
     }

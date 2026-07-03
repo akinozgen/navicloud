@@ -10,9 +10,15 @@ import kotlinx.coroutines.flow.Flow
  * yalnızca bu arayüzleri bilir.
  */
 interface ServerSource {
+    val servers: Flow<List<Server>>
     val activeServer: Flow<Server?>
     suspend fun activeClient(): SubsonicClient
     fun clientFor(server: Server): SubsonicClient
+
+    /** Bağlantıyı doğrular (ping), kaydeder ve aktif yapar; yeni id döner. */
+    suspend fun addServer(name: String, baseUrl: String, username: String, password: String): Long
+    suspend fun setActive(id: Long)
+    suspend fun removeServer(id: Long)
 }
 
 interface OfflineModeSource {

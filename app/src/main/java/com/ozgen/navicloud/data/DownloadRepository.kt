@@ -19,21 +19,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import okhttp3.Request
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
-
-/** Snapshot of the in-flight download, for progress UI. */
-data class ActiveDownload(
-    val songId: String,
-    val title: String,
-    val progress: Float,
-    val queued: Int,
-    /** "Sadece WiFi'de indir" açık ve ağ metered: kuyruk WiFi'yi bekliyor. */
-    val waitingForWifi: Boolean = false,
-)
 
 @Singleton
 class DownloadRepository @Inject constructor(
@@ -41,25 +32,26 @@ class DownloadRepository @Inject constructor(
     private val downloadDao: DownloadDao,
     private val servers: ServerRepository,
     private val settings: SettingsRepository,
-) {
+) : DownloadsPort {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val queue = Channel<Song>(Channel.UNLIMITED)
     private var queuedCount = 0
 
     private val _active = MutableStateFlow<ActiveDownload?>(null)
-    val active: StateFlow<ActiveDownload?> = _active
+    override val active: StateFlow<ActiveDownload?> = _active
 
-    val downloadedIds: Flow<List<String>> = downloadDao.observeIds()
-    val totalSizeBytes: Flow<Long> = downloadDao.observeTotalSize()
-    val totalCount: Flow<Int> = downloadDao.observeCount()
+    override val downloadedIds: Flow<List<String>> = downloadDao.observeIds()
+    override val totalSizeBytes: Flow<Long> = downloadDao.observeTotalSize()
+    override val totalCount: Flow<Int> = downloadDao.observeCount()
 
-    fun downloadsFor(serverId: Long): Flow<List<DownloadEntity>> = downloadDao.observeAll(serverId)
+    override fun downloadsFor(serverId: Long): Flow<List<Song>> =
+        downloadDao.observeAll(serverId).map { list -> list.map { it.toSong() } }
 
     /** Offline endless için: indirilen tüm şarkılar (Song modeli). */
-    suspend fun allDownloadedSongs(): List<Song> = downloadDao.all().map { it.toSong() }
+    override suspend fun allDownloadedSongs(): List<Song> = downloadDao.all().map { it.toSong() }
 
     /** Tüm indirilenleri siler (dosyalar + kayıtlar). */
-    suspend fun clearAll() {
+    override suspend fun clearAll() {
         downloadDao.all().forEach { File(it.filePath).delete() }
         downloadDao.deleteAll()
     }
@@ -76,7 +68,7 @@ class DownloadRepository @Inject constructor(
         }
     }
 
-    fun enqueue(songs: List<Song>) {
+    override fun enqueue(songs: List<Song>) {
         scope.launch {
             for (song in songs) {
                 if (downloadDao.byId(song.id) == null) {
@@ -133,7 +125,7 @@ class DownloadRepository @Inject constructor(
         return file
     }
 
-    suspend fun delete(songId: String) {
+    override suspend fun delete(songId: String) {
         downloadDao.byId(songId)?.let { File(it.filePath).delete() }
         downloadDao.delete(songId)
     }

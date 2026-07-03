@@ -122,7 +122,7 @@ class SettingsViewModel @Inject constructor(
     fun refreshCacheSizes() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             _streamCacheBytes.value = streamCache.cacheSpaceBytes()
-            _imageCacheBytes.value = coil.Coil.imageLoader(context).diskCache?.size ?: 0L
+            _imageCacheBytes.value = coil3.SingletonImageLoader.get(context).diskCache?.size ?: 0L
         }
     }
 
@@ -132,7 +132,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun clearImageCache() {
-        val loader = coil.Coil.imageLoader(context)
+        val loader = coil3.SingletonImageLoader.get(context)
         loader.memoryCache?.clear()
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             loader.diskCache?.clear()
