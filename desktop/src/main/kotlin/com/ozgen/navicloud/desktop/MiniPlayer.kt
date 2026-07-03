@@ -1,6 +1,11 @@
 package com.ozgen.navicloud.desktop
 
 import androidx.compose.foundation.background
+import com.ozgen.navicloud.ui.extractArtColors
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.blur
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -99,13 +104,38 @@ fun MiniPlayerWindow(player: PlayerController, onExpand: () -> Unit) {
                     delay(400)
                 }
             }
-            val accent = MaterialTheme.colorScheme.primary
+            // Kapaktan türeyen accent (telefondaki gibi); yumuşak geçiş
+            var accentTarget by remember { mutableStateOf<Color?>(null) }
+            LaunchedEffect(track?.song?.coverArt) {
+                val url = track?.artworkUrl
+                accentTarget = if (url == null) null
+                else runCatching { extractArtColors(url, track.song.coverArt) }.getOrNull()?.second
+            }
+            val accent by animateColorAsState(
+                accentTarget ?: MaterialTheme.colorScheme.primary,
+                tween(500),
+                label = "miniAccent",
+            )
 
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ) {
-                Column(Modifier.fillMaxSize().padding(16.dp)) {
+            Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF15151B)) {
+                Box(Modifier.fillMaxSize()) {
+                    // Faint, blur'lu kapak — zemin cover'dan gelen tema (telefon dili)
+                    track?.artworkUrl?.let { url ->
+                        AsyncImage(
+                            model = url,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            alpha = 0.45f,
+                            modifier = Modifier.fillMaxSize().blur(30.dp),
+                        )
+                    }
+                    // Okunabilirlik için karartıcı dikey scrim
+                    Box(
+                        Modifier.fillMaxSize().background(
+                            Brush.verticalGradient(listOf(Color(0x33000000), Color(0xAA000000))),
+                        ),
+                    )
+                    Column(Modifier.fillMaxSize().padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // Üst şerit: sürükle → pencereyi taşı. Mutlak fare konumu
                         // deltası kullanılır; bileşen-göreli delta pencere kayınca
@@ -240,6 +270,7 @@ fun MiniPlayerWindow(player: PlayerController, onExpand: () -> Unit) {
                             )
                         }
                     }
+                }
                 }
             }
         }
