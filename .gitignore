@@ -10,3 +10,4 @@
 .cxx
 desktop/libs/*.7z
 desktop/libs/*.dll
+desktop/build/
