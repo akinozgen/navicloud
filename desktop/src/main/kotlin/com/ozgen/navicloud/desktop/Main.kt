@@ -31,6 +31,11 @@ import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import java.io.File
 
+private class DesktopDeps(
+    val container: AppContainer,
+    val volume: com.ozgen.navicloud.ui.VolumeController,
+)
+
 /** NaviCloud Desktop: paylaşılan UI + libmpv ses motoru. */
 fun main() = application {
     val container = remember {
@@ -43,8 +48,9 @@ fun main() = application {
         val queueCore = com.ozgen.navicloud.playback.QueueCore(
             music, downloads, offline, FileQueueStateStore(), json,
         )
+        val engine = MpvEngine().apply { volume = DesktopPrefs.volume }
         val player = MpvPlayerController(
-            MpvEngine(), music, queueCore, DesktopPrefs.streamQualityFlow,
+            engine, music, queueCore, DesktopPrefs.streamQualityFlow,
             localFile = { id -> downloads.localPath(id) },
         ).apply { restoreQueue() }
         // Otonom doğrulama: NAVI_SELFTEST_DL=1 → indir, offline'a geç, yerelden çal
@@ -70,13 +76,23 @@ fun main() = application {
                 }.onFailure { println("DLTEST HATA: $it") }
             }
         }
-        AppContainer(
-            music = music,
-            player = player,
-            servers = servers,
-            downloads = downloads,
-            offline = offline,
-            recents = InMemoryRecentSearches(),
+        DesktopDeps(
+            container = AppContainer(
+                music = music,
+                player = player,
+                servers = servers,
+                downloads = downloads,
+                offline = offline,
+                recents = InMemoryRecentSearches(),
+            ),
+            volume = object : com.ozgen.navicloud.ui.VolumeController {
+                override var volume: Float
+                    get() = engine.volume / 100f
+                    set(value) {
+                        engine.volume = (value * 100).toInt()
+                        DesktopPrefs.volume = (value * 100).toInt()
+                    }
+            },
         )
     }
 
@@ -99,7 +115,10 @@ fun main() = application {
                 .crossfade(true)
                 .build()
         }
-        CompositionLocalProvider(LocalAppContainer provides container) {
+        CompositionLocalProvider(
+            LocalAppContainer provides container.container,
+            com.ozgen.navicloud.ui.LocalVolumeController provides container.volume,
+        ) {
             NaviCloudTheme {
                 NaviCloudRoot(
                     platformSettings = { nav -> DesktopSettingsScreen(nav) },

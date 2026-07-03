@@ -44,6 +44,9 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.VolumeDown
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Favorite
@@ -854,6 +857,50 @@ private fun FullPlayerContent(
                             )
                             .padding(6.dp),
                     )
+                }
+            }
+
+            // Ses seviyesi — yalnız masaüstünde (mobilde donanım tuşları var).
+            // İkona tıklayınca slider açılır; kontrollerle kuyruk arasında durur.
+            val volumeCtl = com.ozgen.navicloud.ui.LocalVolumeController.current
+            if (volumeCtl != null) {
+                var volOpen by remember { mutableStateOf(false) }
+                var vol by remember { mutableFloatStateOf(volumeCtl.volume) }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    IconButton(onClick = { volOpen = !volOpen }) {
+                        Icon(
+                            when {
+                                vol <= 0.01f -> Icons.AutoMirrored.Rounded.VolumeOff
+                                vol < 0.5f -> Icons.AutoMirrored.Rounded.VolumeDown
+                                else -> Icons.AutoMirrored.Rounded.VolumeUp
+                            },
+                            contentDescription = "Ses",
+                            tint = Color(0xB3FFFFFF),
+                        )
+                    }
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = volOpen,
+                        enter = androidx.compose.animation.expandHorizontally() + androidx.compose.animation.fadeIn(),
+                        exit = androidx.compose.animation.shrinkHorizontally() + androidx.compose.animation.fadeOut(),
+                    ) {
+                        Slider(
+                            value = vol,
+                            onValueChange = {
+                                vol = it
+                                volumeCtl.volume = it
+                            },
+                            colors = SliderDefaults.colors(
+                                thumbColor = accent,
+                                activeTrackColor = accent,
+                                inactiveTrackColor = Color(0x33FFFFFF),
+                            ),
+                            modifier = Modifier.width(180.dp),
+                        )
+                    }
                 }
             }
 

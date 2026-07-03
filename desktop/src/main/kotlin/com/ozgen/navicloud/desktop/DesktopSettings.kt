@@ -68,6 +68,7 @@ object DesktopPrefs {
         val audioBackend: String = AudioBackend.LIBMPV.name,
         val streamQuality: String = StreamQuality.RAW.name,
         val offlineMode: Boolean = false,
+        val volume: Int = 100,
     )
 
     private val file = File(System.getProperty("user.home"), ".navicloud/settings.json")
@@ -107,6 +108,10 @@ object DesktopPrefs {
             offlineModeFlow.value = value
             save(load().copy(offlineMode = value))
         }
+
+    var volume: Int
+        get() = load().volume
+        set(value) = save(load().copy(volume = value.coerceIn(0, 100)))
 }
 
 @Composable

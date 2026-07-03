@@ -42,6 +42,18 @@ inline fun <reified VM : ViewModel> containerViewModel(
     return viewModel(key = key) { create(c) }
 }
 
+/**
+ * Ses seviyesi denetimi: mobilde donanım tuşları var, GEREKSİZ (null);
+ * masaüstünde Main mpv'ye bağlı implementasyon sağlar ve player'da
+ * ses ikonu görünür.
+ */
+interface VolumeController {
+    /** 0f..1f */
+    var volume: Float
+}
+
+val LocalVolumeController = staticCompositionLocalOf<VolumeController?> { null }
+
 /** Dokunmatik platformda true — pull-to-refresh jestinin ön koşulu. */
 expect val supportsPullToRefresh: Boolean
 

@@ -83,6 +83,13 @@ class MpvEngine {
     val positionSec: Double get() = prop("time-pos")?.toDoubleOrNull() ?: 0.0
     val durationSec: Double get() = prop("duration")?.toDoubleOrNull() ?: 0.0
     val isPaused: Boolean get() = prop("pause") == "yes"
+
+    /** 0-100 arası ses seviyesi (mpv 'volume' özelliği). */
+    var volume: Int
+        get() = prop("volume")?.toDoubleOrNull()?.toInt() ?: 100
+        set(value) {
+            lib.mpv_set_property_string(ctx, "volume", value.coerceIn(0, 130).toString())
+        }
     val isIdle: Boolean get() = prop("idle-active") == "yes"
 
     /** Codec rozeti benzeri bilgi: örn. "flac 44100Hz stereo". */
