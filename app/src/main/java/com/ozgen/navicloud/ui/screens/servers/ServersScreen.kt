@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -57,6 +58,9 @@ import com.ozgen.navicloud.data.ServerRepository
 import com.ozgen.navicloud.data.SettingsRepository
 import com.ozgen.navicloud.data.StreamQuality
 import com.ozgen.navicloud.ui.screens.login.LoginScreen
+import com.ozgen.navicloud.ui.screens.settings.LicensesScreen
+import com.ozgen.navicloud.ui.screens.settings.androidLicenses
+import com.ozgen.navicloud.ui.screens.settings.commonLicenses
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -184,6 +188,7 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
     val streamCacheBytes by vm.streamCacheBytes.collectAsStateWithLifecycle()
     val imageCacheBytes by vm.imageCacheBytes.collectAsStateWithLifecycle()
     var adding by remember { mutableStateOf(false) }
+    var showLicenses by remember { mutableStateOf(false) }
     var qualityDialog by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
     var cacheSizeDialog by remember { mutableStateOf(false) }
@@ -192,10 +197,16 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
 
     // Sunucu ekleme formundayken geri tuşu formu kapatır, Ayarlar'dan çıkarmaz
     androidx.activity.compose.BackHandler(enabled = adding) { adding = false }
+    androidx.activity.compose.BackHandler(enabled = showLicenses) { showLicenses = false }
 
     if (adding) {
         // Login formu; başarılı bağlantı yeni sunucuyu aktif yapar
         LoginScreen()
+        return
+    }
+
+    if (showLicenses) {
+        LicensesScreen(entries = commonLicenses + androidLicenses, onBack = { showLicenses = false })
         return
     }
 
@@ -387,6 +398,15 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                 }
             }
         }
+
+        // ---- HAKKINDA ----
+        SectionHeader("Hakkında")
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Description, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "Açık kaynak lisansları",
+            subtitle = "Kullanılan kütüphaneler ve lisansları",
+            onClick = { showLicenses = true },
+        )
         Spacer(Modifier.height(32.dp))
     }
 

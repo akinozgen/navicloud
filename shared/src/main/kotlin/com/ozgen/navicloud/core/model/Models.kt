@@ -43,6 +43,8 @@ data class Song(
     val size: Long?,
     val starred: Boolean,
     val samplingRate: Int? = null,
+    val channelCount: Int? = null,
+    val bitDepth: Int? = null,
 )
 
 @Serializable

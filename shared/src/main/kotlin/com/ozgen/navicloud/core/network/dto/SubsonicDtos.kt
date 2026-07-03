@@ -71,6 +71,7 @@ data class SongDto(
     val starred: String? = null,
     val samplingRate: Int? = null,
     val bitDepth: Int? = null,
+    val channelCount: Int? = null,
 )
 
 @Serializable

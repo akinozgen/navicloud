@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -76,6 +78,7 @@ class SongMenuViewModel(
  * Provides [LocalSongMenu] to everything underneath and hosts the
  * add-to-playlist picker dialog. Wrap the app shell with this once.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SongMenuHost(
     navController: NavController,
@@ -86,6 +89,7 @@ fun SongMenuHost(
     val toast = rememberToaster()
     val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
     var playlistPickerSong by remember { mutableStateOf<Song?>(null) }
+    var infoSong by remember { mutableStateOf<Song?>(null) }
 
     val actions = remember(navController) {
         SongMenuActions(
@@ -118,6 +122,7 @@ fun SongMenuHost(
             setStarred = { song, starred -> vm.setStarred(song, starred) },
             removeFromQueue = { uid -> vm.player.removeQueueItemByUid(uid) },
             isDownloaded = { songId -> songId in downloadedIds },
+            showInfo = { song -> infoSong = song },
         )
     }
 
@@ -162,5 +167,17 @@ fun SongMenuHost(
                 TextButton(onClick = { playlistPickerSong = null }) { Text("Vazgeç") }
             },
         )
+    }
+
+    val info = infoSong
+    if (info != null) {
+        val quality by vm.player.streamQuality.collectAsStateWithLifecycle()
+        ModalBottomSheet(onDismissRequest = { infoSong = null }) {
+            TrackInfoSheet(
+                song = info,
+                quality = quality,
+                isLocal = info.id in downloadedIds,
+            )
+        }
     }
 }

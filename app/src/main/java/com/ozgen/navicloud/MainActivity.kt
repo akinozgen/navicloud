@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var downloadRepository: DownloadRepository
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var recentSearches: RecentSearchesStore
+    @Inject lateinit var audioEffects: com.ozgen.navicloud.audio.AudioEffectsController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,6 +47,7 @@ class MainActivity : ComponentActivity() {
                     downloads = downloadRepository,
                     offline = settingsRepository,
                     recents = recentSearches,
+                    audioEffects = audioEffects,
                 )
             }
             CompositionLocalProvider(

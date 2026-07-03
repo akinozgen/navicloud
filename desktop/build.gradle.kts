@@ -25,9 +25,12 @@ compose.desktop {
         mainClass = "com.ozgen.navicloud.desktop.MainKt"
         nativeDistributions {
             packageName = "NaviCloud"
-            packageVersion = "0.1.0"
+            packageVersion = "1.0.0"
             description = "Navidrome istemcisi"
             vendor = "ozgen"
+            windows {
+                iconFile.set(project.file("icons/navicloud.ico"))
+            }
         }
         // libmpv-2.dll dağıtıma gömülür (windows-x64 altı → app/resources)
         nativeDistributions.appResourcesRootDir.set(project.layout.projectDirectory.dir("packaging"))

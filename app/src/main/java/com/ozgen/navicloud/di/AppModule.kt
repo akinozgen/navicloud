@@ -102,6 +102,10 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideAudioEffectsController(impl: com.ozgen.navicloud.data.AudioEffectsRepository): com.ozgen.navicloud.audio.AudioEffectsController = impl
+
+    @Provides
+    @Singleton
     fun provideQueueCore(
         music: com.ozgen.navicloud.data.MusicRepository,
         downloads: com.ozgen.navicloud.data.DownloadsPort,

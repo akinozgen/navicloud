@@ -1,5 +1,8 @@
 package com.ozgen.navicloud.playback
 
+import com.ozgen.navicloud.audio.EMPTY_SLEEP_TIMER
+import com.ozgen.navicloud.audio.SleepTimerPreset
+import com.ozgen.navicloud.audio.SleepTimerState
 import com.ozgen.navicloud.core.model.Song
 import com.ozgen.navicloud.data.StreamQuality
 import kotlinx.coroutines.flow.StateFlow
@@ -98,4 +101,10 @@ interface PlayerController {
     fun stop()
 
     fun requestExpand()
+
+    // --- Uyku zamanlayıcı (saf app mantığı; platforma göre override) ---
+    // Default'lar no-op: masaüstü kendi pass'inde doldurana dek derlenmeye devam eder.
+    val sleepTimer: StateFlow<SleepTimerState> get() = EMPTY_SLEEP_TIMER
+    fun startSleepTimer(preset: SleepTimerPreset) {}
+    fun cancelSleepTimer() {}
 }

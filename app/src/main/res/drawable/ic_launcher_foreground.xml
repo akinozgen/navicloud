@@ -4,12 +4,16 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Cloud -->
-    <path
-        android:fillColor="#7C6CFF"
-        android:pathData="M38,66c-6.6,0 -12,-5.4 -12,-12c0,-6 4.4,-10.9 10.1,-11.9C37.6,34.9 44,29 51.8,29c7.4,0 13.6,5.3 15.2,12.3c0.6,-0.1 1.3,-0.2 2,-0.2c6.1,0 11,4.9 11,11s-4.9,11 -11,11L38,66z" />
-    <!-- Play triangle -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M48,45l16,9l-16,9z" />
+    <!-- Bulut: beyaz, üst üste binen daireler + düz taban -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M48,54 L61,54 A7,7 0 0 1 68,61 L68,62 A7,7 0 0 1 61,69 L48,69 A7,7 0 0 1 41,62 L41,61 A7,7 0 0 1 48,54 Z" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M29.5,57 a11.5,11.5 0 1,0 23,0 a11.5,11.5 0 1,0 -23,0 Z" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M54.5,56 a13.5,13.5 0 1,0 27,0 a13.5,13.5 0 1,0 -27,0 Z" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M38,49 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0 Z" />
+    <!-- Play üçgeni: mor -->
+    <path android:fillColor="#6D28D9"
+        android:pathData="M48,47 L48,64 L64,55.5 Z" />
 </vector>

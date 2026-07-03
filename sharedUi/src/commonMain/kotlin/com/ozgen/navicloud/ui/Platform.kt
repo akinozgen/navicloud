@@ -5,6 +5,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.graphics.Color
+import com.ozgen.navicloud.audio.AudioEffectsController
+import com.ozgen.navicloud.audio.NoOpAudioEffectsController
 import com.ozgen.navicloud.data.DownloadsPort
 import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.data.OfflineModeSource
@@ -23,6 +25,8 @@ class AppContainer(
     val downloads: DownloadsPort,
     val offline: OfflineModeSource,
     val recents: RecentSearchesStore,
+    /** Ses/EQ efektleri. Desteklemeyen platform default NoOp bırakır. */
+    val audioEffects: AudioEffectsController = NoOpAudioEffectsController(),
 )
 
 val LocalAppContainer = staticCompositionLocalOf<AppContainer> {

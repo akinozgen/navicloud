@@ -51,10 +51,16 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -69,10 +75,15 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SwipeToDismissBox
@@ -122,7 +133,8 @@ import com.ozgen.navicloud.core.model.Lyrics
 import com.ozgen.navicloud.playback.PlayerController
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
-import com.ozgen.navicloud.ui.components.SongContextMenu
+import com.ozgen.navicloud.audio.SleepTimerPreset
+import com.ozgen.navicloud.ui.components.SongContextMenuItems
 import com.ozgen.navicloud.ui.components.SongItem
 import com.ozgen.navicloud.ui.components.WavySeekBar
 import com.ozgen.navicloud.ui.components.formatDuration
@@ -171,6 +183,8 @@ fun PlayerSheet(
     var dominantTarget by remember { mutableStateOf(Color(0xFF17171E)) }
     var accentTarget by remember { mutableStateOf<Color?>(null) }
     var showLyrics by remember { mutableStateOf(false) }
+    var showSleepTimer by remember { mutableStateOf(false) }
+    var showAudioFx by remember { mutableStateOf(false) }
 
     val artResolver = com.ozgen.navicloud.ui.components.LocalArtResolver.current
     LaunchedEffect(item.song.id) {
@@ -400,6 +414,8 @@ fun PlayerSheet(
                         vm.loadLyrics(item.song.id)
                         showLyrics = true
                     },
+                    onOpenSleepTimer = { showSleepTimer = true },
+                    onOpenAudioFx = { showAudioFx = true },
                 )
             }
 
@@ -467,6 +483,25 @@ fun PlayerSheet(
                 loading = uiState.lyricsLoading,
                 positionMsProvider = { vm.player.positionMs },
             )
+        }
+    }
+
+    if (showSleepTimer) {
+        ModalBottomSheet(onDismissRequest = { showSleepTimer = false }) {
+            SleepTimerSheet(player = vm.player, onClose = { showSleepTimer = false })
+        }
+    }
+
+    if (showAudioFx) {
+        val fx = com.ozgen.navicloud.ui.LocalAppContainer.current.audioEffects
+        // Tam açık başlat: telefonda "partially expanded" durumu, içerik değişince
+        // (efekt açıp kapatınca) sheet'i yeniden konumlandırıp iç scroll'u başa
+        // sarıyordu. skipPartiallyExpanded bu zıplamayı önler.
+        ModalBottomSheet(
+            onDismissRequest = { showAudioFx = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            com.ozgen.navicloud.ui.components.AudioEffectsSheet(fx = fx)
         }
     }
 }
@@ -606,6 +641,8 @@ private fun FullPlayerContent(
     contentAlpha: Float,
     onCollapse: () -> Unit,
     onOpenLyrics: () -> Unit,
+    onOpenSleepTimer: () -> Unit,
+    onOpenAudioFx: () -> Unit,
     /** Yatay/kısa ekran: kapak solda, kontroller sağda. */
     sideBySide: Boolean = false,
 ) {
@@ -664,17 +701,48 @@ private fun FullPlayerContent(
                     Icon(Icons.Rounded.PictureInPictureAlt, contentDescription = "Mini oynatıcı", tint = Color.White)
                 }
             }
-            // Current song's context menu, top right
+            // Aktif uyku zamanlayıcı göstergesi: süreli → geri sayım (mm:ss),
+            // parça/kuyruk bound → durum etiketi. Tıklayınca zamanlayıcı sheet'i.
+            val sleepState by vm.player.sleepTimer.collectAsStateWithLifecycle()
+            if (sleepState.active) {
+                val sleepLabel = when (val p = sleepState.preset) {
+                    is SleepTimerPreset.Duration ->
+                        sleepState.remainingMs?.let { formatDuration((it / 1000).toInt()) } ?: "${p.minutes} dk"
+                    SleepTimerPreset.EndOfTrack -> "Parça sonu"
+                    SleepTimerPreset.EndOfQueue -> "Kuyruk sonu"
+                    null -> ""
+                }
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .clickable { onOpenSleepTimer() }
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Rounded.Bedtime,
+                        contentDescription = "Uyku zamanlayıcı",
+                        tint = accent,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(sleepLabel, style = MaterialTheme.typography.labelMedium, color = Color.White)
+                }
+            }
+            // Player overflow: player-level actions (sleep timer) + song actions
             var menuOpen by remember { mutableStateOf(false) }
             Box {
                 IconButton(onClick = { menuOpen = true }) {
                     Icon(Icons.Rounded.MoreVert, contentDescription = "Seçenekler", tint = Color.White)
                 }
                 item?.let {
-                    SongContextMenu(
+                    PlayerOverflowMenu(
                         song = it.song,
                         expanded = menuOpen,
                         onDismiss = { menuOpen = false },
+                        sleepActive = sleepState.active,
+                        onOpenSleepTimer = onOpenSleepTimer,
+                        onOpenAudioFx = onOpenAudioFx,
                     )
                 }
             }
@@ -738,6 +806,9 @@ private fun FullPlayerContent(
                             modifier = Modifier.padding(top = 3.dp),
                         )
                     }
+                }
+                IconButton(onClick = { item?.song?.let { menuActions?.showInfo?.invoke(it) } }) {
+                    Icon(Icons.Rounded.Info, contentDescription = "Parça bilgisi", tint = Color(0xB3FFFFFF))
                 }
                 IconButton(onClick = onOpenLyrics) {
                     Icon(Icons.Rounded.Lyrics, contentDescription = "Şarkı sözleri", tint = Color(0xB3FFFFFF))
@@ -1297,6 +1368,124 @@ private fun QueuePanel(
                 }
             }
         }
+    }
+}
+
+/** Player overflow: player seviyesi eylemler (uyku zamanlayıcı) + şarkı eylemleri. */
+@Composable
+private fun PlayerOverflowMenu(
+    song: com.ozgen.navicloud.core.model.Song,
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    sleepActive: Boolean,
+    onOpenSleepTimer: () -> Unit,
+    onOpenAudioFx: () -> Unit,
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        DropdownMenuItem(
+            text = { Text("Ses / Ekolayzer") },
+            leadingIcon = { Icon(Icons.Rounded.GraphicEq, null) },
+            onClick = { onDismiss(); onOpenAudioFx() },
+        )
+        DropdownMenuItem(
+            text = { Text(if (sleepActive) "Uyku zamanlayıcı • açık" else "Uyku zamanlayıcı") },
+            leadingIcon = { Icon(Icons.Rounded.Bedtime, null) },
+            onClick = { onDismiss(); onOpenSleepTimer() },
+        )
+        HorizontalDivider()
+        SongContextMenuItems(song = song, onDismiss = onDismiss)
+    }
+}
+
+@Composable
+private fun SleepTimerSheet(player: PlayerController, onClose: () -> Unit) {
+    val state by player.sleepTimer.collectAsStateWithLifecycle()
+    val navBarPad = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    Column(Modifier.fillMaxWidth().padding(bottom = navBarPad + 16.dp)) {
+        Text(
+            "Uyku zamanlayıcı",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        if (state.active) {
+            val (title, sub) = when (val p = state.preset) {
+                is SleepTimerPreset.Duration ->
+                    (state.remainingMs?.let { formatDuration((it / 1000).toInt()) } ?: "${p.minutes} dk") to "kaldı"
+                SleepTimerPreset.EndOfTrack -> "Parça bitince" to "duracak"
+                SleepTimerPreset.EndOfQueue -> "Kuyruk bitince" to "duracak"
+                null -> "" to ""
+            }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                    .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.Bedtime, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        sub,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(onClick = { player.cancelSleepTimer() }) { Text("İptal et") }
+            }
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        }
+        SleepTimerPreset.DURATIONS.forEach { m ->
+            SleepTimerRow(
+                icon = Icons.Rounded.Timer,
+                label = "$m dakika",
+                selected = (state.preset as? SleepTimerPreset.Duration)?.minutes == m,
+                onClick = { player.startSleepTimer(SleepTimerPreset.Duration(m)); onClose() },
+            )
+        }
+        SleepTimerRow(
+            icon = Icons.Rounded.MusicNote,
+            label = "Parça bitince",
+            selected = state.preset == SleepTimerPreset.EndOfTrack,
+            onClick = { player.startSleepTimer(SleepTimerPreset.EndOfTrack); onClose() },
+        )
+        SleepTimerRow(
+            icon = Icons.AutoMirrored.Rounded.QueueMusic,
+            label = "Kuyruk bitince",
+            selected = state.preset == SleepTimerPreset.EndOfQueue,
+            onClick = { player.startSleepTimer(SleepTimerPreset.EndOfQueue); onClose() },
+        )
+    }
+}
+
+@Composable
+private fun SleepTimerRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.width(16.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 

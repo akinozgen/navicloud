@@ -7,6 +7,8 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.core.net.toUri
+import com.ozgen.navicloud.audio.SleepTimerPreset
+import com.ozgen.navicloud.audio.SleepTimerState
 import com.ozgen.navicloud.core.model.Song
 import com.ozgen.navicloud.data.DownloadRepository
 import com.ozgen.navicloud.data.MusicRepository
@@ -44,6 +46,47 @@ class Media3PlayerController @Inject constructor(
     private val _state = MutableStateFlow(PlayerUiState())
     override val state: StateFlow<PlayerUiState> = _state
 
+    // --- Uyku zamanlayıcı (saf app mantığı; motora dokunmaz) ---
+    private val _sleepTimer = MutableStateFlow(SleepTimerState())
+    override val sleepTimer: StateFlow<SleepTimerState> = _sleepTimer
+    private var sleepJob: kotlinx.coroutines.Job? = null
+
+    override fun startSleepTimer(preset: SleepTimerPreset) {
+        sleepJob?.cancel()
+        when (preset) {
+            is SleepTimerPreset.Duration -> {
+                val totalMs = preset.minutes * 60_000L
+                _sleepTimer.value = SleepTimerState(active = true, preset = preset, remainingMs = totalMs)
+                sleepJob = scope.launch {
+                    val end = System.currentTimeMillis() + totalMs
+                    while (true) {
+                        val remaining = end - System.currentTimeMillis()
+                        if (remaining <= 0) { fireSleepTimer(); break }
+                        _sleepTimer.value = SleepTimerState(active = true, preset = preset, remainingMs = remaining)
+                        kotlinx.coroutines.delay(1000)
+                    }
+                }
+            }
+            // Bound presetler: player olaylarında tetiklenir (onMediaItemTransition/STATE_ENDED)
+            SleepTimerPreset.EndOfTrack, SleepTimerPreset.EndOfQueue ->
+                _sleepTimer.value = SleepTimerState(active = true, preset = preset, remainingMs = null)
+        }
+    }
+
+    override fun cancelSleepTimer() {
+        sleepJob?.cancel()
+        sleepJob = null
+        _sleepTimer.value = SleepTimerState()
+    }
+
+    /** Tetiklendi: çalmayı duraklat, zamanlayıcıyı temizle. */
+    private fun fireSleepTimer() {
+        sleepJob?.cancel()
+        sleepJob = null
+        _sleepTimer.value = SleepTimerState()
+        _controller.value?.pause()
+    }
+
     init {
         scope.launch {
             val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
@@ -59,6 +102,30 @@ class Media3PlayerController @Inject constructor(
                         )
                     ) {
                         scheduleQueueSave()
+                    }
+                }
+
+                // "Parça bitince dur": çalan parça doğal biterse (auto/repeat
+                // geçişi) duraklat. Son parçaysa AUTO geçiş olmaz → STATE_ENDED.
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    val st = _sleepTimer.value
+                    if (st.active && st.preset == SleepTimerPreset.EndOfTrack &&
+                        (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
+                            reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT)
+                    ) {
+                        fireSleepTimer()
+                    }
+                }
+
+                // "Kuyruk bitince dur" (+ tek parçalık EndOfTrack) → kuyruk sonu.
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState != Player.STATE_ENDED) return
+                    val st = _sleepTimer.value
+                    if (st.active &&
+                        (st.preset == SleepTimerPreset.EndOfQueue ||
+                            st.preset == SleepTimerPreset.EndOfTrack)
+                    ) {
+                        fireSleepTimer()
                     }
                 }
             })
@@ -341,6 +408,7 @@ class Media3PlayerController @Inject constructor(
         playbackContext = null
         _currentContext.value = null
         _contextLabel.value = null
+        cancelSleepTimer()
         scope.launch { queueCore.clearPersisted() }
     }
 

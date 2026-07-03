@@ -8,7 +8,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -39,21 +41,38 @@ private class DesktopDeps(
     val volume: com.ozgen.navicloud.ui.VolumeController,
 )
 
-/** Sistem tepsisi ikonu: accent yuvarlak kare + beyaz oynat üçgeni. */
-private val TrayIconPainter: Painter = object : Painter() {
-    override val intrinsicSize = Size(64f, 64f)
+/** Uygulama/tepsi ikonu: mor→indigo gradyan yuvarlak kare + beyaz bulut + mor play. */
+private val NaviCloudIconPainter: Painter = object : Painter() {
+    override val intrinsicSize = Size(512f, 512f)
     override fun DrawScope.onDraw() {
+        val w = size.width
+        val h = size.height
         drawRoundRect(
-            color = Color(0xFF7C4DFF),
-            cornerRadius = CornerRadius(size.minDimension * 0.24f),
+            brush = Brush.linearGradient(
+                colors = listOf(Color(0xFF8E5BFF), Color(0xFF5B34E0)),
+                start = Offset(0f, 0f),
+                end = Offset(w, h),
+            ),
+            cornerRadius = CornerRadius(size.minDimension * 0.22f),
         )
-        val triangle = Path().apply {
-            moveTo(size.width * 0.40f, size.height * 0.28f)
-            lineTo(size.width * 0.72f, size.height * 0.50f)
-            lineTo(size.width * 0.40f, size.height * 0.72f)
+        // Bulut (beyaz): taban + üç puf
+        drawRoundRect(
+            color = Color.White,
+            topLeft = Offset(w * 0.352f, h * 0.504f),
+            size = Size(w * 0.316f, h * 0.142f),
+            cornerRadius = CornerRadius(w * 0.064f),
+        )
+        drawCircle(Color.White, radius = w * 0.117f, center = Offset(w * 0.363f, h * 0.532f))
+        drawCircle(Color.White, radius = w * 0.137f, center = Offset(w * 0.656f, h * 0.520f))
+        drawCircle(Color.White, radius = w * 0.168f, center = Offset(w * 0.500f, h * 0.447f))
+        // Play üçgeni (mor)
+        val tri = Path().apply {
+            moveTo(w * 0.457f, h * 0.451f)
+            lineTo(w * 0.457f, h * 0.607f)
+            lineTo(w * 0.600f, h * 0.529f)
             close()
         }
-        drawPath(triangle, Color.White)
+        drawPath(tri, Color(0xFF6D28D9))
     }
 }
 
@@ -89,6 +108,8 @@ fun main() = application {
             engine, music, queueCore, DesktopPrefs.streamQualityFlow,
             localFile = { id -> downloads.localPath(id) },
         ).apply { restoreQueue() }
+        // Windows medya tuşları + kontrol merkezi/flyout oynatıcısı (SMTC)
+        SmtcController(player, okHttp).start()
         DesktopDeps(
             container = AppContainer(
                 music = music,
@@ -129,7 +150,7 @@ fun main() = application {
     // Sistem tepsisi: pencere gizliyken de çalmayı yönetmek için. Sol tık
     // pencereyi getirir, sağ tık menüyü açar.
     Tray(
-        icon = TrayIconPainter,
+        icon = NaviCloudIconPainter,
         tooltip = playerState.currentTrack?.let { "${it.song.artist} — ${it.song.title}" } ?: "NaviCloud",
         onAction = { showWindow() },
         menu = {
@@ -156,6 +177,7 @@ fun main() = application {
         visible = windowVisible,
         state = windowState,
         title = "NaviCloud",
+        icon = NaviCloudIconPainter,
     ) {
         // Gizliyken tekrar gösterilince öne getir (tepsiden dönüş)
         LaunchedEffect(windowVisible) {

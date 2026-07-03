@@ -10,6 +10,8 @@
 .cxx
 desktop/libs/*.7z
 desktop/libs/*.dll
+desktop/libs/*.exe
+desktop/smtc-helper/target/
 desktop/build/
 shared/build/
 sharedUi/build/

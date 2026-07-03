@@ -54,6 +54,8 @@ private fun SongDto.toModel() = Song(
     size = size,
     starred = starred != null,
     samplingRate = samplingRate,
+    channelCount = channelCount,
+    bitDepth = bitDepth,
 )
 
 private fun ArtistDto.toModel() = Artist(

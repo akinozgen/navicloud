@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlaylistPlay
@@ -57,6 +58,7 @@ data class SongMenuActions(
     val setStarred: (Song, Boolean) -> Unit,
     val removeFromQueue: (String) -> Unit,
     val isDownloaded: (String) -> Boolean,
+    val showInfo: (Song) -> Unit,
 )
 
 val LocalSongMenu = staticCompositionLocalOf<SongMenuActions?> { null }
@@ -167,10 +169,26 @@ fun SongContextMenu(
     inQueue: Boolean = false,
     queueUid: String? = null,
 ) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        SongContextMenuItems(song, onDismiss, inQueue, queueUid)
+    }
+}
+
+/**
+ * Şarkı menüsü öğeleri — bir DropdownMenu içeriğinde yer alır. Player overflow'u
+ * gibi başka menüler de kendi öğelerinin ardına bunları ekleyebilir.
+ */
+@Composable
+fun SongContextMenuItems(
+    song: Song,
+    onDismiss: () -> Unit,
+    inQueue: Boolean = false,
+    queueUid: String? = null,
+) {
     val actions = LocalSongMenu.current ?: return
     var starred by rememberSaveable(song.id) { mutableStateOf(song.starred) }
 
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+    run {
         DropdownMenuItem(
             text = { Text("Sıradakine ekle") },
             leadingIcon = { Icon(Icons.Rounded.PlaylistPlay, null) },
@@ -230,6 +248,11 @@ fun SongContextMenu(
                 starred = !starred
                 actions.setStarred(song, starred)
             },
+        )
+        DropdownMenuItem(
+            text = { Text("Bilgi") },
+            leadingIcon = { Icon(Icons.Rounded.Info, null) },
+            onClick = { onDismiss(); actions.showInfo(song) },
         )
     }
 }

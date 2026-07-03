@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Minimize
@@ -49,6 +50,9 @@ import androidx.navigation.NavHostController
 import com.ozgen.navicloud.data.StreamQuality
 import com.ozgen.navicloud.ui.LocalAppContainer
 import com.ozgen.navicloud.ui.screens.login.LoginScreen
+import com.ozgen.navicloud.ui.screens.settings.LicensesScreen
+import com.ozgen.navicloud.ui.screens.settings.commonLicenses
+import com.ozgen.navicloud.ui.screens.settings.desktopLicenses
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -127,6 +131,7 @@ fun DesktopSettingsScreen(navController: NavHostController) {
     val active by container.servers.activeServer.collectAsState(null)
     val scope = rememberCoroutineScope()
     var adding by remember { mutableStateOf(false) }
+    var showLicenses by remember { mutableStateOf(false) }
     var backendDialog by remember { mutableStateOf(false) }
     var backend by remember { mutableStateOf(DesktopPrefs.audioBackend) }
     var quality by remember { mutableStateOf(DesktopPrefs.streamQuality) }
@@ -143,6 +148,11 @@ fun DesktopSettingsScreen(navController: NavHostController) {
             }
             LoginScreen()
         }
+        return
+    }
+
+    if (showLicenses) {
+        LicensesScreen(entries = commonLicenses + desktopLicenses, onBack = { showLicenses = false })
         return
     }
 
@@ -328,6 +338,14 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                     DesktopPrefs.closeToTray = it
                 })
             },
+        )
+
+        SectionHeader("Hakkında")
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Description, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "Açık kaynak lisansları",
+            subtitle = "Kullanılan kütüphaneler ve lisansları (libmpv dâhil)",
+            onClick = { showLicenses = true },
         )
         Spacer(Modifier.height(32.dp))
     }

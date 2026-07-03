@@ -32,12 +32,17 @@ class PlaybackService : MediaSessionService() {
     @Inject lateinit var musicRepository: MusicRepository
     @Inject lateinit var streamCache: StreamCache
     @Inject lateinit var settings: SettingsRepository
+    @Inject lateinit var audioEffects: com.ozgen.navicloud.data.AudioEffectsRepository
 
     private var mediaSession: MediaSession? = null
+    private var audioEffectsEngine: AudioEffectsEngine? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
+        // Sabit audio session id: audiofx efektleri buna bağlanır (playback
+        // başlamadan bilinsin diye kendimiz üretip player'a veriyoruz)
+        val audioSessionId = androidx.media3.common.util.Util.generateAudioSessionIdV21(this)
         val player = ExoPlayer.Builder(this)
             // Akış LRU cache üzerinden: aynı şarkı ikinci kez ağa çıkmaz;
             // file:// (indirmeler) cache'e uğramadan doğrudan okunur
@@ -55,6 +60,9 @@ class PlaybackService : MediaSessionService() {
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
+        player.setAudioSessionId(audioSessionId)
+        // EQ + ses efektleri motorunu bu oturuma bağla (DataStore durumunu uygular)
+        audioEffectsEngine = AudioEffectsEngine(audioSessionId, audioEffects, scope).also { it.start() }
         player.addListener(scrobbleListener(player))
         player.addListener(prefetchListener(player))
         // Notification tap opens the app with the player expanded
@@ -178,6 +186,8 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         scope.cancel()
+        audioEffectsEngine?.release()
+        audioEffectsEngine = null
         mediaSession?.run {
             player.release()
             release()
