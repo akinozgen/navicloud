@@ -11,6 +11,8 @@ import coil3.request.ImageRequest
 import coil3.size.Size
 import kotlin.math.max
 
+actual val supportsPullToRefresh: Boolean = false
+
 @Composable
 actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
     // Masaüstünde sistem geri tuşu yok; Esc bağlaması pencere düzeyinde gelecek

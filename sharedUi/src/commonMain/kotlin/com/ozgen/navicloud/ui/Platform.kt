@@ -42,6 +42,9 @@ inline fun <reified VM : ViewModel> containerViewModel(
     return viewModel(key = key) { create(c) }
 }
 
+/** Dokunmatik platformda true — pull-to-refresh jestinin ön koşulu. */
+expect val supportsPullToRefresh: Boolean
+
 /** Android'de sistem geri tuşu; masaüstünde no-op. */
 @Composable
 expect fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit)

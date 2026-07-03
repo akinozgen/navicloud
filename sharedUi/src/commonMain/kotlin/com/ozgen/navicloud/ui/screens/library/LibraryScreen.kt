@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,7 +39,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import com.ozgen.navicloud.ui.components.NaviRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -301,6 +302,13 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
                     )
                 }
             }
+            IconButton(onClick = { vm.refresh() }) {
+                Icon(
+                    Icons.Rounded.Refresh,
+                    contentDescription = "Yenile",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             IconButton(onClick = { navController.navigate("servers") }) {
                 Icon(
                     Icons.Rounded.Settings,
@@ -331,7 +339,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
         )
 
-        PullToRefreshBox(
+        NaviRefreshBox(
             isRefreshing = state.loading,
             onRefresh = { vm.refresh() },
             modifier = Modifier.fillMaxSize(),

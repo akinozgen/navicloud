@@ -14,6 +14,8 @@ import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
 
+actual val supportsPullToRefresh: Boolean = true
+
 @Composable
 actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
     androidx.activity.compose.BackHandler(enabled = enabled, onBack = onBack)

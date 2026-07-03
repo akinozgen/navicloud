@@ -29,7 +29,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import com.ozgen.navicloud.ui.components.NaviRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -138,7 +138,7 @@ fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewM
         }
         else -> {
             val detail = state.detail!!
-            PullToRefreshBox(
+            NaviRefreshBox(
                 isRefreshing = state.refreshing,
                 onRefresh = { vm.refresh() },
                 modifier = Modifier.fillMaxSize(),
