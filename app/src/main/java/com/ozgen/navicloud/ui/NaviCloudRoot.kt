@@ -6,6 +6,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -22,6 +26,9 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -88,38 +95,76 @@ private fun MainShell(vm: AppViewModel, server: Server) {
     val artResolver = remember(server.id) { vm.artResolverFor(server) }
     var collapseTick by remember { mutableIntStateOf(0) }
 
+    // Sekme butonu her zaman sekme köküne indirir; detay sayfadayken
+    // restoreState kaydedilmiş detayı geri getirip "buton çalışmıyor"
+    // hissi veriyordu
+    fun navigateTab(route: String, onTabRoot: Boolean) {
+        // Rail'li düzende sekmeler açık player'ın yanında da görünür —
+        // navigasyon açık player/kuyruğu kapatsın (telefonda no-op)
+        collapseTick++
+        navController.navigate(route) {
+            popUpTo(navController.graph.startDestinationId) { saveState = onTabRoot }
+            launchSingleTop = true
+            restoreState = onTabRoot
+        }
+        if (navController.currentDestination?.route != route) {
+            navController.popBackStack(route, inclusive = false)
+        }
+    }
+
+    val appNavHost: @Composable (Modifier) -> Unit = { navModifier ->
+        NavHost(
+            navController = navController,
+            startDestination = "home",
+            // Default 700ms crossfade feels sluggish — quick, subtle slide instead
+            enterTransition = {
+                slideInHorizontally(tween(200)) { it / 6 } + fadeIn(tween(150))
+            },
+            exitTransition = { fadeOut(tween(90)) },
+            popEnterTransition = { fadeIn(tween(120)) },
+            popExitTransition = {
+                slideOutHorizontally(tween(180)) { it / 6 } + fadeOut(tween(140))
+            },
+            modifier = navModifier,
+        ) {
+            composable("home") { HomeScreen(navController) }
+            composable("search") { SearchScreen(navController) }
+            composable("library") { LibraryScreen(navController) }
+            composable("album/{id}") { entry ->
+                AlbumScreen(navController, entry.arguments?.getString("id").orEmpty())
+            }
+            composable("artist/{id}") { entry ->
+                ArtistScreen(navController, entry.arguments?.getString("id").orEmpty())
+            }
+            composable("playlist/{id}") { entry ->
+                PlaylistScreen(navController, entry.arguments?.getString("id").orEmpty())
+            }
+            composable("servers") { ServersScreen(navController) }
+        }
+    }
+
     CompositionLocalProvider(LocalArtResolver provides artResolver) {
         SongMenuHost(navController, onBeforeNavigate = { collapseTick++ }) {
-            Box(Modifier.fillMaxSize()) {
-                Scaffold(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    bottomBar = {
-                        val backStack by navController.currentBackStackEntryAsState()
-                        val currentRoute = backStack?.destination?.route
-                        // On a detail page restoreState would resurrect the very detail
-                        // we're leaving ("button does nothing") — jump clean to tab root instead
-                        val onTabRoot = tabs.any { it.route == currentRoute }
-                        NavigationBar(
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                // Tablet / yatay telefon / (ileride) masaüstü: alt sekmeler yerine
+                // sol rail — aynı arayüz, geniş ekrana uyarlanmış kabuk
+                val wide = maxWidth >= 600.dp
+                val backStack by navController.currentBackStackEntryAsState()
+                val currentRoute = backStack?.destination?.route
+                val onTabRoot = tabs.any { it.route == currentRoute }
+                val hasPlayer = playerState.currentTrack != null
+
+                if (wide) {
+                    Row(Modifier.fillMaxSize()) {
+                        NavigationRail(
                             containerColor = MaterialTheme.colorScheme.background,
-                            windowInsets = NavigationBarDefaults.windowInsets,
                         ) {
+                            Spacer(Modifier.weight(1f))
                             tabs.forEach { tab ->
                                 val selected = currentRoute == tab.route
-                                NavigationBarItem(
+                                NavigationRailItem(
                                     selected = selected,
-                                    onClick = {
-                                        navController.navigate(tab.route) {
-                                            popUpTo(navController.graph.startDestinationId) { saveState = onTabRoot }
-                                            launchSingleTop = true
-                                            restoreState = onTabRoot
-                                        }
-                                        // restoreState bazen kaydedilmiş stack'in tepesindeki
-                                        // detayı geri getiriyor — sekme butonu HER ZAMAN
-                                        // sekme köküne indirsin
-                                        if (navController.currentDestination?.route != tab.route) {
-                                            navController.popBackStack(tab.route, inclusive = false)
-                                        }
-                                    },
+                                    onClick = { navigateTab(tab.route, onTabRoot) },
                                     icon = {
                                         Icon(
                                             if (selected) tab.selectedIcon else tab.icon,
@@ -127,7 +172,7 @@ private fun MainShell(vm: AppViewModel, server: Server) {
                                         )
                                     },
                                     label = { Text(tab.label, style = MaterialTheme.typography.labelMedium) },
-                                    colors = NavigationBarItemDefaults.colors(
+                                    colors = NavigationRailItemDefaults.colors(
                                         selectedIconColor = MaterialTheme.colorScheme.onBackground,
                                         selectedTextColor = MaterialTheme.colorScheme.onBackground,
                                         unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -136,46 +181,70 @@ private fun MainShell(vm: AppViewModel, server: Server) {
                                     ),
                                 )
                             }
+                            Spacer(Modifier.weight(1f))
                         }
-                    },
-                ) { padding ->
-                    val hasPlayer = playerState.currentTrack != null
-                    NavHost(
-                        navController = navController,
-                        startDestination = "home",
-                        // Default 700ms crossfade feels sluggish — quick, subtle slide instead
-                        enterTransition = {
-                            slideInHorizontally(tween(200)) { it / 6 } + fadeIn(tween(150))
-                        },
-                        exitTransition = { fadeOut(tween(90)) },
-                        popEnterTransition = { fadeIn(tween(120)) },
-                        popExitTransition = {
-                            slideOutHorizontally(tween(180)) { it / 6 } + fadeOut(tween(140))
-                        },
-                        modifier = Modifier
-                            .padding(padding)
-                            .padding(bottom = if (hasPlayer) 64.dp else 0.dp),
-                    ) {
-                        composable("home") { HomeScreen(navController) }
-                        composable("search") { SearchScreen(navController) }
-                        composable("library") { LibraryScreen(navController) }
-                        composable("album/{id}") { entry ->
-                            AlbumScreen(navController, entry.arguments?.getString("id").orEmpty())
+                        Box(Modifier.weight(1f).fillMaxHeight()) {
+                            Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+                                appNavHost(
+                                    Modifier
+                                        .padding(padding)
+                                        .padding(bottom = if (hasPlayer) 64.dp else 0.dp),
+                                )
+                            }
+                            if (hasPlayer) {
+                                val npVm: NowPlayingViewModel = hiltViewModel()
+                                // Rail'in sağındaki içerik alanına gömülü; bottom nav
+                                // olmadığı için mini bar en alta oturur
+                                PlayerSheet(vm = npVm, collapseTick = collapseTick, bottomBarHeight = 0.dp)
+                            }
                         }
-                        composable("artist/{id}") { entry ->
-                            ArtistScreen(navController, entry.arguments?.getString("id").orEmpty())
-                        }
-                        composable("playlist/{id}") { entry ->
-                            PlaylistScreen(navController, entry.arguments?.getString("id").orEmpty())
-                        }
-                        composable("servers") { ServersScreen(navController) }
                     }
-                }
+                } else {
+                    Box(Modifier.fillMaxSize()) {
+                        Scaffold(
+                            containerColor = MaterialTheme.colorScheme.background,
+                            bottomBar = {
+                                NavigationBar(
+                                    containerColor = MaterialTheme.colorScheme.background,
+                                    windowInsets = NavigationBarDefaults.windowInsets,
+                                ) {
+                                    tabs.forEach { tab ->
+                                        val selected = currentRoute == tab.route
+                                        NavigationBarItem(
+                                            selected = selected,
+                                            onClick = { navigateTab(tab.route, onTabRoot) },
+                                            icon = {
+                                                Icon(
+                                                    if (selected) tab.selectedIcon else tab.icon,
+                                                    contentDescription = tab.label,
+                                                )
+                                            },
+                                            label = { Text(tab.label, style = MaterialTheme.typography.labelMedium) },
+                                            colors = NavigationBarItemDefaults.colors(
+                                                selectedIconColor = MaterialTheme.colorScheme.onBackground,
+                                                selectedTextColor = MaterialTheme.colorScheme.onBackground,
+                                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                indicatorColor = Color.Transparent,
+                                            ),
+                                        )
+                                    }
+                                }
+                            },
+                        ) { padding ->
+                            appNavHost(
+                                Modifier
+                                    .padding(padding)
+                                    .padding(bottom = if (hasPlayer) 64.dp else 0.dp),
+                            )
+                        }
 
-                // Persistent morphing player sheet (mini bar <-> full player)
-                if (playerState.currentTrack != null) {
-                    val npVm: NowPlayingViewModel = hiltViewModel()
-                    PlayerSheet(vm = npVm, collapseTick = collapseTick)
+                        // Persistent morphing player sheet (mini bar <-> full player)
+                        if (hasPlayer) {
+                            val npVm: NowPlayingViewModel = hiltViewModel()
+                            PlayerSheet(vm = npVm, collapseTick = collapseTick)
+                        }
+                    }
                 }
             }
         }

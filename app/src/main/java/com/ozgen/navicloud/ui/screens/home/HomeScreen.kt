@@ -124,24 +124,28 @@ fun HomeScreen(navController: NavController, vm: HomeViewModel = hiltViewModel()
                     }
                 }
             }
-            // First section: 2-column quick-access grid (info density up top)
+            // First section: quick-access grid (info density up top). Kolon
+            // sayısı gerçek içerik genişliğinden türer — telefonda 2, geniş
+            // ekranda (tablet/rail'li düzen) karolar devleşmesin diye 3-4
             val firstSection = state.sections.firstOrNull()
             if (firstSection != null) {
                 item(key = "quick-grid", contentType = "grid") {
-                    Column(
+                    androidx.compose.foundation.layout.BoxWithConstraints(
                         Modifier.padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        firstSection.albums.take(6).chunked(2).forEach { pair ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                pair.forEach { album ->
-                                    OverlayAlbumCard(
-                                        album,
-                                        onClick = { navController.navigate("album/${album.id}") },
-                                        modifier = Modifier.weight(1f).aspectRatio(1f),
-                                    )
+                        val cols = (maxWidth / 220.dp).toInt().coerceIn(2, 4)
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            firstSection.albums.take(cols * 3).chunked(cols).forEach { rowAlbums ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    rowAlbums.forEach { album ->
+                                        OverlayAlbumCard(
+                                            album,
+                                            onClick = { navController.navigate("album/${album.id}") },
+                                            modifier = Modifier.weight(1f).aspectRatio(1f),
+                                        )
+                                    }
+                                    repeat(cols - rowAlbums.size) { Spacer(Modifier.weight(1f)) }
                                 }
-                                if (pair.size == 1) Spacer(Modifier.weight(1f))
                             }
                         }
                     }

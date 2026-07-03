@@ -399,7 +399,8 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = hiltViewM
                             val gridState = rememberLazyGridState()
                             SyncFabExpansionGrid(gridState, fabExpanded)
                             LazyVerticalGrid(
-                                columns = GridCells.Fixed(2),
+                                // Genişledikçe kolon eklenir (tablet/rail düzeni)
+                                columns = GridCells.Adaptive(minSize = 160.dp),
                                 state = gridState,
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(16.dp),

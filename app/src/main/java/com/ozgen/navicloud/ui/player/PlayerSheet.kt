@@ -23,7 +23,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -36,6 +38,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -151,6 +154,8 @@ fun PlayerSheet(
     vm: NowPlayingViewModel,
     collapseTick: Int,
     modifier: Modifier = Modifier,
+    /** Altındaki gezinme çubuğunun yüksekliği; rail'li geniş düzende 0. */
+    bottomBarHeight: androidx.compose.ui.unit.Dp = 80.dp,
 ) {
     val playerState by vm.player.state.collectAsStateWithLifecycle()
     val uiState by vm.state.collectAsStateWithLifecycle()
@@ -227,9 +232,11 @@ fun PlayerSheet(
     BoxWithConstraints(modifier.fillMaxSize()) {
         val sheetHpx = constraints.maxHeight.toFloat()
         val screenWdp = maxWidth
+        val screenHdp = this@BoxWithConstraints.maxHeight
         val miniHpx = with(density) { 64.dp.toPx() }
         // Collapsed: mini bar sits right above the bottom navigation bar
-        val bottomBarPx = with(density) { (80.dp + navBarPad).toPx() }
+        // (geniş düzende bottomBarHeight=0 → nav inset'inin hemen üstü)
+        val bottomBarPx = with(density) { (bottomBarHeight + navBarPad).toPx() }
         val collapsedOffset = (sheetHpx - miniHpx - bottomBarPx).coerceAtLeast(1f)
 
         val sheetDrag = remember(collapsedOffset) {
@@ -351,10 +358,25 @@ fun PlayerSheet(
             // ---- Morph geometry ----
             // mini slot <-> full slot (margined, rounded — YT mindset: dominant but framed)
             // and full slot <-> queue dock slot while the queue rises
-            val fullArtW = screenWdp - 32.dp
+            // Dik ekranda kapak üstte, kontroller altta (telefon/dik tablet,
+            // genişse kapak sınırlanıp ortalanır). Kısa-geniş ekranda (yatay)
+            // dikey istif sığmaz: kapak solda, kontroller sağda
+            val sideBySide = screenHdp < 640.dp
+            // 144 = üst başlık 56 + alttaki kuyruk ipucu 72 + nefes payı
+            val fullArtW =
+                if (sideBySide) minOf(screenHdp - statusPad - 144.dp, 400.dp)
+                else minOf(screenWdp - 32.dp, screenHdp * 0.42f, 420.dp)
+            val artFullX = if (sideBySide) 32.dp else (screenWdp - fullArtW) / 2
+            val artFullY =
+                if (sideBySide) {
+                    statusPad + 56.dp + ((screenHdp - statusPad - 144.dp - fullArtW) / 2)
+                        .coerceAtLeast(0.dp)
+                } else {
+                    statusPad + 56.dp
+                }
             val artSize = lerpDp(lerpDp(48.dp, fullArtW, progress), 44.dp, queueProgress)
-            val artX = lerpDp(lerpDp(8.dp, 16.dp, progress), 16.dp, queueProgress)
-            val artY = lerpDp(lerpDp(8.dp, statusPad + 56.dp, progress), statusPad + 14.dp, queueProgress)
+            val artX = lerpDp(lerpDp(8.dp, artFullX, progress), 16.dp, queueProgress)
+            val artY = lerpDp(lerpDp(8.dp, artFullY, progress), statusPad + 14.dp, queueProgress)
 
             // Mini row (fades out quickly)
             if (progress < 0.4f) {
@@ -386,7 +408,8 @@ fun PlayerSheet(
                     starred = uiState.starred,
                     accent = accentColor,
                     statusPad = statusPad,
-                    artSpace = screenWdp - 32.dp,
+                    artSpace = fullArtW,
+                    sideBySide = sideBySide,
                     // fades in while expanding, fades out again as the queue rises
                     contentAlpha = ((progress - 0.35f) / 0.65f).coerceIn(0f, 1f) *
                         (1f - queueProgress).coerceIn(0f, 1f),
@@ -445,6 +468,9 @@ fun PlayerSheet(
                     contextLabel = ctxLabel,
                     accent = accentColor,
                     bottomPad = navBarPad + statusPad + 8.dp,
+                    // Yan yana düzende "Sıradaki" ipucu soldaki kapağın
+                    // altına girmesin — sağ panele hizala
+                    hintStartPad = if (sideBySide) fullArtW + 64.dp else 0.dp,
                     onShow = { scope.launch { queueDrag.animateTo(QueuePanelValue.Shown) } },
                 )
             }
@@ -598,6 +624,8 @@ private fun FullPlayerContent(
     contentAlpha: Float,
     onCollapse: () -> Unit,
     onOpenLyrics: () -> Unit,
+    /** Yatay/kısa ekran: kapak solda, kontroller sağda. */
+    sideBySide: Boolean = false,
 ) {
     val playerState by vm.player.state.collectAsStateWithLifecycle()
     val item = playerState.currentTrack
@@ -663,10 +691,8 @@ private fun FullPlayerContent(
             }
         }
 
-        // Artwork lands here (drawn by the sheet as the morphing image)
-        Spacer(Modifier.height(artSpace))
-
-        Column(Modifier.padding(horizontal = 24.dp).padding(top = 16.dp)) {
+        // Ortak kontrol bloğu: dik düzende kapağın altına, yatayda sağ panele
+        val controls: @Composable ColumnScope.() -> Unit = {
             // Title (bold) + chevron → album; artist muted below. Small icons right.
             val menuActions = com.ozgen.navicloud.ui.components.LocalSongMenu.current
             val albumId = item?.song?.albumId
@@ -855,18 +881,47 @@ private fun FullPlayerContent(
 
         }
 
-        // Kenardan kenara ambient spektrum: ayrı öğe değil, zeminin dokusu —
-        // progress'e senkron, track başına deterministik desen
-        Spacer(Modifier.height(16.dp))
-        com.ozgen.navicloud.ui.components.SpectrumBar(
-            seedKey = item?.song?.id ?: "",
-            progress = run {
-                val sv = if (dragging) dragValue
-                else if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
-                sv.coerceIn(0f, 1f)
-            },
-            accent = accent,
-        )
+        if (sideBySide) {
+            // Yatay: kapak solda (sheet'in morph görseli oraya iner),
+            // kontroller sağda dikey ortalı
+            Row(Modifier.weight(1f).fillMaxWidth()) {
+                Spacer(Modifier.width(artSpace + 64.dp))
+                Box(
+                    Modifier.weight(1f).fillMaxHeight(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(
+                        Modifier
+                            .widthIn(max = 560.dp)
+                            .padding(horizontal = 24.dp),
+                    ) { controls() }
+                }
+            }
+        } else {
+            // Artwork lands here (drawn by the sheet as the morphing image)
+            Spacer(Modifier.height(artSpace))
+            // Geniş dik ekranda kontroller kapağın altında toplu kalsın
+            Column(
+                Modifier
+                    .widthIn(max = 520.dp)
+                    .align(Alignment.CenterHorizontally)
+                    .padding(horizontal = 24.dp)
+                    .padding(top = 16.dp),
+            ) { controls() }
+
+            // Kenardan kenara ambient spektrum: ayrı öğe değil, zeminin dokusu —
+            // progress'e senkron, track başına deterministik desen
+            Spacer(Modifier.height(16.dp))
+            com.ozgen.navicloud.ui.components.SpectrumBar(
+                seedKey = item?.song?.id ?: "",
+                progress = run {
+                    val sv = if (dragging) dragValue
+                    else if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
+                    sv.coerceIn(0f, 1f)
+                },
+                accent = accent,
+            )
+        }
     }
 }
 
@@ -880,6 +935,7 @@ private fun QueuePanel(
     contextLabel: String?,
     accent: Color,
     bottomPad: androidx.compose.ui.unit.Dp,
+    hintStartPad: androidx.compose.ui.unit.Dp = 0.dp,
     onShow: () -> Unit,
 ) {
     val state by player.state.collectAsStateWithLifecycle()
@@ -962,7 +1018,7 @@ private fun QueuePanel(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer { alpha = (1f - queueProgress * 2f).coerceIn(0f, 1f) }
-                        .padding(top = 8.dp),
+                        .padding(top = 8.dp, start = hintStartPad),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Box(
