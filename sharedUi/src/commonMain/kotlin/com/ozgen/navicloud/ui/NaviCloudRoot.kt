@@ -170,7 +170,9 @@ private fun MainShell(vm: AppViewModel, server: Server, platformSettings: @Compo
                 val hasPlayer = playerState.currentTrack != null
 
                 if (wide) {
-                    Row(Modifier.fillMaxSize()) {
+                    // Sidebar içerikle aynı zeminde otursun — arkadaki çıplak
+                    // pencere siyahı 'ayrı koyu tema' gibi görünüyordu
+                    Row(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                         // Standart sidebar: ikon solda, metin saginda — dikey
                         // rail'in mobil havasi genis ekrana yakismiyordu
                         Column(
