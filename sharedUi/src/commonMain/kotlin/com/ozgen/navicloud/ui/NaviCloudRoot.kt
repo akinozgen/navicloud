@@ -5,12 +5,22 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Home
@@ -26,9 +36,6 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -141,6 +148,12 @@ private fun MainShell(vm: AppViewModel, server: Server, platformSettings: @Compo
             composable("playlist/{id}") { entry ->
                 PlaylistScreen(navController, entry.arguments?.getString("id").orEmpty())
             }
+            composable("section/{type}") { entry ->
+                com.ozgen.navicloud.ui.screens.section.SectionScreen(
+                    navController,
+                    entry.arguments?.getString("type").orEmpty(),
+                )
+            }
             composable("servers") { platformSettings(navController) }
         }
     }
@@ -158,32 +171,51 @@ private fun MainShell(vm: AppViewModel, server: Server, platformSettings: @Compo
 
                 if (wide) {
                     Row(Modifier.fillMaxSize()) {
-                        NavigationRail(
-                            containerColor = MaterialTheme.colorScheme.background,
+                        // Standart sidebar: ikon solda, metin saginda — dikey
+                        // rail'in mobil havasi genis ekrana yakismiyordu
+                        Column(
+                            Modifier
+                                .width(if (this@BoxWithConstraints.maxWidth < 840.dp) 176.dp else 220.dp)
+                                .fillMaxHeight()
+                                .statusBarsPadding()
+                                .padding(horizontal = 12.dp),
                         ) {
-                            Spacer(Modifier.weight(1f))
+                            Text(
+                                "NaviCloud",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 16.dp),
+                            )
                             tabs.forEach { tab ->
                                 val selected = currentRoute == tab.route
-                                NavigationRailItem(
-                                    selected = selected,
-                                    onClick = { navigateTab(tab.route, onTabRoot) },
-                                    icon = {
-                                        Icon(
-                                            if (selected) tab.selectedIcon else tab.icon,
-                                            contentDescription = tab.label,
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            if (selected) MaterialTheme.colorScheme.surfaceContainerHigh
+                                            else Color.Transparent
                                         )
-                                    },
-                                    label = { Text(tab.label, style = MaterialTheme.typography.labelMedium) },
-                                    colors = NavigationRailItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.onBackground,
-                                        selectedTextColor = MaterialTheme.colorScheme.onBackground,
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        indicatorColor = Color.Transparent,
-                                    ),
-                                )
+                                        .clickable { navigateTab(tab.route, onTabRoot) }
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                ) {
+                                    Icon(
+                                        if (selected) tab.selectedIcon else tab.icon,
+                                        contentDescription = tab.label,
+                                        tint = if (selected) MaterialTheme.colorScheme.onBackground
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        tab.label,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = if (selected) MaterialTheme.colorScheme.onBackground
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Spacer(Modifier.height(4.dp))
                             }
-                            Spacer(Modifier.weight(1f))
                         }
                         Box(Modifier.weight(1f).fillMaxHeight()) {
                             Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->

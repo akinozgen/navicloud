@@ -337,7 +337,9 @@ fun PlayerSheet(
             // Dik ekranda kapak üstte, kontroller altta (telefon/dik tablet,
             // genişse kapak sınırlanıp ortalanır). Kısa-geniş ekranda (yatay)
             // dikey istif sığmaz: kapak solda, kontroller sağda
-            val sideBySide = screenHdp < 640.dp
+            // Kisa ekran (yatay telefon/tablet) YA DA genis pencere (masaustu):
+            // kapak solda, kontroller sagda
+            val sideBySide = screenHdp < 640.dp || screenWdp >= 900.dp
             // 144 = üst başlık 56 + alttaki kuyruk ipucu 72 + nefes payı
             val fullArtW =
                 if (sideBySide) minOf(screenHdp - statusPad - 144.dp, 400.dp)
@@ -448,6 +450,7 @@ fun PlayerSheet(
                     // altına girmesin — sağ panele hizala
                     hintStartPad = if (sideBySide) fullArtW + 64.dp else 0.dp,
                     onShow = { scope.launch { queueDrag.animateTo(QueuePanelValue.Shown) } },
+                    onHide = { scope.launch { queueDrag.animateTo(QueuePanelValue.Hidden) } },
                 )
             }
         }
@@ -912,6 +915,7 @@ private fun QueuePanel(
     bottomPad: androidx.compose.ui.unit.Dp,
     hintStartPad: androidx.compose.ui.unit.Dp = 0.dp,
     onShow: () -> Unit,
+    onHide: () -> Unit = {},
 ) {
     val state by player.state.collectAsStateWithLifecycle()
     val endless by player.endless.collectAsStateWithLifecycle()
@@ -985,7 +989,7 @@ private fun QueuePanel(
                     .fillMaxWidth()
                     .height(72.dp)
                     .anchoredDraggable(queueDrag, Orientation.Vertical)
-                    .clickable(enabled = queueProgress < 0.5f, onClick = onShow),
+                    .clickable { if (queueProgress < 0.5f) onShow() else onHide() },
             ) {
                 // Hidden state: drag pill + up-next hint
                 val nextItem = state.queue.getOrNull(state.currentIndex + 1)

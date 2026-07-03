@@ -30,6 +30,7 @@ class MpvPlayerController(
     private val engine: MpvEngine,
     private val musicRepository: MusicRepository,
     private val queueCore: QueueCore,
+    private val quality: StateFlow<StreamQuality> = MutableStateFlow(StreamQuality.RAW),
 ) : PlayerController {
     private var lastSaveMs = 0L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -54,7 +55,7 @@ class MpvPlayerController(
     private val _expandRequests = MutableStateFlow(0)
     override val expandRequests: StateFlow<Int> = _expandRequests
 
-    override val streamQuality: StateFlow<StreamQuality> = MutableStateFlow(StreamQuality.RAW)
+    override val streamQuality: StateFlow<StreamQuality> get() = quality
 
     override val positionMs: Long get() = (engine.positionSec * 1000).toLong()
     override val durationMs: Long get() = (engine.durationSec * 1000).toLong()
@@ -132,7 +133,8 @@ class MpvPlayerController(
         index = i
         scope.launch {
             runCatching {
-                val url = musicRepository.streamUrl(track.song.id)
+                val q = quality.value
+                val url = musicRepository.streamUrl(track.song.id, q.kbps, if (q.kbps != null) "mp3" else null)
                 loadedAtMs = System.currentTimeMillis()
                 trackActive = false
                 engine.play(url)

@@ -19,6 +19,8 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -28,6 +30,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,10 +41,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.ozgen.navicloud.data.StreamQuality
 import com.ozgen.navicloud.ui.LocalAppContainer
 import com.ozgen.navicloud.ui.screens.login.LoginScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.json.Json
 import java.io.File
 
@@ -55,20 +60,38 @@ enum class AudioBackend(val label: String, val description: String) {
 
 object DesktopPrefs {
     @kotlinx.serialization.Serializable
-    private data class Prefs(val audioBackend: String = AudioBackend.LIBMPV.name)
+    private data class Prefs(
+        val audioBackend: String = AudioBackend.LIBMPV.name,
+        val streamQuality: String = StreamQuality.RAW.name,
+    )
 
     private val file = File(System.getProperty("user.home"), ".navicloud/settings.json")
     private val json = Json { ignoreUnknownKeys = true }
 
+    private fun load(): Prefs =
+        runCatching { json.decodeFromString<Prefs>(file.readText()) }.getOrDefault(Prefs())
+
+    private fun save(p: Prefs) {
+        runCatching {
+            file.parentFile?.mkdirs()
+            file.writeText(json.encodeToString(Prefs.serializer(), p))
+        }
+    }
+
+    /** Player canlı okusun diye flow — ayar değişince sonraki parça yeni kaliteyle akar. */
+    val streamQualityFlow: MutableStateFlow<StreamQuality> = MutableStateFlow(
+        runCatching { StreamQuality.valueOf(load().streamQuality) }.getOrDefault(StreamQuality.RAW)
+    )
+
     var audioBackend: AudioBackend
-        get() = runCatching {
-            AudioBackend.valueOf(json.decodeFromString<Prefs>(file.readText()).audioBackend)
-        }.getOrDefault(AudioBackend.LIBMPV)
+        get() = runCatching { AudioBackend.valueOf(load().audioBackend) }.getOrDefault(AudioBackend.LIBMPV)
+        set(value) = save(load().copy(audioBackend = value.name))
+
+    var streamQuality: StreamQuality
+        get() = streamQualityFlow.value
         set(value) {
-            runCatching {
-                file.parentFile?.mkdirs()
-                file.writeText(json.encodeToString(Prefs.serializer(), Prefs(value.name)))
-            }
+            streamQualityFlow.value = value
+            save(load().copy(streamQuality = value.name))
         }
 }
 
@@ -81,6 +104,8 @@ fun DesktopSettingsScreen(navController: NavHostController) {
     var adding by remember { mutableStateOf(false) }
     var backendDialog by remember { mutableStateOf(false) }
     var backend by remember { mutableStateOf(DesktopPrefs.audioBackend) }
+    var quality by remember { mutableStateOf(DesktopPrefs.streamQuality) }
+    var qualityDialog by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf<Pair<Boolean, Long>?>(null) }
 
     if (adding) {
@@ -149,10 +174,44 @@ fun DesktopSettingsScreen(navController: NavHostController) {
 
         SectionHeader("Çalma")
         SettingRow(
+            icon = { Icon(Icons.Rounded.MusicNote, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "Akış kalitesi",
+            subtitle = quality.label,
+            onClick = { qualityDialog = true },
+        )
+        SettingRow(
             icon = { Icon(Icons.Rounded.GraphicEq, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             title = "Ses motoru",
             subtitle = "${backend.label} — ${backend.description}",
             onClick = { backendDialog = true },
+        )
+
+        SectionHeader("Önbellek")
+        var imageCacheBytes by remember { mutableStateOf(0L) }
+        LaunchedEffect(Unit) {
+            imageCacheBytes = runCatching {
+                coil3.SingletonImageLoader.get(coil3.PlatformContext.INSTANCE).diskCache?.size ?: 0L
+            }.getOrDefault(0L)
+        }
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "Görsel önbelleği",
+            subtitle = formatBytes(imageCacheBytes) + " • kapaklar, en eski kendiliğinden silinir",
+            onClick = {},
+            trailing = {
+                if (imageCacheBytes > 0) {
+                    TextButton(onClick = {
+                        scope.launch {
+                            runCatching {
+                                val loader = coil3.SingletonImageLoader.get(coil3.PlatformContext.INSTANCE)
+                                loader.memoryCache?.clear()
+                                loader.diskCache?.clear()
+                            }
+                            imageCacheBytes = 0L
+                        }
+                    }) { Text("Temizle") }
+                }
+            },
         )
 
         SectionHeader("Kütüphane")
@@ -181,6 +240,40 @@ fun DesktopSettingsScreen(navController: NavHostController) {
             },
         )
         Spacer(Modifier.height(32.dp))
+    }
+
+    if (qualityDialog) {
+        AlertDialog(
+            onDismissRequest = { qualityDialog = false },
+            title = { Text("Akış kalitesi") },
+            text = {
+                Column {
+                    StreamQuality.entries.forEach { q ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    quality = q
+                                    DesktopPrefs.streamQuality = q
+                                    qualityDialog = false
+                                }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = quality == q, onClick = {
+                                quality = q
+                                DesktopPrefs.streamQuality = q
+                                qualityDialog = false
+                            })
+                            Text(q.label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { qualityDialog = false }) { Text("Kapat") }
+            },
+        )
     }
 
     if (backendDialog) {
@@ -276,4 +369,10 @@ private fun SettingRow(
         }
         trailing?.invoke()
     }
+}
+
+private fun formatBytes(bytes: Long): String = when {
+    bytes >= 1_073_741_824 -> "%.1f GB".format(bytes / 1_073_741_824.0)
+    bytes >= 1_048_576 -> "%.0f MB".format(bytes / 1_048_576.0)
+    else -> "%.0f KB".format(bytes / 1024.0)
 }

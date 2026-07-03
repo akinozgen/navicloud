@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -143,13 +147,9 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
         else -> {
             val detail = state.detail!!
             val toast = com.ozgen.navicloud.ui.rememberToaster()
-            Box(Modifier.fillMaxSize()) {
-            AmbientBackdrop(detail.album.coverArt)
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().statusBarsPadding(),
-                contentPadding = PaddingValues(bottom = 24.dp),
-            ) {
-                item {
+            // Başlık ve liste parçaları — telefonda dikey istif, geniş
+            // ekranda solda başlık sütunu / sağda liste (playerdaki düzen)
+            val topBar: @Composable () -> Unit = {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -167,8 +167,8 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                             )
                         }
                     }
-                }
-                item {
+            }
+            val headerBody: @Composable () -> Unit = {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -243,7 +243,8 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                         )
                         Spacer(Modifier.height(8.dp))
                     }
-                }
+            }
+            val songList: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
                 items(detail.songs.size, key = { detail.songs[it].id }, contentType = { "song" }) { i ->
                     SongItem(
                         detail.songs[i],
@@ -261,6 +262,39 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                     )
                 }
             }
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+                val wide = maxWidth >= 700.dp
+                Box(Modifier.fillMaxSize()) {
+                    AmbientBackdrop(detail.album.coverArt)
+                    if (wide) {
+                        Row(Modifier.fillMaxSize().statusBarsPadding()) {
+                            Column(
+                                Modifier
+                                    .width(380.dp)
+                                    .fillMaxHeight()
+                                    .verticalScroll(rememberScrollState()),
+                            ) {
+                                topBar()
+                                headerBody()
+                            }
+                            LazyColumn(
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+                            ) {
+                                songList()
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().statusBarsPadding(),
+                            contentPadding = PaddingValues(bottom = 24.dp),
+                        ) {
+                            item { topBar() }
+                            item { headerBody() }
+                            songList()
+                        }
+                    }
+                }
             }
         }
     }

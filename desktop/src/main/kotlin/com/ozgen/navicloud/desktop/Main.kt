@@ -41,7 +41,7 @@ fun main() = application {
         val queueCore = com.ozgen.navicloud.playback.QueueCore(
             music, downloads, offline, FileQueueStateStore(), json,
         )
-        val player = MpvPlayerController(MpvEngine(), music, queueCore).apply { restoreQueue() }
+        val player = MpvPlayerController(MpvEngine(), music, queueCore, DesktopPrefs.streamQualityFlow).apply { restoreQueue() }
         AppContainer(
             music = music,
             player = player,
