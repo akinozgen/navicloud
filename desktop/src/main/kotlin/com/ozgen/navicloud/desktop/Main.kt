@@ -1,18 +1,24 @@
 package com.ozgen.navicloud.desktop
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberWindowState
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.disk.DiskCache
@@ -36,9 +42,27 @@ private class DesktopDeps(
     val volume: com.ozgen.navicloud.ui.VolumeController,
 )
 
+/** Sistem tepsisi ikonu: accent yuvarlak kare + beyaz oynat üçgeni. */
+private val TrayIconPainter: Painter = object : Painter() {
+    override val intrinsicSize = Size(64f, 64f)
+    override fun DrawScope.onDraw() {
+        drawRoundRect(
+            color = Color(0xFF7C4DFF),
+            cornerRadius = CornerRadius(size.minDimension * 0.24f),
+        )
+        val triangle = Path().apply {
+            moveTo(size.width * 0.40f, size.height * 0.28f)
+            lineTo(size.width * 0.72f, size.height * 0.50f)
+            lineTo(size.width * 0.40f, size.height * 0.72f)
+            close()
+        }
+        drawPath(triangle, Color.White)
+    }
+}
+
 /** NaviCloud Desktop: paylaşılan UI + libmpv ses motoru. */
 fun main() = application {
-    val container = remember {
+    val deps = remember {
         val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false }
         val okHttp = OkHttpClient()
         val servers = DesktopServerSource(okHttp, json)
@@ -96,11 +120,50 @@ fun main() = application {
         )
     }
 
+    val player = deps.container.player
+    val playerState by player.state.collectAsState()
+    var windowVisible by remember { mutableStateOf(true) }
+    val windowState = rememberWindowState(size = DpSize(1280.dp, 800.dp))
+
+    fun showWindow() {
+        windowState.isMinimized = false
+        windowVisible = true
+    }
+
+    // Sistem tepsisi: pencere gizliyken de çalmayı yönetmek için. Sol tık
+    // pencereyi getirir, sağ tık menüyü açar.
+    Tray(
+        icon = TrayIconPainter,
+        tooltip = playerState.currentTrack?.let { "${it.song.artist} — ${it.song.title}" } ?: "NaviCloud",
+        onAction = { showWindow() },
+        menu = {
+            Item("Göster", onClick = { showWindow() })
+            Separator()
+            Item(
+                if (playerState.isPlaying) "Duraklat" else "Çal",
+                enabled = playerState.currentTrack != null,
+                onClick = { player.togglePlayPause() },
+            )
+            Item("Önceki", enabled = playerState.currentTrack != null, onClick = { player.skipPrevious() })
+            Item("Sonraki", enabled = playerState.currentTrack != null, onClick = { player.skipNext() })
+            Separator()
+            Item("Çıkış", onClick = ::exitApplication)
+        },
+    )
+
     Window(
-        onCloseRequest = ::exitApplication,
+        onCloseRequest = {
+            // Ayar açıksa pencereyi tepsiye küçült; kapalıysa tamamen çık
+            if (DesktopPrefs.closeToTray) windowVisible = false else exitApplication()
+        },
+        visible = windowVisible,
+        state = windowState,
         title = "NaviCloud",
-        state = WindowState(size = DpSize(1280.dp, 800.dp)),
     ) {
+        // Gizliyken tekrar gösterilince öne getir (tepsiden dönüş)
+        LaunchedEffect(windowVisible) {
+            if (windowVisible) runCatching { window.toFront() }
+        }
         // Coil3 masaüstü: OkHttp fetcher + disk cache (~/.navicloud/image_cache)
         setSingletonImageLoaderFactory { ctx ->
             ImageLoader.Builder(ctx)
@@ -116,8 +179,8 @@ fun main() = application {
                 .build()
         }
         CompositionLocalProvider(
-            LocalAppContainer provides container.container,
-            com.ozgen.navicloud.ui.LocalVolumeController provides container.volume,
+            LocalAppContainer provides deps.container,
+            com.ozgen.navicloud.ui.LocalVolumeController provides deps.volume,
         ) {
             NaviCloudTheme {
                 NaviCloudRoot(
@@ -127,4 +190,3 @@ fun main() = application {
         }
     }
 }
-

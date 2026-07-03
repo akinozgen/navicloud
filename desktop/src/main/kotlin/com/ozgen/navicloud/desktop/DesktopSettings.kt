@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Minimize
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.material.icons.rounded.WifiOff
@@ -69,6 +70,7 @@ object DesktopPrefs {
         val streamQuality: String = StreamQuality.RAW.name,
         val offlineMode: Boolean = false,
         val volume: Int = 100,
+        val closeToTray: Boolean = true,
     )
 
     private val file = File(System.getProperty("user.home"), ".navicloud/settings.json")
@@ -112,6 +114,10 @@ object DesktopPrefs {
     var volume: Int
         get() = load().volume
         set(value) = save(load().copy(volume = value.coerceIn(0, 100)))
+
+    var closeToTray: Boolean
+        get() = load().closeToTray
+        set(value) = save(load().copy(closeToTray = value))
 }
 
 @Composable
@@ -303,6 +309,24 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                 if (scanState?.first == true) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 }
+            },
+        )
+
+        SectionHeader("Uygulama")
+        var closeToTray by remember { mutableStateOf(DesktopPrefs.closeToTray) }
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Minimize, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "Kapatınca tepsiye küçült",
+            subtitle = "Pencereyi kapatınca uygulama tepside çalmaya devam eder",
+            onClick = {
+                closeToTray = !closeToTray
+                DesktopPrefs.closeToTray = closeToTray
+            },
+            trailing = {
+                Switch(checked = closeToTray, onCheckedChange = {
+                    closeToTray = it
+                    DesktopPrefs.closeToTray = it
+                })
             },
         )
         Spacer(Modifier.height(32.dp))
