@@ -6,6 +6,7 @@ import com.ozgen.navicloud.data.StreamQuality
 import com.ozgen.navicloud.playback.PlaybackContext
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.playback.PlayerUiState
+import com.ozgen.navicloud.playback.QueueCore
 import com.ozgen.navicloud.playback.QueueTrack
 import com.ozgen.navicloud.playback.RepeatMode
 import kotlinx.coroutines.CoroutineScope
@@ -15,8 +16,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
-import java.io.File
 import java.util.UUID
 
 /**
@@ -30,17 +29,8 @@ import java.util.UUID
 class MpvPlayerController(
     private val engine: MpvEngine,
     private val musicRepository: MusicRepository,
+    private val queueCore: QueueCore,
 ) : PlayerController {
-    @kotlinx.serialization.Serializable
-    private data class PersistedQueue(
-        val songs: List<Song>,
-        val index: Int,
-        val positionMs: Long,
-        val contextLabel: String? = null,
-    )
-
-    private val queueFile = File(System.getProperty("user.home"), ".navicloud/queue.json")
-    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
     private var lastSaveMs = 0L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -97,30 +87,22 @@ class MpvPlayerController(
 
     private fun saveQueue() {
         lastSaveMs = System.currentTimeMillis()
-        runCatching {
-            queueFile.parentFile?.mkdirs()
-            val payload = PersistedQueue(
-                songs = queue.map { it.song },
-                index = index,
-                positionMs = positionMs,
-                contextLabel = _contextLabel.value,
-            )
-            queueFile.writeText(json.encodeToString(PersistedQueue.serializer(), payload))
-        }
+        val songs = queue.map { it.song }
+        val i = index
+        val pos = positionMs
+        val label = _contextLabel.value
+        scope.launch { queueCore.persist(songs, i, pos, label) }
     }
 
     /** Uygulama açılışında kuyruğu geri getirir — bilinçli olarak ÇALMAZ. */
     fun restoreQueue() {
         scope.launch {
-            runCatching {
-                if (!queueFile.exists()) return@launch
-                val saved = json.decodeFromString(PersistedQueue.serializer(), queueFile.readText())
-                if (saved.songs.isEmpty() || queue.isNotEmpty()) return@launch
-                queue.addAll(saved.songs.map { it.toQueueTrack() })
-                index = saved.index.coerceIn(0, queue.size - 1)
-                _contextLabel.value = saved.contextLabel
-                syncState()
-            }
+            val saved = queueCore.restore() ?: return@launch
+            if (queue.isNotEmpty()) return@launch
+            queue.addAll(saved.songs.map { it.toQueueTrack() })
+            index = saved.index.coerceIn(0, queue.size - 1)
+            _contextLabel.value = saved.contextLabel
+            syncState()
         }
     }
 
@@ -181,7 +163,7 @@ class MpvPlayerController(
         playAt(next)
     }
 
-    /** Endless: kuyruğun sonuna yaklaşınca rastgele şarkılarla besle. */
+    /** Endless: kuyruğun sonuna yaklaşınca bağlama uygun şarkılarla besle. */
     private fun maybeContinueEndless() {
         if (!_endless.value || fetchingContinuation) return
         if (queue.isEmpty() || index < queue.size - 3) return
@@ -189,9 +171,9 @@ class MpvPlayerController(
         scope.launch {
             try {
                 val existing = queue.map { it.song.id }.toSet()
-                val candidates = runCatching { musicRepository.randomSongs(20) }
-                    .getOrDefault(emptyList())
+                val candidates = queueCore.fetchContinuation(playbackContext, 20)
                     .filter { it.id !in existing }
+                    .take(20)
                 queue.addAll(candidates.map { it.toQueueTrack() })
                 syncState()
             } finally {
@@ -307,7 +289,7 @@ class MpvPlayerController(
         playbackContext = null
         _currentContext.value = null
         _contextLabel.value = null
-        runCatching { queueFile.delete() }
+        scope.launch { queueCore.clearPersisted() }
         syncState()
     }
 

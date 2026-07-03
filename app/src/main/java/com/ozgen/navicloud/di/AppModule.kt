@@ -92,6 +92,25 @@ object AppModule {
     @Singleton
     fun provideRecentSearches(impl: com.ozgen.navicloud.data.DataStoreRecentSearches): com.ozgen.navicloud.data.RecentSearchesStore = impl
 
+    @Provides
+    @Singleton
+    fun provideDownloadsPort(impl: com.ozgen.navicloud.data.DownloadRepository): com.ozgen.navicloud.data.DownloadsPort = impl
+
+    @Provides
+    @Singleton
+    fun provideQueueStateStore(impl: com.ozgen.navicloud.playback.DataStoreQueueStateStore): com.ozgen.navicloud.playback.QueueStateStore = impl
+
+    @Provides
+    @Singleton
+    fun provideQueueCore(
+        music: com.ozgen.navicloud.data.MusicRepository,
+        downloads: com.ozgen.navicloud.data.DownloadsPort,
+        offline: com.ozgen.navicloud.data.OfflineModeSource,
+        store: com.ozgen.navicloud.playback.QueueStateStore,
+        json: Json,
+    ): com.ozgen.navicloud.playback.QueueCore =
+        com.ozgen.navicloud.playback.QueueCore(music, downloads, offline, store, json)
+
     // Platform-bağımsız PlayerController arayüzü → Android'de Media3 implementasyonu.
     // Masaüstü (KMP) portunda burası vlcj tabanlı implementasyona bağlanacak.
     @Provides

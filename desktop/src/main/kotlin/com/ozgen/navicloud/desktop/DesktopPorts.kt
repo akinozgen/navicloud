@@ -11,6 +11,7 @@ import com.ozgen.navicloud.data.DownloadsPort
 import com.ozgen.navicloud.data.OfflineModeSource
 import com.ozgen.navicloud.data.RecentSearchesStore
 import com.ozgen.navicloud.data.ServerSource
+import com.ozgen.navicloud.playback.QueueStateStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -137,4 +138,24 @@ class InMemoryRecentSearches : RecentSearchesStore {
         state.value = state.value.filter { !it.equals(query, ignoreCase = true) }
     }
     override suspend fun clear() { state.value = emptyList() }
+}
+
+
+/** Kalıcı kuyruk deposu: ~/.navicloud/queue.json */
+class FileQueueStateStore : QueueStateStore {
+    private val file = File(System.getProperty("user.home"), ".navicloud/queue.json")
+
+    override suspend fun save(json: String) {
+        runCatching {
+            file.parentFile?.mkdirs()
+            file.writeText(json)
+        }
+    }
+
+    override suspend fun load(): String? =
+        runCatching { if (file.exists()) file.readText() else null }.getOrNull()
+
+    override suspend fun clear() {
+        runCatching { file.delete() }
+    }
 }

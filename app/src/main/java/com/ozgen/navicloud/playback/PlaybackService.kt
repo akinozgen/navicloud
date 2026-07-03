@@ -154,8 +154,11 @@ class PlaybackService : MediaSessionService() {
             val old = oldPosition.mediaItem ?: return
             val durationSec = old.mediaMetadata.extras?.getInt(MediaKeys.DURATION, 0) ?: 0
             val playedMs = oldPosition.positionMs
-            val shouldSubmit = reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION ||
-                (durationSec > 0 && playedMs >= minOf(durationSec * 500L, 240_000L))
+            val shouldSubmit = shouldSubmitScrobble(
+                durationSec = durationSec,
+                playedMs = playedMs,
+                naturalEnd = reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION,
+            )
             if (shouldSubmit) {
                 scope.launch { musicRepository.scrobble(old.mediaId, submission = true) }
             }

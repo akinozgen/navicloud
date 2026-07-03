@@ -14,7 +14,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -23,34 +22,6 @@ import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
-
-// Kuyruk kalıcılığı: uygulama ölse de kuyruk + pozisyon geri gelir
-@kotlinx.serialization.Serializable
-private data class PersistedTrack(
-    val id: String,
-    val title: String,
-    val artist: String? = null,
-    val album: String? = null,
-    val albumId: String? = null,
-    val artistId: String? = null,
-    val coverArt: String? = null,
-    val duration: Int = 0,
-    val suffix: String? = null,
-    val bitRate: Int? = null,
-    val samplingRate: Int? = null,
-    val starred: Boolean = false,
-)
-
-@kotlinx.serialization.Serializable
-private data class PersistedQueue(
-    val tracks: List<PersistedTrack>,
-    val index: Int,
-    val positionMs: Long,
-    val contextLabel: String? = null,
-)
-
-private val KEY_PERSISTED_QUEUE =
-    androidx.datastore.preferences.core.stringPreferencesKey("persisted_queue")
 
 /**
  * [PlayerController]'ın Media3 implementasyonu — Android'de arkadaki
@@ -63,8 +34,7 @@ class Media3PlayerController @Inject constructor(
     private val musicRepository: MusicRepository,
     private val downloads: DownloadRepository,
     private val settings: com.ozgen.navicloud.data.SettingsRepository,
-    private val dataStore: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>,
-    private val json: kotlinx.serialization.json.Json,
+    private val queueCore: QueueCore,
 ) : PlayerController {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -147,38 +117,15 @@ class Media3PlayerController @Inject constructor(
     private suspend fun saveQueueNow() {
         val c = _controller.value ?: return
         if (c.mediaItemCount == 0) return
-        val tracks = (0 until c.mediaItemCount).map { i ->
-            val s = c.getMediaItemAt(i).toSong()
-            PersistedTrack(
-                id = s.id, title = s.title, artist = s.artist, album = s.album,
-                albumId = s.albumId, artistId = s.artistId, coverArt = s.coverArt,
-                duration = s.duration, suffix = s.suffix, bitRate = s.bitRate,
-                samplingRate = s.samplingRate, starred = s.starred,
-            )
-        }
-        val payload = PersistedQueue(tracks, c.currentMediaItemIndex, c.currentPosition, _contextLabel.value)
-        runCatching {
-            val encoded = json.encodeToString(PersistedQueue.serializer(), payload)
-            dataStore.edit { it[KEY_PERSISTED_QUEUE] = encoded }
-        }
+        val songs = (0 until c.mediaItemCount).map { i -> c.getMediaItemAt(i).toSong() }
+        queueCore.persist(songs, c.currentMediaItemIndex, c.currentPosition, _contextLabel.value)
     }
 
     private suspend fun restorePersistedQueue(c: MediaController) {
         if (c.mediaItemCount > 0) return // servis zaten çalıyor
         runCatching {
-            val encoded = dataStore.data.first()[KEY_PERSISTED_QUEUE] ?: return
-            val saved = json.decodeFromString(PersistedQueue.serializer(), encoded)
-            if (saved.tracks.isEmpty()) return
-            val songs = saved.tracks.map { t ->
-                Song(
-                    id = t.id, title = t.title, album = t.album, albumId = t.albumId,
-                    artist = t.artist, artistId = t.artistId, coverArt = t.coverArt,
-                    duration = t.duration, track = null, discNumber = null, year = null,
-                    bitRate = t.bitRate, suffix = t.suffix, contentType = null,
-                    size = null, starred = t.starred, samplingRate = t.samplingRate,
-                )
-            }
-            val items = songs.map { it.toItem() }
+            val saved = queueCore.restore() ?: return
+            val items = saved.songs.map { it.toItem() }
             _contextLabel.value = saved.contextLabel
             c.setMediaItems(items, saved.index.coerceIn(0, items.size - 1), saved.positionMs)
             c.prepare()
@@ -229,9 +176,8 @@ class Media3PlayerController @Inject constructor(
 
     /** Offline modda yalnız indirilenler çalınır; hiçbiri yoksa kullanıcıya söylenir. */
     private suspend fun filterForOffline(songs: List<Song>): List<Song> {
-        if (!settings.offlineMode.first()) return songs
-        val ids = downloads.downloadedIds.first().toSet()
-        val filtered = songs.filter { it.id in ids }
+        val filtered = queueCore.filterForOffline(songs)
+        if (filtered.size == songs.size) return songs
         if (filtered.isEmpty() && songs.isNotEmpty()) {
             android.widget.Toast.makeText(
                 context,
@@ -379,35 +325,8 @@ class Media3PlayerController @Inject constructor(
         }
     }
 
-    private suspend fun fetchContinuation(): List<Song> = runCatching {
-        // Offline: ASLA sunucuya gitme; sadece indirilenlerden besle. Tükenince
-        // (dedupe sonrası boş) endless kendiliğinden durur — sonsuz döngü yok.
-        if (settings.offlineMode.first()) {
-            return@runCatching downloads.allDownloadedSongs().shuffled()
-        }
-        when (val ctx = playbackContext) {
-            is PlaybackContext.Album -> {
-                // Continue with more from the same artist
-                val artistId = ctx.artistId
-                if (artistId != null) {
-                    val albums = musicRepository.artist(artistId).albums.shuffled()
-                    albums.firstOrNull { it.id != ctx.albumId }?.let { album ->
-                        musicRepository.album(album.id).songs
-                    } ?: musicRepository.randomSongs(continuationChunk)
-                } else {
-                    musicRepository.randomSongs(continuationChunk)
-                }
-            }
-            is PlaybackContext.Artist ->
-                musicRepository.similarSongs(ctx.artistId, continuationChunk)
-                    .ifEmpty { musicRepository.randomSongs(continuationChunk) }
-            is PlaybackContext.Playlist,
-            is PlaybackContext.Genre,
-            PlaybackContext.AllSongs,
-            null,
-            -> musicRepository.randomSongs(continuationChunk)
-        }
-    }.getOrDefault(emptyList())
+    private suspend fun fetchContinuation(): List<Song> =
+        queueCore.fetchContinuation(playbackContext, continuationChunk)
 
     override fun toggleShuffle() {
         _controller.value?.run { shuffleModeEnabled = !shuffleModeEnabled }
@@ -422,7 +341,7 @@ class Media3PlayerController @Inject constructor(
         playbackContext = null
         _currentContext.value = null
         _contextLabel.value = null
-        scope.launch { dataStore.edit { it.remove(KEY_PERSISTED_QUEUE) } }
+        scope.launch { queueCore.clearPersisted() }
     }
 
     override fun cycleRepeat() {

@@ -35,14 +35,19 @@ fun main() = application {
         val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false }
         val okHttp = OkHttpClient()
         val servers = DesktopServerSource(okHttp, json)
-        val music = MusicRepository(servers, InMemoryApiCacheStore(), json, AlwaysOnlineSource())
-        val player = MpvPlayerController(MpvEngine(), music).apply { restoreQueue() }
+        val offline = AlwaysOnlineSource()
+        val downloads = NoDownloads()
+        val music = MusicRepository(servers, InMemoryApiCacheStore(), json, offline)
+        val queueCore = com.ozgen.navicloud.playback.QueueCore(
+            music, downloads, offline, FileQueueStateStore(), json,
+        )
+        val player = MpvPlayerController(MpvEngine(), music, queueCore).apply { restoreQueue() }
         AppContainer(
             music = music,
             player = player,
             servers = servers,
-            downloads = NoDownloads(),
-            offline = AlwaysOnlineSource(),
+            downloads = downloads,
+            offline = offline,
             recents = InMemoryRecentSearches(),
         )
     }
