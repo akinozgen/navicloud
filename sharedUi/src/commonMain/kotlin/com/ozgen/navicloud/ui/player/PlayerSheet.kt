@@ -56,6 +56,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
@@ -656,6 +657,13 @@ private fun FullPlayerContent(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
+            // Mini oynatıcı — yalnız masaüstünde (toggle sağlandıysa)
+            val miniToggle = com.ozgen.navicloud.ui.LocalMiniPlayerToggle.current
+            if (miniToggle != null) {
+                IconButton(onClick = miniToggle) {
+                    Icon(Icons.Rounded.PictureInPictureAlt, contentDescription = "Mini oynatıcı", tint = Color.White)
+                }
+            }
             // Current song's context menu, top right
             var menuOpen by remember { mutableStateOf(false) }
             Box {

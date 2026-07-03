@@ -54,6 +54,12 @@ interface VolumeController {
 
 val LocalVolumeController = staticCompositionLocalOf<VolumeController?> { null }
 
+/**
+ * Mini oynatıcıyı açan eylem — yalnızca masaüstünde sağlanır (null ise
+ * tam oynatıcıda mini oynatıcı ikonu gösterilmez).
+ */
+val LocalMiniPlayerToggle = staticCompositionLocalOf<(() -> Unit)?> { null }
+
 /** Dokunmatik platformda true — pull-to-refresh jestinin ön koşulu. */
 expect val supportsPullToRefresh: Boolean
 

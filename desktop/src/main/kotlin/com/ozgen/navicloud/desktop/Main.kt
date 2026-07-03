@@ -20,7 +20,6 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import coil3.ImageLoader
-import coil3.compose.setSingletonImageLoaderFactory
 import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.memory.MemoryCache
@@ -72,11 +71,39 @@ fun main() = application {
         val queueCore = com.ozgen.navicloud.playback.QueueCore(
             music, downloads, offline, FileQueueStateStore(), json,
         )
+        // Coil3 tek görsel yükleyici — mini pencere de aynı loader'ı kullanır,
+        // o yüzden pencereye değil sürece kur (setSafe: bir kez ayarlar)
+        coil3.SingletonImageLoader.setSafe { ctx ->
+            ImageLoader.Builder(ctx)
+                .components { add(OkHttpNetworkFetcherFactory()) }
+                .memoryCache { MemoryCache.Builder().maxSizeBytes(128L * 1024 * 1024).build() }
+                .diskCache {
+                    DiskCache.Builder()
+                        .directory(File(System.getProperty("user.home"), ".navicloud/image_cache"))
+                        .maxSizeBytes(250L * 1024 * 1024)
+                        .build()
+                }
+                .crossfade(true)
+                .build()
+        }
         val engine = MpvEngine().apply { volume = DesktopPrefs.volume }
         val player = MpvPlayerController(
             engine, music, queueCore, DesktopPrefs.streamQualityFlow,
             localFile = { id -> downloads.localPath(id) },
         ).apply { restoreQueue() }
+        // Mini oynatıcı görsel doğrulaması: NAVI_MINI=1 → içerik yüklensin
+        if (System.getenv("NAVI_MINI") == "1") {
+            @Suppress("OPT_IN_USAGE")
+            kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    player.play(music.randomSongs(3), 0, null, "mini-test")
+                    kotlinx.coroutines.delay(6000)
+                    val st = player.state.value
+                    println("MINITEST playing=${st.isPlaying} track=${st.currentTrack?.song?.title} pos=${player.positionMs}ms")
+                    println("MINITEST BITTI")
+                }.onFailure { println("MINITEST HATA: $it") }
+            }
+        }
         // Otonom doğrulama: NAVI_SELFTEST_DL=1 → indir, offline'a geç, yerelden çal
         if (System.getenv("NAVI_SELFTEST_DL") == "1") {
             @Suppress("OPT_IN_USAGE")
@@ -122,12 +149,20 @@ fun main() = application {
 
     val player = deps.container.player
     val playerState by player.state.collectAsState()
-    var windowVisible by remember { mutableStateOf(true) }
+    val startMini = System.getenv("NAVI_MINI") == "1"
+    var windowVisible by remember { mutableStateOf(!startMini) }
+    var miniOpen by remember { mutableStateOf(startMini) }
     val windowState = rememberWindowState(size = DpSize(1280.dp, 800.dp))
 
     fun showWindow() {
+        miniOpen = false
         windowState.isMinimized = false
         windowVisible = true
+    }
+
+    fun openMini() {
+        miniOpen = true
+        windowVisible = false
     }
 
     // Sistem tepsisi: pencere gizliyken de çalmayı yönetmek için. Sol tık
@@ -138,6 +173,7 @@ fun main() = application {
         onAction = { showWindow() },
         menu = {
             Item("Göster", onClick = { showWindow() })
+            Item("Mini oynatıcı", onClick = { openMini() })
             Separator()
             Item(
                 if (playerState.isPlaying) "Duraklat" else "Çal",
@@ -164,23 +200,10 @@ fun main() = application {
         LaunchedEffect(windowVisible) {
             if (windowVisible) runCatching { window.toFront() }
         }
-        // Coil3 masaüstü: OkHttp fetcher + disk cache (~/.navicloud/image_cache)
-        setSingletonImageLoaderFactory { ctx ->
-            ImageLoader.Builder(ctx)
-                .components { add(OkHttpNetworkFetcherFactory()) }
-                .memoryCache { MemoryCache.Builder().maxSizeBytes(128L * 1024 * 1024).build() }
-                .diskCache {
-                    DiskCache.Builder()
-                        .directory(File(System.getProperty("user.home"), ".navicloud/image_cache"))
-                        .maxSizeBytes(250L * 1024 * 1024)
-                        .build()
-                }
-                .crossfade(true)
-                .build()
-        }
         CompositionLocalProvider(
             LocalAppContainer provides deps.container,
             com.ozgen.navicloud.ui.LocalVolumeController provides deps.volume,
+            com.ozgen.navicloud.ui.LocalMiniPlayerToggle provides { openMini() },
         ) {
             NaviCloudTheme {
                 NaviCloudRoot(
@@ -188,5 +211,10 @@ fun main() = application {
                 )
             }
         }
+    }
+
+    // Her zaman üstte kalabilen mini oynatıcı (ayrı, çerçevesiz pencere)
+    if (miniOpen) {
+        MiniPlayerWindow(player = player, onExpand = { showWindow() })
     }
 }
