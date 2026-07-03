@@ -59,7 +59,7 @@ import java.io.File
  * seçenek libmpv (varsayılan); GStreamer vb. eklendiğinde buradan seçilecek.
  */
 enum class AudioBackend(val label: String, val description: String) {
-    LIBMPV("libmpv", "Varsayılan — gapless, tam codec desteği"),
+    LIBMPV("libmpv", "Varsayılan"),
 }
 
 object DesktopPrefs {
@@ -201,7 +201,7 @@ fun DesktopSettingsScreen(navController: NavHostController) {
         SettingRow(
             icon = { Icon(Icons.Rounded.GraphicEq, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             title = "Ses motoru",
-            subtitle = "${backend.label} — ${backend.description}",
+            subtitle = backend.label,
             onClick = { backendDialog = true },
         )
         var offline by remember { mutableStateOf(DesktopPrefs.offlineMode) }
@@ -262,7 +262,7 @@ fun DesktopSettingsScreen(navController: NavHostController) {
         SettingRow(
             icon = { Icon(Icons.Rounded.Image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             title = "Görsel önbelleği",
-            subtitle = formatBytes(imageCacheBytes) + " • kapaklar, en eski kendiliğinden silinir",
+            subtitle = formatBytes(imageCacheBytes) + " • kapak görselleri",
             onClick = {},
             trailing = {
                 if (imageCacheBytes > 0) {
@@ -375,12 +375,6 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                             }
                         }
                     }
-                    Text(
-                        "Alternatif motorlar (ör. GStreamer) eklendiğinde buradan seçilebilecek.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
                 }
             },
             confirmButton = {

@@ -274,8 +274,8 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
         )
         SettingRow(
             icon = { Icon(Icons.Rounded.Downloading, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Sıradakini önbelleğe al",
-            subtitle = "Sonraki 2 şarkının başı önceden yüklenir, geçişler beklemez",
+            title = "Sıradakini önceden yükle",
+            subtitle = "Şarkı geçişleri takılmadan başlar",
             onClick = { vm.setPrefetchEnabled(!state.prefetchEnabled) },
             trailing = {
                 Switch(checked = state.prefetchEnabled, onCheckedChange = { vm.setPrefetchEnabled(it) })
@@ -284,8 +284,8 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
         if (state.prefetchEnabled) {
             SettingRow(
                 icon = { Icon(Icons.Rounded.Wifi, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                title = "Önbelleğe almayı WiFi ile sınırla",
-                subtitle = "Hücresel veride sıradaki şarkılar önceden yüklenmez",
+                title = "Ön yüklemeyi Wi-Fi ile sınırla",
+                subtitle = "Hücresel veride önceden yükleme yapılmaz",
                 onClick = { vm.setPrefetchWifiOnly(!state.prefetchWifiOnly) },
                 trailing = {
                     Switch(checked = state.prefetchWifiOnly, onCheckedChange = { vm.setPrefetchWifiOnly(it) })
@@ -319,7 +319,7 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
         SettingRow(
             icon = { Icon(Icons.Rounded.Storage, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             title = "Akış önbelleği",
-            subtitle = "${formatBytes(streamCacheBytes)} / ${formatMb(state.streamCacheMaxMb)} • dokunup sınırı değiştir",
+            subtitle = "${formatBytes(streamCacheBytes)} / ${formatMb(state.streamCacheMaxMb)}",
             onClick = { cacheSizeDialog = true },
             trailing = {
                 if (streamCacheBytes > 0) {
@@ -330,7 +330,7 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
         SettingRow(
             icon = { Icon(Icons.Rounded.Image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             title = "Görsel önbelleği",
-            subtitle = "${formatBytes(imageCacheBytes)} • kapaklar, en eski kendiliğinden silinir",
+            subtitle = "${formatBytes(imageCacheBytes)} • kapak görselleri",
             onClick = {},
             trailing = {
                 if (imageCacheBytes > 0) {
@@ -343,8 +343,8 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
         SectionHeader("İndirmeler")
         SettingRow(
             icon = { Icon(Icons.Rounded.Wifi, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Sadece WiFi'de indir",
-            subtitle = "Hücresel ağda indirme kuyruğu WiFi'yi bekler",
+            title = "Sadece Wi-Fi'de indir",
+            subtitle = "Hücresel ağda indirmeler Wi-Fi'yi bekler",
             onClick = { vm.setDownloadWifiOnly(!state.downloadWifiOnly) },
             trailing = {
                 Switch(checked = state.downloadWifiOnly, onCheckedChange = { vm.setDownloadWifiOnly(it) })
@@ -368,7 +368,7 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
             Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 Text(
                     if (activeDl.waitingForWifi) {
-                        "WiFi bekleniyor: ${activeDl.title}" +
+                        "Wi-Fi bekleniyor: ${activeDl.title}" +
                             if (activeDl.queued > 1) " (+${activeDl.queued - 1} sırada)" else ""
                     } else {
                         "İndiriliyor: ${activeDl.title}" +
@@ -415,7 +415,7 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                         }
                     }
                     Text(
-                        "Orijinal dışındaki seçimlerde sunucu MP3'e dönüştürür — hücresel veride kotayı korur.",
+                        "Orijinal dışındaki seçenekler veri kullanımını azaltır.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp),
@@ -453,7 +453,7 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                         }
                     }
                     Text(
-                        "Dinlediklerin geçici olarak burada tutulur; sınır aşılınca en eskiler kendiliğinden silinir. İndirilenler bu alandan AYRIDIR, asla silinmez.",
+                        "Dinlediklerin geçici olarak saklanır; yer gerektiğinde en eskiler silinir. İndirilenler bundan etkilenmez.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp),
