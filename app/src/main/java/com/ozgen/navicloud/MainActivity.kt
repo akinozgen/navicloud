@@ -16,7 +16,6 @@ import com.ozgen.navicloud.playback.PlaybackService
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.AppContainer
 import com.ozgen.navicloud.ui.LocalAppContainer
-import com.ozgen.navicloud.ui.LocalDebugAutofill
 import com.ozgen.navicloud.ui.NaviCloudRoot
 import com.ozgen.navicloud.ui.screens.servers.ServersScreen
 import com.ozgen.navicloud.ui.theme.NaviCloudTheme
@@ -51,7 +50,6 @@ class MainActivity : ComponentActivity() {
             }
             CompositionLocalProvider(
                 LocalAppContainer provides container,
-                LocalDebugAutofill provides BuildConfig.DEBUG,
             ) {
                 NaviCloudTheme {
                     NaviCloudRoot(

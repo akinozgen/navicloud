@@ -29,9 +29,6 @@ val LocalAppContainer = staticCompositionLocalOf<AppContainer> {
     error("AppContainer sağlanmadı")
 }
 
-/** Login formunda debug autofill (yalnız Android debug build'de true). */
-val LocalDebugAutofill = staticCompositionLocalOf { false }
-
 /** hiltViewModel yerine: container'dan kurulan, navigasyon girdisine scope'lu VM. */
 @Composable
 inline fun <reified VM : ViewModel> containerViewModel(

@@ -61,12 +61,10 @@ class LoginViewModel(
 @Composable
 fun LoginScreen(vm: LoginViewModel = containerViewModel { LoginViewModel(it.servers) }) {
     val state by vm.state.collectAsStateWithLifecycle()
-    // DEBUG: test sunucusuyla otomatik doldur (yayına çıkmadan kaldırılacak)
-    val dbg = com.ozgen.navicloud.ui.LocalDebugAutofill.current
-    var name = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(if (dbg) "NaviTest" else "") }
-    var url = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(if (dbg) "http://example.local" else "") }
-    var username = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(if (dbg) "ozgen" else "") }
-    var password = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(if (dbg) "REDACTED" else "") }
+    val name = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    val url = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    val username = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    val password = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -98,7 +96,7 @@ fun LoginScreen(vm: LoginViewModel = containerViewModel { LoginViewModel(it.serv
             value = url.value,
             onValueChange = { url.value = it },
             label = { Text("Sunucu adresi") },
-            placeholder = { Text("http://example.local") },
+            placeholder = { Text("http://sunucu-adresi:port") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             modifier = Modifier.fillMaxWidth(),
