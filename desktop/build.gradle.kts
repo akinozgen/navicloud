@@ -6,12 +6,14 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     implementation(compose.materialIconsExtended)
     implementation("net.java.dev.jna:jna:${libs.versions.jna.get()}")
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:${libs.versions.kotlinxCoroutines.get()}")
 }
 
 compose.desktop {
