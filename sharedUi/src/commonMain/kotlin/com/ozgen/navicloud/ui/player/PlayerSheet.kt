@@ -895,19 +895,14 @@ private fun FullPlayerContent(
                             modifier = Modifier.size(18.dp),
                         )
                     }
-                    Slider(
+                    com.ozgen.navicloud.ui.components.ThinSlider(
                         value = vol,
                         onValueChange = {
                             vol = it
                             if (it > 0.01f) lastAudible = it
                             volumeCtl.volume = it
                         },
-                        colors = SliderDefaults.colors(
-                            thumbColor = Color.White,
-                            activeTrackColor = Color(0xCCFFFFFF),
-                            inactiveTrackColor = Color(0x33FFFFFF),
-                        ),
-                        modifier = Modifier.width(120.dp).height(28.dp),
+                        modifier = Modifier.width(120.dp),
                     )
                 }
             }

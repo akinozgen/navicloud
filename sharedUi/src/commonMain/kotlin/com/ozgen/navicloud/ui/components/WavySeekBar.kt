@@ -133,3 +133,52 @@ fun WavySeekBar(
         drawCircle(Color.White, radius = 5.dp.toPx() * thumbScale, center = Offset(px, cy))
     }
 }
+
+/**
+ * WavySeekBar'ın düz kardeşi: aynı incelik (3dp, yuvarlak uç, küçük thumb),
+ * dalga yok — ses seviyesi gibi ikincil denetimler için.
+ */
+@Composable
+fun ThinSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+    activeColor: Color = Color(0xCCFFFFFF),
+    inactiveColor: Color = Color(0x33FFFFFF),
+) {
+    var dragging by remember { mutableStateOf(false) }
+    val thumbScale by animateFloatAsState(
+        targetValue = if (dragging) 1.35f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f),
+        label = "thinThumb",
+    )
+    Canvas(
+        modifier
+            .height(24.dp)
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { offset ->
+                        dragging = true
+                        onValueChange((offset.x / size.width).coerceIn(0f, 1f))
+                    },
+                    onDragEnd = { dragging = false },
+                    onDragCancel = { dragging = false },
+                ) { change, _ ->
+                    change.consume()
+                    onValueChange((change.position.x / size.width).coerceIn(0f, 1f))
+                }
+            }
+            .pointerInput(Unit) {
+                detectTapGestures { offset ->
+                    onValueChange((offset.x / size.width).coerceIn(0f, 1f))
+                }
+            },
+    ) {
+        val w = size.width
+        val cy = size.height / 2f
+        val px = value.coerceIn(0f, 1f) * w
+        drawLine(inactiveColor, Offset(px, cy), Offset(w, cy), 3.dp.toPx(), StrokeCap.Round)
+        if (px > 0f) drawLine(activeColor, Offset(0f, cy), Offset(px, cy), 3.dp.toPx(), StrokeCap.Round)
+        drawCircle(Color.White, radius = 4.dp.toPx() * thumbScale, center = Offset(px, cy))
+    }
+}
