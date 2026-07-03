@@ -139,7 +139,7 @@ private fun MainShell(vm: AppViewModel, server: Server) {
                         }
                     },
                 ) { padding ->
-                    val hasPlayer = playerState.currentItem != null
+                    val hasPlayer = playerState.currentTrack != null
                     NavHost(
                         navController = navController,
                         startDestination = "home",
@@ -173,7 +173,7 @@ private fun MainShell(vm: AppViewModel, server: Server) {
                 }
 
                 // Persistent morphing player sheet (mini bar <-> full player)
-                if (playerState.currentItem != null) {
+                if (playerState.currentTrack != null) {
                     val npVm: NowPlayingViewModel = hiltViewModel()
                     PlayerSheet(vm = npVm, collapseTick = collapseTick)
                 }

@@ -61,32 +61,27 @@ private data class PersistedQueue(
 private val KEY_PERSISTED_QUEUE =
     androidx.datastore.preferences.core.stringPreferencesKey("persisted_queue")
 
-data class PlayerUiState(
-    val currentItem: MediaItem? = null,
-    val isPlaying: Boolean = false,
-    val isBuffering: Boolean = false,
-    val shuffle: Boolean = false,
-    val repeatMode: Int = Player.REPEAT_MODE_OFF,
-    val queue: List<MediaItem> = emptyList(),
-    val currentIndex: Int = 0,
-)
-
+/**
+ * [PlayerController]'ın Media3 implementasyonu — Android'de arkadaki
+ * MediaSessionService'e MediaController ile bağlanır. Media3 tipleri bu
+ * sınıfın dışına çıkmaz; UI'a [QueueTrack]/[PlayerUiState] verilir.
+ */
 @Singleton
-class PlayerController @Inject constructor(
+class Media3PlayerController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val musicRepository: MusicRepository,
     private val downloads: DownloadRepository,
     private val settings: com.ozgen.navicloud.data.SettingsRepository,
     private val dataStore: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>,
     private val json: kotlinx.serialization.json.Json,
-) {
+) : PlayerController {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val _controller = MutableStateFlow<MediaController?>(null)
     val controller: StateFlow<MediaController?> = _controller
 
     private val _state = MutableStateFlow(PlayerUiState())
-    val state: StateFlow<PlayerUiState> = _state
+    override val state: StateFlow<PlayerUiState> = _state
 
     init {
         scope.launch {
@@ -200,23 +195,33 @@ class PlayerController @Inject constructor(
         }
     }
 
+    private fun MediaItem.toQueueTrack() = QueueTrack(
+        uid = queueUid(),
+        song = toSong(),
+        artworkUrl = mediaMetadata.artworkUri?.toString(),
+    )
+
     private fun syncState(player: Player) {
         _state.value = PlayerUiState(
-            currentItem = player.currentMediaItem,
+            currentTrack = player.currentMediaItem?.toQueueTrack(),
             isPlaying = player.isPlaying,
             isBuffering = player.playbackState == Player.STATE_BUFFERING,
             shuffle = player.shuffleModeEnabled,
-            repeatMode = player.repeatMode,
-            queue = List(player.mediaItemCount) { player.getMediaItemAt(it) },
+            repeat = when (player.repeatMode) {
+                Player.REPEAT_MODE_ONE -> RepeatMode.ONE
+                Player.REPEAT_MODE_ALL -> RepeatMode.ALL
+                else -> RepeatMode.OFF
+            },
+            queue = List(player.mediaItemCount) { player.getMediaItemAt(it).toQueueTrack() },
             currentIndex = player.currentMediaItemIndex,
         )
     }
 
-    val positionMs: Long get() = _controller.value?.currentPosition ?: 0L
-    val durationMs: Long get() = _controller.value?.duration?.coerceAtLeast(0) ?: 0L
+    override val positionMs: Long get() = _controller.value?.currentPosition ?: 0L
+    override val durationMs: Long get() = _controller.value?.duration?.coerceAtLeast(0) ?: 0L
 
     /** Aktif akış kalitesi (codec rozetinde 'transcode' göstergesi için de kullanılır). */
-    val streamQuality = settings.streamQuality
+    override val streamQuality = settings.streamQuality
         .stateIn(scope, kotlinx.coroutines.flow.SharingStarted.Eagerly, com.ozgen.navicloud.data.StreamQuality.RAW)
 
     /** Prefers the downloaded local file; falls back to an authenticated stream URL. */
@@ -248,17 +253,17 @@ class PlayerController @Inject constructor(
 
     // Queue header's "Şuradan çalınıyor: X" label
     private val _contextLabel = MutableStateFlow<String?>(null)
-    val contextLabel: StateFlow<String?> = _contextLabel
+    override val contextLabel: StateFlow<String?> = _contextLabel
 
     // What's playing right now — collection pages flip their play button to pause
     private val _currentContext = MutableStateFlow<PlaybackContext?>(null)
-    val currentContext: StateFlow<PlaybackContext?> = _currentContext
+    override val currentContext: StateFlow<PlaybackContext?> = _currentContext
 
-    fun play(
+    override fun play(
         songs: List<Song>,
-        startIndex: Int = 0,
-        context: PlaybackContext? = null,
-        contextLabel: String? = null,
+        startIndex: Int,
+        context: PlaybackContext?,
+        contextLabel: String?,
     ) {
         playbackContext = context
         _currentContext.value = context
@@ -279,8 +284,8 @@ class PlayerController @Inject constructor(
         }
     }
 
-    fun playNext(songs: List<Song>) = enqueue(songs, next = true)
-    fun addToQueue(songs: List<Song>) = enqueue(songs, next = false)
+    override fun playNext(songs: List<Song>) = enqueue(songs, next = true)
+    override fun addToQueue(songs: List<Song>) = enqueue(songs, next = false)
 
     private fun enqueue(songs: List<Song>, next: Boolean) {
         scope.launch {
@@ -301,16 +306,14 @@ class PlayerController @Inject constructor(
         }
     }
 
-    fun togglePlayPause() {
+    override fun togglePlayPause() {
         _controller.value?.run { if (isPlaying) pause() else play() }
     }
 
-    fun seekTo(positionMs: Long) { _controller.value?.seekTo(positionMs) }
-    fun skipNext() { _controller.value?.seekToNextMediaItem() }
-    fun skipPrevious() { _controller.value?.seekToPrevious() }
-    fun seekToQueueItem(index: Int) { _controller.value?.seekTo(index, 0L) }
-    fun removeQueueItem(index: Int) { _controller.value?.removeMediaItem(index) }
-    fun moveQueueItem(from: Int, to: Int) { _controller.value?.moveMediaItem(from, to) }
+    override fun seekTo(positionMs: Long) { _controller.value?.seekTo(positionMs) }
+    override fun skipNext() { _controller.value?.seekToNextMediaItem() }
+    override fun skipPrevious() { _controller.value?.seekToPrevious() }
+    override fun seekToQueueItem(index: Int) { _controller.value?.seekTo(index, 0L) }
 
     // UID-based queue ops: UI closures can freeze stale indices (remember'd
     // callbacks), but an item's UID never lies. Always resolve at call time.
@@ -322,22 +325,22 @@ class PlayerController @Inject constructor(
         return null
     }
 
-    fun seekToUid(uid: String) {
+    override fun seekToUid(uid: String) {
         indexOfUid(uid)?.let { _controller.value?.seekTo(it, 0L) }
     }
 
-    fun removeQueueItemByUid(uid: String) {
+    override fun removeQueueItemByUid(uid: String) {
         indexOfUid(uid)?.let { _controller.value?.removeMediaItem(it) }
     }
 
-    fun moveQueueItemUidTo(uid: String, target: Int) {
+    override fun moveQueueItemUidTo(uid: String, target: Int) {
         val c = _controller.value ?: return
         val from = indexOfUid(uid) ?: return
         c.moveMediaItem(from, target.coerceIn(0, c.mediaItemCount - 1))
     }
 
     /** Moves the item right after the currently playing one. */
-    fun playNextByUid(uid: String) {
+    override fun playNextByUid(uid: String) {
         val c = _controller.value ?: return
         val from = indexOfUid(uid) ?: return
         var target = c.currentMediaItemIndex + 1
@@ -347,13 +350,13 @@ class PlayerController @Inject constructor(
 
     // Bildirimden gelen "player'ı aç" istekleri (MainActivity intent'i tetikler)
     private val _expandRequests = MutableStateFlow(0)
-    val expandRequests: StateFlow<Int> = _expandRequests
-    fun requestExpand() { _expandRequests.value++ }
+    override val expandRequests: StateFlow<Int> = _expandRequests
+    override fun requestExpand() { _expandRequests.value++ }
 
     // Endless/autoplay switch — continuation logic hooks in here (playback context)
     private val _endless = MutableStateFlow(false)
-    val endless: StateFlow<Boolean> = _endless
-    fun toggleEndless() {
+    override val endless: StateFlow<Boolean> = _endless
+    override fun toggleEndless() {
         _endless.value = !_endless.value
         _controller.value?.let { maybeContinueEndless(it) }
     }
@@ -415,12 +418,12 @@ class PlayerController @Inject constructor(
         }
     }.getOrDefault(emptyList())
 
-    fun toggleShuffle() {
+    override fun toggleShuffle() {
         _controller.value?.run { shuffleModeEnabled = !shuffleModeEnabled }
     }
 
     /** Stop control: halts playback, clears the queue, closes the player UI (currentItem → null). */
-    fun stop() {
+    override fun stop() {
         _controller.value?.run {
             stop()
             clearMediaItems()
@@ -431,7 +434,7 @@ class PlayerController @Inject constructor(
         scope.launch { dataStore.edit { it.remove(KEY_PERSISTED_QUEUE) } }
     }
 
-    fun cycleRepeat() {
+    override fun cycleRepeat() {
         _controller.value?.run {
             repeatMode = when (repeatMode) {
                 Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL

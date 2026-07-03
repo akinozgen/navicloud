@@ -109,16 +109,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp as lerpDp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.media3.common.Player
 import androidx.palette.graphics.Palette
 import coil.imageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.ozgen.navicloud.core.model.Lyrics
-import com.ozgen.navicloud.playback.MediaKeys
 import com.ozgen.navicloud.playback.PlayerController
-import com.ozgen.navicloud.playback.queueUid
-import com.ozgen.navicloud.playback.toSong
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.ozgen.navicloud.ui.components.SongContextMenu
@@ -158,7 +154,7 @@ fun PlayerSheet(
 ) {
     val playerState by vm.player.state.collectAsStateWithLifecycle()
     val uiState by vm.state.collectAsStateWithLifecycle()
-    val item = playerState.currentItem ?: return
+    val item = playerState.currentTrack ?: return
     val context = LocalContext.current
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -171,18 +167,18 @@ fun PlayerSheet(
     var showLyrics by remember { mutableStateOf(false) }
 
     val artResolver = com.ozgen.navicloud.ui.components.LocalArtResolver.current
-    LaunchedEffect(item.mediaId) {
+    LaunchedEffect(item.song.id) {
         vm.onSongChanged(
-            item.mediaId,
-            item.mediaMetadata.extras?.getBoolean(MediaKeys.STARRED, false) ?: false,
+            item.song.id,
+            item.song.starred,
         )
-        val artUri = item.mediaMetadata.artworkUri?.toString()
+        val artUri = item.artworkUrl
         if (artUri == null) {
             dominantTarget = Color(0xFF17171E)
             accentTarget = null
             return@LaunchedEffect
         }
-        val coverId = item.mediaMetadata.extras?.getString(MediaKeys.COVER_ART)
+        val coverId = item.song.coverArt
         paletteCache[coverId ?: artUri]?.let { (dom, acc) ->
             dominantTarget = dom
             accentTarget = acc
@@ -324,11 +320,11 @@ fun PlayerSheet(
         ) {
             // Depth: blurred artwork as ambient backdrop (single blur layer,
             // RenderEffect — minSdk 31), the dominant gradient tames it on top
-            val artKey = artResolver.cacheKey(item.mediaMetadata.extras?.getString(MediaKeys.COVER_ART))
+            val artKey = artResolver.cacheKey(item.song.coverArt)
             if (progress > 0.1f) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(item.mediaMetadata.artworkUri)
+                        .data(item.artworkUrl)
                         .diskCacheKey(artKey).memoryCacheKey(artKey)
                         .build(),
                     contentDescription = null,
@@ -365,8 +361,8 @@ fun PlayerSheet(
                 MiniRow(
                     vm = vm,
                     isPlaying = playerState.isPlaying,
-                    title = item.mediaMetadata.title?.toString() ?: "",
-                    artist = item.mediaMetadata.artist?.toString() ?: "",
+                    title = item.song.title,
+                    artist = item.song.artist ?: "",
                     alpha = (1f - progress * 2.5f).coerceIn(0f, 1f),
                     onClick = { scope.launch { sheetDrag.animateTo(SheetValue.Expanded) } },
                 )
@@ -374,7 +370,7 @@ fun PlayerSheet(
                 MiniProgressLine(
                     player = vm.player,
                     isPlaying = playerState.isPlaying,
-                    mediaId = item.mediaId,
+                    mediaId = item.song.id,
                     accent = accentColor,
                     alpha = (1f - progress * 2.5f).coerceIn(0f, 1f),
                     modifier = Modifier
@@ -396,7 +392,7 @@ fun PlayerSheet(
                         (1f - queueProgress).coerceIn(0f, 1f),
                     onCollapse = { scope.launch { sheetDrag.animateTo(SheetValue.Collapsed) } },
                     onOpenLyrics = {
-                        vm.loadLyrics(item.mediaId)
+                        vm.loadLyrics(item.song.id)
                         showLyrics = true
                     },
                 )
@@ -420,7 +416,7 @@ fun PlayerSheet(
             } else {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(item.mediaMetadata.artworkUri)
+                        .data(item.artworkUrl)
                         .diskCacheKey(artKey).memoryCacheKey(artKey)
                         .build(),
                     contentDescription = null,
@@ -497,10 +493,10 @@ private fun ArtPager(player: PlayerController, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     HorizontalPager(state = pagerState, modifier = modifier) { page ->
         val qItem = state.queue.getOrNull(page)
-        val key = resolver.cacheKey(qItem?.mediaMetadata?.extras?.getString(MediaKeys.COVER_ART))
+        val key = resolver.cacheKey(qItem?.song?.coverArt)
         AsyncImage(
             model = ImageRequest.Builder(ctx)
-                .data(qItem?.mediaMetadata?.artworkUri)
+                .data(qItem?.artworkUrl)
                 .diskCacheKey(key).memoryCacheKey(key)
                 .build(),
             contentDescription = null,
@@ -604,7 +600,7 @@ private fun FullPlayerContent(
     onOpenLyrics: () -> Unit,
 ) {
     val playerState by vm.player.state.collectAsStateWithLifecycle()
-    val item = playerState.currentItem
+    val item = playerState.currentTrack
     var positionMs by remember { mutableLongStateOf(0L) }
     var durationMs by remember { mutableLongStateOf(0L) }
     var dragging by remember { mutableStateOf(false) }
@@ -613,7 +609,7 @@ private fun FullPlayerContent(
     // "pop-back" görünür. (hedefMs, setAtMs)
     var pendingSeek by remember { mutableStateOf<Pair<Long, Long>?>(null) }
 
-    LaunchedEffect(playerState.isPlaying, item?.mediaId) {
+    LaunchedEffect(playerState.isPlaying, item?.song?.id) {
         while (true) {
             val reported = vm.player.positionMs
             val pending = pendingSeek
@@ -643,7 +639,7 @@ private fun FullPlayerContent(
                 Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Kapat", tint = Color.White)
             }
             Text(
-                item?.mediaMetadata?.albumTitle?.toString() ?: "Şu an çalıyor",
+                item?.song?.album ?: "Şu an çalıyor",
                 style = MaterialTheme.typography.labelLarge,
                 color = Color.White,
                 textAlign = TextAlign.Center,
@@ -659,7 +655,7 @@ private fun FullPlayerContent(
                 }
                 item?.let {
                     SongContextMenu(
-                        song = it.toSong(),
+                        song = it.song,
                         expanded = menuOpen,
                         onDismiss = { menuOpen = false },
                     )
@@ -673,7 +669,7 @@ private fun FullPlayerContent(
         Column(Modifier.padding(horizontal = 24.dp).padding(top = 16.dp)) {
             // Title (bold) + chevron → album; artist muted below. Small icons right.
             val menuActions = com.ozgen.navicloud.ui.components.LocalSongMenu.current
-            val albumId = item?.mediaMetadata?.extras?.getString(MediaKeys.ALBUM_ID)
+            val albumId = item?.song?.albumId
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Row(
@@ -683,7 +679,7 @@ private fun FullPlayerContent(
                         ) { albumId?.let { menuActions?.goToAlbum?.invoke(it) } },
                     ) {
                         Text(
-                            item?.mediaMetadata?.title?.toString() ?: "",
+                            item?.song?.title ?: "",
                             style = MaterialTheme.typography.headlineSmall,
                             color = Color.White,
                             maxLines = 1,
@@ -699,7 +695,7 @@ private fun FullPlayerContent(
                         }
                     }
                     Text(
-                        item?.mediaMetadata?.artist?.toString() ?: "",
+                        item?.song?.artist ?: "",
                         style = MaterialTheme.typography.bodyLarge,
                         color = Color(0xB3FFFFFF),
                         maxLines = 1,
@@ -707,10 +703,9 @@ private fun FullPlayerContent(
                     )
                     // Self-host gururu: kaynak dosyanın gerçek kalitesi.
                     // Streaming'ler gizler, biz gösteririz.
-                    val extras = item?.mediaMetadata?.extras
-                    val suffix = extras?.getString(MediaKeys.SUFFIX)?.uppercase()
-                    val kbps = extras?.getInt(MediaKeys.BIT_RATE, 0)?.takeIf { it > 0 }
-                    val hz = extras?.getInt(MediaKeys.SAMPLE_RATE, 0)?.takeIf { it > 0 }
+                    val suffix = item?.song?.suffix?.uppercase()
+                    val kbps = item?.song?.bitRate
+                    val hz = item?.song?.samplingRate
                     val quality by vm.player.streamQuality.collectAsStateWithLifecycle()
                     val badge = buildString {
                         suffix?.let { append(it) }
@@ -738,7 +733,7 @@ private fun FullPlayerContent(
                     starScale.snapTo(0.7f)
                     starScale.animateTo(1f, spring(dampingRatio = 0.45f))
                 }
-                IconButton(onClick = { item?.mediaId?.let { vm.toggleStar(it) } }) {
+                IconButton(onClick = { item?.song?.id?.let { vm.toggleStar(it) } }) {
                     Icon(
                         if (starred) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                         contentDescription = "Favori",
@@ -842,9 +837,9 @@ private fun FullPlayerContent(
                     )
                 }
                 IconButton(onClick = { vm.player.cycleRepeat() }) {
-                    val repeatActive = playerState.repeatMode != Player.REPEAT_MODE_OFF
+                    val repeatActive = playerState.repeat != com.ozgen.navicloud.playback.RepeatMode.OFF
                     Icon(
-                        if (playerState.repeatMode == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne
+                        if (playerState.repeat == com.ozgen.navicloud.playback.RepeatMode.ONE) Icons.Rounded.RepeatOne
                         else Icons.Rounded.Repeat,
                         contentDescription = "Tekrar",
                         tint = if (repeatActive) accent else Color(0xB3FFFFFF),
@@ -864,7 +859,7 @@ private fun FullPlayerContent(
         // progress'e senkron, track başına deterministik desen
         Spacer(Modifier.height(16.dp))
         com.ozgen.navicloud.ui.components.SpectrumBar(
-            seedKey = item?.mediaId ?: "",
+            seedKey = item?.song?.id ?: "",
             progress = run {
                 val sv = if (dragging) dragValue
                 else if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
@@ -893,12 +888,12 @@ private fun QueuePanel(
     // Working copy the reorder library mutates INSTANTLY; Media3 catches up
     // asynchronously. Feeding the async state straight back caused runaway
     // moves (stale indices) and flicker.
-    val localQueue = remember { androidx.compose.runtime.mutableStateListOf<androidx.media3.common.MediaItem>() }
+    val localQueue = remember { androidx.compose.runtime.mutableStateListOf<com.ozgen.navicloud.playback.QueueTrack>() }
     val reorderableState = rememberReorderableLazyListState(listState) { from, to ->
         if (from.index in localQueue.indices && to.index in localQueue.indices) {
             // Local list moves by index (visual order); Media3 mirror resolves
             // the item by UID so a lagging sync can't move the wrong song
-            val uid = localQueue[from.index].queueUid()
+            val uid = localQueue[from.index].uid
             localQueue.add(to.index, localQueue.removeAt(from.index))
             player.moveQueueItemUidTo(uid, to.index)
         }
@@ -979,7 +974,7 @@ private fun QueuePanel(
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        if (nextItem != null) "Sıradaki: ${nextItem.mediaMetadata.title}" else "Kuyruk",
+                        if (nextItem != null) "Sıradaki: ${nextItem.song.title}" else "Kuyruk",
                         style = MaterialTheme.typography.labelLarge,
                         color = Color(0x99FFFFFF),
                         maxLines = 1,
@@ -999,14 +994,14 @@ private fun QueuePanel(
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            currentItem?.mediaMetadata?.title?.toString() ?: "Kuyruk",
+                            currentItem?.song?.title ?: "Kuyruk",
                             style = MaterialTheme.typography.titleSmall,
                             color = Color.White,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            currentItem?.mediaMetadata?.artist?.toString() ?: "${state.queue.size} şarkı",
+                            currentItem?.song?.artist ?: "${state.queue.size} şarkı",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0x99FFFFFF),
                             maxLines = 1,
@@ -1090,11 +1085,11 @@ private fun QueuePanel(
             ) {
                 items(
                     localQueue.size,
-                    key = { localQueue[it].queueUid() },
+                    key = { localQueue[it].uid },
                     contentType = { "song" },
                 ) { i ->
                     val queueItem = localQueue[i]
-                    val uid = queueItem.queueUid()
+                    val uid = queueItem.uid
                     ReorderableItem(
                         reorderableState,
                         key = uid,
@@ -1110,11 +1105,11 @@ private fun QueuePanel(
                                 when (value) {
                                     SwipeToDismissBoxValue.StartToEnd -> {
                                         // Kopya, çalanın hemen arkasına; satır yerinde kalır
-                                        player.playNext(listOf(queueItem.toSong()))
+                                        player.playNext(listOf(queueItem.song))
                                         false
                                     }
                                     SwipeToDismissBoxValue.EndToStart -> {
-                                        localQueue.removeAll { it.queueUid() == uid }
+                                        localQueue.removeAll { it.uid == uid }
                                         player.removeQueueItemByUid(uid)
                                         true
                                     }
@@ -1174,11 +1169,11 @@ private fun QueuePanel(
                             },
                         ) {
                             SongItem(
-                                song = queueItem.toSong(),
+                                song = queueItem.song,
                                 onClick = { player.seekToUid(uid) },
                                 highlighted = i == state.currentIndex,
                                 inQueue = true,
-                                queueIndex = i,
+                                queueUid = uid,
                                 playingBars = if (i == state.currentIndex) state.isPlaying else null,
                                 barsTint = accent,
                                 modifier = Modifier

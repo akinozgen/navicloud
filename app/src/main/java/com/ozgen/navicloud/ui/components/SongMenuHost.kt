@@ -119,7 +119,7 @@ fun SongMenuHost(
             },
             removeDownload = { songId -> vm.removeDownload(songId) },
             setStarred = { song, starred -> vm.setStarred(song, starred) },
-            removeFromQueue = { index -> vm.player.removeQueueItem(index) },
+            removeFromQueue = { uid -> vm.player.removeQueueItemByUid(uid) },
             isDownloaded = { songId -> songId in downloadedIds },
         )
     }

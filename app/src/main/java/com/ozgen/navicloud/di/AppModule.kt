@@ -74,4 +74,12 @@ object AppModule {
 
     @Provides
     fun provideApiCacheDao(db: NaviDb): ApiCacheDao = db.apiCacheDao()
+
+    // Platform-bağımsız PlayerController arayüzü → Android'de Media3 implementasyonu.
+    // Masaüstü (KMP) portunda burası vlcj tabanlı implementasyona bağlanacak.
+    @Provides
+    @Singleton
+    fun providePlayerController(
+        impl: com.ozgen.navicloud.playback.Media3PlayerController,
+    ): com.ozgen.navicloud.playback.PlayerController = impl
 }

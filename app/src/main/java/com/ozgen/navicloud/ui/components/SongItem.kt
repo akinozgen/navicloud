@@ -55,7 +55,7 @@ data class SongMenuActions(
     val download: (Song) -> Unit,
     val removeDownload: (String) -> Unit,
     val setStarred: (Song, Boolean) -> Unit,
-    val removeFromQueue: (Int) -> Unit,
+    val removeFromQueue: (String) -> Unit,
     val isDownloaded: (String) -> Boolean,
 )
 
@@ -71,7 +71,7 @@ fun SongItem(
     trackNumber: Int? = null,
     highlighted: Boolean = false,
     inQueue: Boolean = false,
-    queueIndex: Int? = null,
+    queueUid: String? = null,
     /** null = off; true/false = show equalizer bars (animating / frozen). */
     playingBars: Boolean? = null,
     barsTint: Color? = null,
@@ -151,7 +151,7 @@ fun SongItem(
                     expanded = menuOpen,
                     onDismiss = { menuOpen = false },
                     inQueue = inQueue,
-                    queueIndex = queueIndex,
+                    queueUid = queueUid,
                 )
             }
         }
@@ -165,7 +165,7 @@ fun SongContextMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
     inQueue: Boolean = false,
-    queueIndex: Int? = null,
+    queueUid: String? = null,
 ) {
     val actions = LocalSongMenu.current ?: return
     var starred by rememberSaveable(song.id) { mutableStateOf(song.starred) }
@@ -200,11 +200,11 @@ fun SongContextMenu(
                 onClick = { onDismiss(); actions.goToArtist(song.artistId) },
             )
         }
-        if (inQueue && queueIndex != null) {
+        if (inQueue && queueUid != null) {
             DropdownMenuItem(
                 text = { Text("Kuyruktan kaldır") },
                 leadingIcon = { Icon(Icons.Rounded.RemoveCircleOutline, null) },
-                onClick = { onDismiss(); actions.removeFromQueue(queueIndex) },
+                onClick = { onDismiss(); actions.removeFromQueue(queueUid) },
             )
         }
         if (actions.isDownloaded(song.id)) {
