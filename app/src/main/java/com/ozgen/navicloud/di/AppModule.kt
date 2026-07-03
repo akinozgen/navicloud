@@ -75,6 +75,19 @@ object AppModule {
     @Provides
     fun provideApiCacheDao(db: NaviDb): ApiCacheDao = db.apiCacheDao()
 
+    // Shared çekirdeğin portları → Android implementasyonları
+    @Provides
+    @Singleton
+    fun provideServerSource(impl: com.ozgen.navicloud.data.ServerRepository): com.ozgen.navicloud.data.ServerSource = impl
+
+    @Provides
+    @Singleton
+    fun provideOfflineModeSource(impl: com.ozgen.navicloud.data.SettingsRepository): com.ozgen.navicloud.data.OfflineModeSource = impl
+
+    @Provides
+    @Singleton
+    fun provideApiCacheStore(impl: com.ozgen.navicloud.data.RoomApiCacheStore): com.ozgen.navicloud.data.ApiCacheStore = impl
+
     // Platform-bağımsız PlayerController arayüzü → Android'de Media3 implementasyonu.
     // Masaüstü (KMP) portunda burası vlcj tabanlı implementasyona bağlanacak.
     @Provides

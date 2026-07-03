@@ -28,11 +28,11 @@ class ServerRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val baseOkHttp: OkHttpClient,
     private val json: Json,
-) {
+) : ServerSource {
     val servers: Flow<List<Server>> =
         serverDao.observeAll().map { list -> list.map { it.toModel() } }
 
-    val activeServer: Flow<Server?> =
+    override val activeServer: Flow<Server?> =
         combine(serverDao.observeAll(), dataStore.data) { list, prefs ->
             val activeId = prefs[KEY_ACTIVE_SERVER]
             (list.find { it.id == activeId } ?: list.firstOrNull())?.toModel()
@@ -40,11 +40,11 @@ class ServerRepository @Inject constructor(
 
     private val clientCache = mutableMapOf<Long, SubsonicClient>()
 
-    fun clientFor(server: Server): SubsonicClient = synchronized(clientCache) {
+    override fun clientFor(server: Server): SubsonicClient = synchronized(clientCache) {
         clientCache.getOrPut(server.id) { SubsonicClient(server, baseOkHttp, json) }
     }
 
-    suspend fun activeClient(): SubsonicClient {
+    override suspend fun activeClient(): SubsonicClient {
         val server = activeServer.first()
             ?: throw IllegalStateException("Aktif sunucu yok")
         return clientFor(server)

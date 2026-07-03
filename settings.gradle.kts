@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 rootProject.name = "NaviCloud"
 include(":app")
 include(":desktop")
+include(":shared")

@@ -11,14 +11,6 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Akış kalitesi: RAW = transcode yok; diğerleri sunucu tarafında MP3'e düşürür. */
-enum class StreamQuality(val kbps: Int?, val label: String) {
-    RAW(null, "Orijinal (transcode yok)"),
-    HIGH(320, "Yüksek • 320 kbps"),
-    MEDIUM(192, "Normal • 192 kbps"),
-    LOW(128, "Düşük • 128 kbps"),
-}
-
 private val KEY_STREAM_QUALITY = stringPreferencesKey("stream_quality")
 private val KEY_OFFLINE_MODE = booleanPreferencesKey("offline_mode")
 private val KEY_STREAM_CACHE_MAX_MB = intPreferencesKey("stream_cache_max_mb")
@@ -29,7 +21,7 @@ private val KEY_PREFETCH_WIFI_ONLY = booleanPreferencesKey("prefetch_wifi_only")
 @Singleton
 class SettingsRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
-) {
+) : OfflineModeSource {
     val streamQuality: Flow<StreamQuality> = dataStore.data.map { prefs ->
         prefs[KEY_STREAM_QUALITY]?.let { runCatching { StreamQuality.valueOf(it) }.getOrNull() }
             ?: StreamQuality.RAW
@@ -39,7 +31,7 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { it[KEY_STREAM_QUALITY] = quality.name }
     }
 
-    val offlineMode: Flow<Boolean> = dataStore.data.map { it[KEY_OFFLINE_MODE] ?: false }
+    override val offlineMode: Flow<Boolean> = dataStore.data.map { it[KEY_OFFLINE_MODE] ?: false }
 
     suspend fun setOfflineMode(enabled: Boolean) {
         dataStore.edit { it[KEY_OFFLINE_MODE] = enabled }

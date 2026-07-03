@@ -186,18 +186,18 @@ fun SongContextMenu(
             leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
             onClick = { onDismiss(); actions.addToPlaylist(song) },
         )
-        if (song.albumId != null) {
+        song.albumId?.let { albumId ->
             DropdownMenuItem(
                 text = { Text("Albüme git") },
                 leadingIcon = { Icon(Icons.Rounded.Album, null) },
-                onClick = { onDismiss(); actions.goToAlbum(song.albumId) },
+                onClick = { onDismiss(); actions.goToAlbum(albumId) },
             )
         }
-        if (song.artistId != null) {
+        song.artistId?.let { artistId ->
             DropdownMenuItem(
                 text = { Text("Sanatçıya git") },
                 leadingIcon = { Icon(Icons.Rounded.Person, null) },
-                onClick = { onDismiss(); actions.goToArtist(song.artistId) },
+                onClick = { onDismiss(); actions.goToArtist(artistId) },
             )
         }
         if (inQueue && queueUid != null) {

@@ -24,15 +24,6 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** What started playback — drives endless continuation when the queue runs out. */
-sealed interface PlaybackContext {
-    data class Album(val albumId: String, val artistId: String?) : PlaybackContext
-    data class Artist(val artistId: String) : PlaybackContext
-    data class Playlist(val playlistId: String) : PlaybackContext
-    data object AllSongs : PlaybackContext
-    data class Genre(val genre: String) : PlaybackContext
-}
-
 // Kuyruk kalıcılığı: uygulama ölse de kuyruk + pozisyon geri gelir
 @kotlinx.serialization.Serializable
 private data class PersistedTrack(

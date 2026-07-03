@@ -10,6 +10,15 @@ import kotlinx.coroutines.flow.StateFlow
  * geçişte bu dosya ortak modüle taşınır, her platform kendi
  * implementasyonunu bind eder (Android: [Media3PlayerController]).
  */
+/** What started playback — drives endless continuation when the queue runs out. */
+sealed interface PlaybackContext {
+    data class Album(val albumId: String, val artistId: String?) : PlaybackContext
+    data class Artist(val artistId: String) : PlaybackContext
+    data class Playlist(val playlistId: String) : PlaybackContext
+    data object AllSongs : PlaybackContext
+    data class Genre(val genre: String) : PlaybackContext
+}
+
 enum class RepeatMode { OFF, ALL, ONE }
 
 /**

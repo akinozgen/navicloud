@@ -14,8 +14,6 @@ import com.ozgen.navicloud.core.network.dto.ArtistDto
 import com.ozgen.navicloud.core.network.dto.PlaylistDto
 import com.ozgen.navicloud.core.network.dto.SongDto
 import com.ozgen.navicloud.core.network.unwrap
-import com.ozgen.navicloud.data.db.ApiCacheDao
-import com.ozgen.navicloud.data.db.ApiCacheEntity
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
@@ -105,10 +103,10 @@ private const val TTL_LYRICS = 7L * 24 * 60 * 60 * 1000
 
 @Singleton
 class MusicRepository @Inject constructor(
-    private val servers: ServerRepository,
-    private val cacheDao: ApiCacheDao,
+    private val servers: ServerSource,
+    private val cache: ApiCacheStore,
     private val json: Json,
-    private val settings: SettingsRepository,
+    private val offline: OfflineModeSource,
 ) {
     private suspend fun api() = servers.activeClient().api
 
@@ -128,8 +126,8 @@ class MusicRepository @Inject constructor(
         fetch: () -> T,
     ): T {
         val fullKey = serverPrefix() + key
-        val offline = settings.offlineMode.first()
-        val entry = cacheDao.get(fullKey)
+        val offline = offline.offlineMode.first()
+        val entry = cache.get(fullKey)
         val decoded: T? = entry?.let { e ->
             runCatching { json.decodeFromString<T>(e.json) }.getOrNull()
         }
@@ -138,7 +136,7 @@ class MusicRepository @Inject constructor(
         if (offline) throw IllegalStateException("Çevrimdışı: bu içerik önbellekte yok")
         return try {
             val value = fetch()
-            cacheDao.put(ApiCacheEntity(fullKey, json.encodeToString(value), System.currentTimeMillis()))
+            cache.put(CachedEntry(fullKey, json.encodeToString(value), System.currentTimeMillis()))
             value
         } catch (e: Exception) {
             decoded ?: throw e
@@ -148,7 +146,7 @@ class MusicRepository @Inject constructor(
     /** Mutasyon sonrası ilgili cache anahtarlarını düşürür (prefix eşleşmesi). */
     private suspend fun invalidate(vararg keyPrefixes: String) {
         val prefix = serverPrefix()
-        keyPrefixes.forEach { cacheDao.deleteByPrefix(prefix + it) }
+        keyPrefixes.forEach { cache.deleteByPrefix(prefix + it) }
     }
 
     suspend fun homeSections(force: Boolean = false): List<HomeSection> =
