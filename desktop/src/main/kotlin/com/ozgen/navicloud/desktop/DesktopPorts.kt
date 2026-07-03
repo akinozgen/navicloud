@@ -115,6 +115,11 @@ class AlwaysOnlineSource : OfflineModeSource {
     override val offlineMode: Flow<Boolean> = MutableStateFlow(false)
 }
 
+/** Ayarlardaki anahtara bağlı offline kaynağı. */
+class DesktopOfflineSource : OfflineModeSource {
+    override val offlineMode: Flow<Boolean> = DesktopPrefs.offlineModeFlow
+}
+
 /** Masaüstünde indirme MVP'de yok — boş ama zararsız implementasyon. */
 class NoDownloads : DownloadsPort {
     override val downloadedIds: Flow<List<String>> = MutableStateFlow(emptyList())

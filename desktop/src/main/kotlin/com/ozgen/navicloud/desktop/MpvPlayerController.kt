@@ -31,6 +31,8 @@ class MpvPlayerController(
     private val musicRepository: MusicRepository,
     private val queueCore: QueueCore,
     private val quality: StateFlow<StreamQuality> = MutableStateFlow(StreamQuality.RAW),
+    /** İndirilmişse yerel dosya yolu — offline ve veri tasarrufu için önce yerel. */
+    private val localFile: (String) -> String? = { null },
 ) : PlayerController {
     private var lastSaveMs = 0L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -128,13 +130,26 @@ class MpvPlayerController(
         artworkUrl = runCatching { musicRepository.coverArtUrl(coverArt, 1200) }.getOrNull(),
     )
 
-    private fun playAt(i: Int) {
+    private fun playAt(i: Int, skipAttempts: Int = 0) {
         val track = queue.getOrNull(i) ?: return
         index = i
         scope.launch {
             runCatching {
+                val local = localFile(track.song.id)
+                // Offline modda indirilmemiş parça atlanır (en çok kuyruk boyu deneme)
+                if (local == null && queueCore.isOffline()) {
+                    if (skipAttempts < queue.size) {
+                        val next = if (i + 1 < queue.size) i + 1 else 0
+                        playAt(next, skipAttempts + 1)
+                    } else {
+                        engine.command("stop")
+                        syncState()
+                    }
+                    return@runCatching
+                }
                 val q = quality.value
-                val url = musicRepository.streamUrl(track.song.id, q.kbps, if (q.kbps != null) "mp3" else null)
+                val url = local
+                    ?: musicRepository.streamUrl(track.song.id, q.kbps, if (q.kbps != null) "mp3" else null)
                 loadedAtMs = System.currentTimeMillis()
                 trackActive = false
                 engine.play(url)
@@ -189,10 +204,18 @@ class MpvPlayerController(
         _currentContext.value = context
         _contextLabel.value = contextLabel
         scope.launch {
-            val tracks = songs.map { it.toQueueTrack() }
+            val playable = queueCore.filterForOffline(songs)
+            if (playable.isEmpty()) {
+                if (songs.isNotEmpty()) println("TOAST: Offline mod: bu içerikte indirilmiş şarkı yok")
+                return@launch
+            }
+            val target = songs.getOrNull(startIndex)
+                ?.let { t -> playable.indexOfFirst { it.id == t.id } }
+                ?.takeIf { it >= 0 } ?: 0
+            val tracks = playable.map { it.toQueueTrack() }
             queue.clear()
             queue.addAll(tracks)
-            playAt(startIndex.coerceIn(0, (queue.size - 1).coerceAtLeast(0)))
+            playAt(target)
         }
     }
 
@@ -201,7 +224,9 @@ class MpvPlayerController(
 
     private fun enqueue(songs: List<Song>, next: Boolean) {
         scope.launch {
-            val tracks = songs.map { it.toQueueTrack() }
+            val playable = queueCore.filterForOffline(songs)
+            if (playable.isEmpty()) return@launch
+            val tracks = playable.map { it.toQueueTrack() }
             if (queue.isEmpty()) {
                 queue.addAll(tracks)
                 playAt(0)

@@ -21,12 +21,16 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.DownloadForOffline
+import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -63,6 +67,7 @@ object DesktopPrefs {
     private data class Prefs(
         val audioBackend: String = AudioBackend.LIBMPV.name,
         val streamQuality: String = StreamQuality.RAW.name,
+        val offlineMode: Boolean = false,
     )
 
     private val file = File(System.getProperty("user.home"), ".navicloud/settings.json")
@@ -92,6 +97,15 @@ object DesktopPrefs {
         set(value) {
             streamQualityFlow.value = value
             save(load().copy(streamQuality = value.name))
+        }
+
+    val offlineModeFlow: MutableStateFlow<Boolean> = MutableStateFlow(load().offlineMode)
+
+    var offlineMode: Boolean
+        get() = offlineModeFlow.value
+        set(value) {
+            offlineModeFlow.value = value
+            save(load().copy(offlineMode = value))
         }
 }
 
@@ -185,6 +199,53 @@ fun DesktopSettingsScreen(navController: NavHostController) {
             subtitle = "${backend.label} — ${backend.description}",
             onClick = { backendDialog = true },
         )
+        var offline by remember { mutableStateOf(DesktopPrefs.offlineMode) }
+        SettingRow(
+            icon = { Icon(Icons.Rounded.WifiOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "Offline mod",
+            subtitle = "Yalnızca indirilenlerden çalar, ağı kullanmaz",
+            onClick = {
+                offline = !offline
+                DesktopPrefs.offlineMode = offline
+            },
+            trailing = {
+                Switch(checked = offline, onCheckedChange = {
+                    offline = it
+                    DesktopPrefs.offlineMode = it
+                })
+            },
+        )
+
+        SectionHeader("İndirmeler")
+        val dlCount by container.downloads.totalCount.collectAsState(0)
+        val dlBytes by container.downloads.totalSizeBytes.collectAsState(0L)
+        val activeDl by container.downloads.active.collectAsState()
+        SettingRow(
+            icon = { Icon(Icons.Rounded.DownloadForOffline, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "$dlCount şarkı",
+            subtitle = formatBytes(dlBytes),
+            onClick = {},
+            trailing = {
+                if (dlCount > 0) {
+                    TextButton(onClick = { scope.launch { container.downloads.clearAll() } }) {
+                        Text("Tümünü sil", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+        )
+        activeDl?.let { dl ->
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Text(
+                    "İndiriliyor: ${dl.title}" + if (dl.queued > 1) " (+${dl.queued - 1} sırada)" else "",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                LinearProgressIndicator(
+                    progress = { dl.progress },
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                )
+            }
+        }
 
         SectionHeader("Önbellek")
         var imageCacheBytes by remember { mutableStateOf(0L) }
