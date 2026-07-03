@@ -14,3 +14,4 @@ desktop/build/
 shared/build/
 sharedUi/build/
 desktop/packaging/
+desktop/installer/*.exe
