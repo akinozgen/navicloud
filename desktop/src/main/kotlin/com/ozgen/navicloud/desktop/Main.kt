@@ -78,7 +78,16 @@ private val NaviCloudIconPainter: Painter = object : Painter() {
 }
 
 /** NaviCloud Desktop: paylaşılan UI + libmpv ses motoru. */
-fun main() = application {
+fun main() {
+    // Saydam (yuvarlak köşeli) mini pencere için: Windows'un varsayılan D3D
+    // backend'i saydam pencerede çizilmeyen bölgeyi opak siyah bırakıyordu.
+    // OpenGL backend per-pixel alpha'yı doğru temizliyor. renderApi global
+    // olduğu için pencere yaratılmadan önce, en başta set edilmeli.
+    System.setProperty("skiko.renderApi", "OPENGL")
+    runApp()
+}
+
+private fun runApp() = application {
     val deps = remember {
         val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false }
         val okHttp = OkHttpClient()

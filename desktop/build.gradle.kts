@@ -25,7 +25,7 @@ compose.desktop {
         mainClass = "com.ozgen.navicloud.desktop.MainKt"
         nativeDistributions {
             packageName = "NaviCloud"
-            packageVersion = "1.2.1"
+            packageVersion = "1.2.2"
             description = "Navidrome istemcisi"
             vendor = "ozgen"
             windows {

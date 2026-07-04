@@ -64,10 +64,10 @@ import kotlinx.coroutines.delay
 
 /**
  * Her zaman üstte tutulabilen kompakt oynatıcı — telefon bildirim
- * çalarına benzer. Çerçevesiz; içerik pencereyi kenardan kenara doldurur
- * (saydam pencere bazı sistemlerde siyah zemin gösterdiği için kullanılmadı;
- * Windows 11 zaten köşeleri yuvarlar). Üst şerit sürüklenerek taşınır,
- * iğne ikonu topmost'u açar/kapatır, büyüt ikonu ana pencereye döner.
+ * çalarına benzer. Çerçevesiz + saydam pencere; içerik RoundedCornerShape'e
+ * clip'lenir, köşe dışı gerçekten saydam kalır (Main'de skiko.renderApi=OPENGL
+ * ayarı D3D'nin saydam pencerede bıraktığı siyah zemini önler). Üst şerit
+ * sürüklenerek taşınır, iğne ikonu topmost'u açar/kapatır, büyüt ana pencereye döner.
  */
 @Composable
 fun MiniPlayerWindow(player: PlayerController, onExpand: () -> Unit) {
@@ -81,14 +81,13 @@ fun MiniPlayerWindow(player: PlayerController, onExpand: () -> Unit) {
         onCloseRequest = onExpand,
         state = state,
         undecorated = true,
+        transparent = true,
         resizable = false,
         alwaysOnTop = alwaysOnTop,
         title = "NaviCloud Mini",
     ) {
         // Çerçevesiz pencereyi taşımak için AWT ref'i
         val win = window
-        // Köşe yuvarlamada (DWM) görünen zemin siyah/beyaz değil koyu olsun
-        LaunchedEffect(win) { runCatching { win.background = java.awt.Color(20, 20, 26) } }
 
         NaviCloudTheme {
             val ps by player.state.collectAsState()
@@ -117,7 +116,10 @@ fun MiniPlayerWindow(player: PlayerController, onExpand: () -> Unit) {
                 label = "miniAccent",
             )
 
-            Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF15151B)) {
+            Surface(
+                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)),
+                color = Color(0xFF15151B),
+            ) {
                 Box(Modifier.fillMaxSize()) {
                     // Faint, blur'lu kapak — zemin cover'dan gelen tema (telefon dili)
                     track?.artworkUrl?.let { url ->
