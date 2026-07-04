@@ -481,7 +481,10 @@ fun PlayerSheet(
     }
 
     if (showLyrics) {
-        ModalBottomSheet(onDismissRequest = { showLyrics = false }) {
+        // Tam açık başlat: kısmi-açık durumda ModalBottomSheet iç scroll'u yutuyordu
+        // (özellikle synced olmayan/otomatik kaymayan sözlerde sadece ilk satırlar görünüyordu).
+        val lyricsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(onDismissRequest = { showLyrics = false }, sheetState = lyricsSheetState) {
             LyricsSheet(
                 lyrics = uiState.lyrics,
                 loading = uiState.lyricsLoading,
