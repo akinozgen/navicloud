@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Minimize
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.material.icons.rounded.WifiOff
@@ -75,6 +76,7 @@ object DesktopPrefs {
         val offlineMode: Boolean = false,
         val volume: Int = 100,
         val closeToTray: Boolean = true,
+        val internetLyrics: Boolean = true,
     )
 
     private val file = File(System.getProperty("user.home"), ".navicloud/settings.json")
@@ -122,6 +124,15 @@ object DesktopPrefs {
     var closeToTray: Boolean
         get() = load().closeToTray
         set(value) = save(load().copy(closeToTray = value))
+
+    val internetLyricsFlow: MutableStateFlow<Boolean> = MutableStateFlow(load().internetLyrics)
+
+    var internetLyrics: Boolean
+        get() = internetLyricsFlow.value
+        set(value) {
+            internetLyricsFlow.value = value
+            save(load().copy(internetLyrics = value))
+        }
 }
 
 @Composable
@@ -233,6 +244,22 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                 Switch(checked = offline, onCheckedChange = {
                     offline = it
                     DesktopPrefs.offlineMode = it
+                })
+            },
+        )
+        var internetLyrics by remember { mutableStateOf(DesktopPrefs.internetLyrics) }
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Lyrics, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "İnternet sözleri",
+            subtitle = "Sunucuda söz yoksa LRCLIB'ten getir (senkron destekli)",
+            onClick = {
+                internetLyrics = !internetLyrics
+                DesktopPrefs.internetLyrics = internetLyrics
+            },
+            trailing = {
+                Switch(checked = internetLyrics, onCheckedChange = {
+                    internetLyrics = it
+                    DesktopPrefs.internetLyrics = it
                 })
             },
         )

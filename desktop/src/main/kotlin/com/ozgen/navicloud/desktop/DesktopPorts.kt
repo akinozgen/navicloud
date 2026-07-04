@@ -120,6 +120,11 @@ class DesktopOfflineSource : OfflineModeSource {
     override val offlineMode: Flow<Boolean> = DesktopPrefs.offlineModeFlow
 }
 
+/** İnternet (LRCLIB) sözleri ayarı. */
+class DesktopLyricsSettings : com.ozgen.navicloud.data.LyricsSettings {
+    override val internetLyricsEnabled: Flow<Boolean> = DesktopPrefs.internetLyricsFlow
+}
+
 /** Masaüstünde indirme MVP'de yok — boş ama zararsız implementasyon. */
 class NoDownloads : DownloadsPort {
     override val downloadedIds: Flow<List<String>> = MutableStateFlow(emptyList())

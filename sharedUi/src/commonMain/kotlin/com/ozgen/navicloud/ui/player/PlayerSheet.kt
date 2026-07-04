@@ -5,7 +5,10 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -118,6 +121,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -411,7 +415,7 @@ fun PlayerSheet(
                         (1f - queueProgress).coerceIn(0f, 1f),
                     onCollapse = { scope.launch { sheetDrag.animateTo(SheetValue.Collapsed) } },
                     onOpenLyrics = {
-                        vm.loadLyrics(item.song.id)
+                        vm.loadLyrics(item.song)
                         showLyrics = true
                     },
                     onOpenSleepTimer = { showSleepTimer = true },
@@ -482,6 +486,7 @@ fun PlayerSheet(
                 lyrics = uiState.lyrics,
                 loading = uiState.lyricsLoading,
                 positionMsProvider = { vm.player.positionMs },
+                onSeekLine = { ms -> vm.player.seekTo(ms) },
             )
         }
     }
@@ -1494,52 +1499,102 @@ private fun LyricsSheet(
     lyrics: Lyrics?,
     loading: Boolean,
     positionMsProvider: () -> Long,
+    onSeekLine: (Long) -> Unit,
 ) {
     var positionMs by remember { mutableLongStateOf(0L) }
     LaunchedEffect(Unit) {
         while (true) {
             positionMs = positionMsProvider()
-            delay(300)
+            delay(250)
         }
     }
 
     when {
         loading -> Box(
-            Modifier.fillMaxWidth().height(200.dp),
+            Modifier.fillMaxWidth().height(220.dp),
             contentAlignment = Alignment.Center,
         ) { Text("Sözler yükleniyor…") }
         lyrics == null || lyrics.lines.isEmpty() -> Box(
-            Modifier.fillMaxWidth().height(200.dp),
+            Modifier.fillMaxWidth().height(220.dp),
             contentAlignment = Alignment.Center,
         ) { Text("Bu şarkı için söz bulunamadı", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         else -> {
-            val listState = rememberLazyListState()
-            val activeIndex = if (lyrics.synced) {
+            val synced = lyrics.synced
+            val activeIndex = if (synced) {
                 lyrics.lines.indexOfLast { (it.startMs ?: 0) <= positionMs }.coerceAtLeast(0)
             } else -1
+            val listState = rememberLazyListState()
 
-            LaunchedEffect(activeIndex) {
-                if (activeIndex >= 0) listState.animateScrollToItem(maxOf(activeIndex - 3, 0))
-            }
-
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxWidth().height(500.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(24.dp),
-            ) {
-                items(lyrics.lines.size) { i ->
-                    val line = lyrics.lines[i]
-                    Text(
-                        line.text.ifBlank { "♪" },
-                        style = MaterialTheme.typography.titleLarge,
-                        color = when {
-                            !lyrics.synced -> MaterialTheme.colorScheme.onSurface
-                            i == activeIndex -> MaterialTheme.colorScheme.primary
-                            i < activeIndex -> MaterialTheme.colorScheme.onSurfaceVariant
-                            else -> MaterialTheme.colorScheme.onSurface
-                        },
-                        modifier = Modifier.padding(vertical = 6.dp),
-                    )
+            BoxWithConstraints(Modifier.fillMaxWidth().height(520.dp)) {
+                // Aktif satırı dikey ORTAYA getir: gerçek layout ölçüsüyle (satır yükseklikleri
+                // değişken olduğundan sabit offset yanlış oluyordu). Görünürse yumuşak kaydır,
+                // değilse önce yaklaş sonra ortala.
+                LaunchedEffect(activeIndex) {
+                    if (activeIndex < 0) return@LaunchedEffect
+                    suspend fun centerOn(index: Int, smooth: Boolean) {
+                        val info = listState.layoutInfo
+                        val item = info.visibleItemsInfo.firstOrNull { it.index == index } ?: return
+                        val viewportCenter = (info.viewportStartOffset + info.viewportEndOffset) / 2f
+                        // Aktif satır tam ortada değil, ortadan ~2 satır YUKARIDA dursun →
+                        // altında gelecek satırlar görünür (Apple/Spotify tarzı).
+                        val bias = item.size * 2f
+                        val delta = (item.offset + item.size / 2f) - (viewportCenter - bias)
+                        if (smooth) listState.animateScrollBy(delta) else listState.scrollBy(delta)
+                    }
+                    if (listState.layoutInfo.visibleItemsInfo.none { it.index == activeIndex }) {
+                        listState.scrollToItem(activeIndex)  // görünür değil → önce getir
+                        centerOn(activeIndex, smooth = false)
+                    } else {
+                        centerOn(activeIndex, smooth = true)
+                    }
+                }
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        horizontal = 24.dp,
+                        vertical = if (synced) maxHeight / 2 else 24.dp,
+                    ),
+                ) {
+                    items(lyrics.lines.size) { i ->
+                        val line = lyrics.lines[i]
+                        val active = i == activeIndex
+                        val dist = kotlin.math.abs(i - activeIndex)
+                        // Aktiften uzaklaştıkça sol (üst/alt simetrik faded)
+                        val targetAlpha = when {
+                            !synced -> 1f
+                            active -> 1f
+                            dist == 1 -> 0.5f
+                            dist == 2 -> 0.34f
+                            dist == 3 -> 0.24f
+                            else -> 0.16f
+                        }
+                        val alpha by animateFloatAsState(targetAlpha, tween(320), label = "lyricAlpha")
+                        val scale by animateFloatAsState(if (active) 1f else 0.92f, tween(320), label = "lyricScale")
+                        val seekable = synced && line.startMs != null
+                        Text(
+                            line.text.ifBlank { "♪" },
+                            style = if (active) MaterialTheme.typography.headlineSmall
+                            else MaterialTheme.typography.titleLarge,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                            color = if (active) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (seekable) Modifier.clickable { onSeekLine(line.startMs!!) }
+                                    else Modifier
+                                )
+                                .graphicsLayer {
+                                    this.alpha = alpha
+                                    scaleX = scale
+                                    scaleY = scale
+                                }
+                                .padding(vertical = 8.dp),
+                        )
+                    }
                 }
             }
         }

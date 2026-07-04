@@ -85,7 +85,7 @@ fun main() = application {
         val servers = DesktopServerSource(okHttp, json)
         val offline = DesktopOfflineSource()
         val downloads = DesktopDownloads(servers, okHttp)
-        val music = MusicRepository(servers, InMemoryApiCacheStore(), json, offline)
+        val music = MusicRepository(servers, InMemoryApiCacheStore(), json, offline, okHttp, DesktopLyricsSettings())
         val queueCore = com.ozgen.navicloud.playback.QueueCore(
             music, downloads, offline, FileQueueStateStore(), json,
         )

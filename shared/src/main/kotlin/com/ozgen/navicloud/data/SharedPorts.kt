@@ -25,6 +25,11 @@ interface OfflineModeSource {
     val offlineMode: Flow<Boolean>
 }
 
+/** Söz ayarları: internet (LRCLIB) fallback açık mı. */
+interface LyricsSettings {
+    val internetLyricsEnabled: Flow<Boolean>
+}
+
 data class CachedEntry(
     val key: String,
     val json: String,

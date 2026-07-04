@@ -3,6 +3,7 @@ package com.ozgen.navicloud.ui.screens.nowplaying
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ozgen.navicloud.core.model.Lyrics
+import com.ozgen.navicloud.core.model.Song
 import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.playback.PlayerController
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,12 +43,14 @@ class NowPlayingViewModel(
         }
     }
 
-    fun loadLyrics(songId: String) {
-        if (lyricsForSongId == songId) return
-        lyricsForSongId = songId
+    fun loadLyrics(song: Song) {
+        if (lyricsForSongId == song.id) return
+        lyricsForSongId = song.id
         viewModelScope.launch {
             _state.value = _state.value.copy(lyricsLoading = true)
-            val lyrics = runCatching { repo.lyrics(songId) }.getOrNull()
+            val lyrics = runCatching {
+                repo.lyrics(song.id, song.artist, song.title, song.album, song.duration)
+            }.getOrNull()
             _state.value = _state.value.copy(lyrics = lyrics, lyricsLoading = false)
         }
     }

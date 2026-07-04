@@ -86,6 +86,10 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideLyricsSettings(impl: com.ozgen.navicloud.data.SettingsRepository): com.ozgen.navicloud.data.LyricsSettings = impl
+
+    @Provides
+    @Singleton
     fun provideApiCacheStore(impl: com.ozgen.navicloud.data.RoomApiCacheStore): com.ozgen.navicloud.data.ApiCacheStore = impl
 
     @Provides

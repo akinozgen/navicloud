@@ -17,11 +17,12 @@ private val KEY_STREAM_CACHE_MAX_MB = intPreferencesKey("stream_cache_max_mb")
 private val KEY_DOWNLOAD_WIFI_ONLY = booleanPreferencesKey("download_wifi_only")
 private val KEY_PREFETCH_ENABLED = booleanPreferencesKey("prefetch_enabled")
 private val KEY_PREFETCH_WIFI_ONLY = booleanPreferencesKey("prefetch_wifi_only")
+private val KEY_INTERNET_LYRICS = booleanPreferencesKey("internet_lyrics")
 
 @Singleton
 class SettingsRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
-) : OfflineModeSource {
+) : OfflineModeSource, LyricsSettings {
     val streamQuality: Flow<StreamQuality> = dataStore.data.map { prefs ->
         prefs[KEY_STREAM_QUALITY]?.let { runCatching { StreamQuality.valueOf(it) }.getOrNull() }
             ?: StreamQuality.RAW
@@ -62,5 +63,13 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setPrefetchWifiOnly(enabled: Boolean) {
         dataStore.edit { it[KEY_PREFETCH_WIFI_ONLY] = enabled }
+    }
+
+    /** Sunucuda söz yoksa LRCLIB'ten internet fallback (varsayılan açık). */
+    override val internetLyricsEnabled: Flow<Boolean> =
+        dataStore.data.map { it[KEY_INTERNET_LYRICS] ?: true }
+
+    suspend fun setInternetLyrics(enabled: Boolean) {
+        dataStore.edit { it[KEY_INTERNET_LYRICS] = enabled }
     }
 }

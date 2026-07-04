@@ -61,38 +61,55 @@ class QueueSyncManager(
     private var lastPushMs = 0L
     private var started = false
 
+    // Push, ilk resume-kontrolü bitene kadar KAPALI. Aksi halde açılışta cihazın kendi yerel
+    // kuyruğu, checkForResume sunucuyu okumadan push'lanıp diğer cihazın kuyruğunu ezer
+    // (yarış). Kontrol bitince (ya da teklif kararı verilince) açılır.
+    @Volatile
+    private var pushEnabled = false
+
     fun start() {
         if (started) return
         started = true
-        scope.launch { syncState = loadState() }
 
-        // 1) Oynatıcı durumunu izle: track değişimi (throttle'lı push) + pause (zorunlu flush).
         scope.launch {
-            var prevTrackId: String? = null
-            var prevPlaying = false
-            player.state.collect { st ->
-                val trackId = st.currentTrack?.song?.id
-                if (trackId != null && trackId != prevTrackId) maybePush(force = false)
-                if (prevPlaying && !st.isPlaying && trackId != null) maybePush(force = true)
-                prevTrackId = trackId
-                prevPlaying = st.isPlaying
+            syncState = loadState()
+
+            // 1) Oynatıcı durumunu izle: track değişimi (throttle'lı) + pause (zorunlu flush).
+            launch {
+                var prevTrackId: String? = null
+                var prevPlaying = false
+                player.state.collect { st ->
+                    val trackId = st.currentTrack?.song?.id
+                    if (trackId != null && trackId != prevTrackId) maybePush(force = false)
+                    if (prevPlaying && !st.isPlaying && trackId != null) maybePush(force = true)
+                    prevTrackId = trackId
+                    prevPlaying = st.isPlaying
+                }
             }
-        }
 
-        // 2) Periyodik push — pozisyon/kuyruk düzenlemelerini de yansıtır.
-        scope.launch {
-            while (isActive) {
-                delay(PERIODIC_MS)
-                if (player.state.value.isPlaying) maybePush(force = false)
+            // 2) Periyodik push — pozisyon/kuyruk düzenlemelerini yansıtır.
+            launch {
+                while (isActive) {
+                    delay(PERIODIC_MS)
+                    if (player.state.value.isPlaying) maybePush(force = false)
+                }
             }
-        }
 
-        // 3) Aktif sunucu değişince durumu tazele + devam teklifini kontrol et.
-        scope.launch {
+            // 3) Aktif sunucu değişince: push'u kapat → sunucuyu oku (teklif) → aç.
             servers.activeServer.map { it?.id }.distinctUntilChanged().collect {
                 lastPushMs = 0L
-                checkForResume()
+                runResumeCheck()
             }
+        }
+    }
+
+    /** checkForResume'u push'u kapatıp/açarak sarar → pull, push'tan önce olur. */
+    private suspend fun runResumeCheck() {
+        pushEnabled = false
+        try {
+            checkForResume()
+        } finally {
+            pushEnabled = true
         }
     }
 
@@ -100,6 +117,9 @@ class QueueSyncManager(
 
     private suspend fun maybePush(force: Boolean) = mutex.withLock {
         runCatching {
+            // İlk resume-kontrolü bitmeden VEYA teklif ekrandayken push YOK — diğer cihazın
+            // kuyruğunu ezmeyelim (yarış / teklif edilen durumu clobber etme).
+            if (!pushEnabled || _resumeOffer.value != null) return@withLock
             if (offline.offlineMode.first()) return@withLock
             val st = player.state.value
             val currentId = st.currentTrack?.song?.id ?: return@withLock
@@ -175,9 +195,9 @@ class QueueSyncManager(
         }
     }
 
-    /** Ateşle-unut devam yoklaması (kendi scope'unda). */
+    /** Ateşle-unut devam yoklaması (kendi scope'unda) — push'u kontrol süresince kapatır. */
     fun requestResumeCheck() {
-        scope.launch { checkForResume() }
+        scope.launch { runResumeCheck() }
     }
 
     fun dismissResume() {

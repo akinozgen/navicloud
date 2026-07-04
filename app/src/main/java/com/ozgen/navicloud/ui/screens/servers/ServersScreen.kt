@@ -25,6 +25,7 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -82,6 +83,7 @@ data class SettingsUiState(
     val downloadWifiOnly: Boolean = true,
     val prefetchEnabled: Boolean = true,
     val prefetchWifiOnly: Boolean = true,
+    val internetLyrics: Boolean = true,
 )
 
 @HiltViewModel
@@ -99,7 +101,7 @@ class SettingsViewModel @Inject constructor(
         serverRepo.activeServer,
         combine(settings.streamQuality, settings.offlineMode, settings.streamCacheMaxMb) { q, o, mb -> Triple(q, o, mb) },
         combine(settings.downloadWifiOnly, settings.prefetchEnabled, settings.prefetchWifiOnly) { w, p, pw -> Triple(w, p, pw) },
-        combine(downloads.totalCount, downloads.totalSizeBytes) { c, b -> c to b },
+        combine(downloads.totalCount, downloads.totalSizeBytes, settings.internetLyricsEnabled) { c, b, il -> Triple(c, b, il) },
     ) { servers, active, playback, net, dl ->
         SettingsUiState(
             servers = servers,
@@ -112,6 +114,7 @@ class SettingsViewModel @Inject constructor(
             downloadWifiOnly = net.first,
             prefetchEnabled = net.second,
             prefetchWifiOnly = net.third,
+            internetLyrics = dl.third,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SettingsUiState())
 
@@ -145,6 +148,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setStreamCacheMax(mb: Int) = viewModelScope.launch { settings.setStreamCacheMaxMb(mb) }
+    fun setInternetLyrics(on: Boolean) = viewModelScope.launch { settings.setInternetLyrics(on) }
     fun setDownloadWifiOnly(on: Boolean) = viewModelScope.launch { settings.setDownloadWifiOnly(on) }
     fun setPrefetchEnabled(on: Boolean) = viewModelScope.launch { settings.setPrefetchEnabled(on) }
     fun setPrefetchWifiOnly(on: Boolean) = viewModelScope.launch { settings.setPrefetchWifiOnly(on) }
@@ -303,6 +307,16 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                 },
             )
         }
+
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Lyrics, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "İnternet sözleri",
+            subtitle = "Sunucuda söz yoksa LRCLIB'ten getir (senkron destekli)",
+            onClick = { vm.setInternetLyrics(!state.internetLyrics) },
+            trailing = {
+                Switch(checked = state.internetLyrics, onCheckedChange = { vm.setInternetLyrics(it) })
+            },
+        )
 
         // ---- KÜTÜPHANE ----
         SectionHeader("Kütüphane")

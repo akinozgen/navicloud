@@ -118,7 +118,11 @@ class MusicRepository @Inject constructor(
     private val cache: ApiCacheStore,
     private val json: Json,
     private val offline: OfflineModeSource,
+    okHttp: okhttp3.OkHttpClient,
+    private val lyricsSettings: LyricsSettings,
 ) {
+    private val lrcLib = com.ozgen.navicloud.core.network.LrcLibClient(okHttp, json)
+
     private suspend fun api() = servers.activeClient().api
 
     private suspend fun serverPrefix(): String =
@@ -313,17 +317,48 @@ class MusicRepository @Inject constructor(
             api().getSimilarSongs2(artistId, count).unwrap().similarSongs2?.song.orEmpty().map { it.toModel() }
         }.getOrElse { emptyList() }
 
-    suspend fun lyrics(songId: String): Lyrics? = runCatching {
-        cached<Lyrics?>("lyrics:$songId", TTL_LYRICS) {
-            val list = runCatching {
-                api().getLyricsBySongId(songId).unwrap().lyricsList?.structuredLyrics
-            }.getOrNull().orEmpty()
-            val best = list.firstOrNull { it.synced } ?: list.firstOrNull()
-            best?.let {
-                Lyrics(synced = it.synced, lines = it.line.map { l -> LyricsLine(l.start, l.value) })
+    /**
+     * Söz: önce sunucu (getLyricsBySongId = gömülü + Navidrome .lrc sidecar), yoksa internet
+     * fallback (LRCLIB, ayar açıksa + online + sanatçı/başlık varsa). Yalnız POZİTİF sonuç
+     * cache'lenir → ayar sonradan açılınca yeniden denenir. Sessiz fail (hata → null).
+     */
+    suspend fun lyrics(
+        songId: String,
+        artist: String? = null,
+        title: String? = null,
+        album: String? = null,
+        durationSec: Int? = null,
+    ): Lyrics? {
+        val key = serverPrefix() + "lyrics:$songId"
+        // Pozitif cache
+        cache.get(key)?.let { entry ->
+            if (System.currentTimeMillis() - entry.updatedAt < TTL_LYRICS) {
+                return runCatching { json.decodeFromString(Lyrics.serializer(), entry.json) }.getOrNull()
             }
         }
-    }.getOrNull()
+        // 1) Sunucu
+        val server = runCatching {
+            api().getLyricsBySongId(songId).unwrap().lyricsList?.structuredLyrics
+        }.getOrNull().orEmpty()
+        val best = server.firstOrNull { it.synced } ?: server.firstOrNull()
+        var result = best
+            ?.let { Lyrics(synced = it.synced, lines = it.line.map { l -> LyricsLine(l.start, l.value) }) }
+            ?.takeIf { it.lines.isNotEmpty() }
+        // 2) İnternet fallback (LRCLIB)
+        if (result == null &&
+            !offline.offlineMode.first() &&
+            lyricsSettings.internetLyricsEnabled.first() &&
+            !artist.isNullOrBlank() && !title.isNullOrBlank()
+        ) {
+            result = runCatching { lrcLib.fetch(artist, title, album, durationSec) }.getOrNull()
+        }
+        if (result != null) {
+            runCatching {
+                cache.put(CachedEntry(key, json.encodeToString(Lyrics.serializer(), result), System.currentTimeMillis()))
+            }
+        }
+        return result
+    }
 
     suspend fun coverArtUrl(coverArtId: String?, size: Int? = null): String? =
         coverArtId?.let { servers.activeClient().coverArtUrl(it, size) }
