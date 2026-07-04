@@ -157,6 +157,8 @@ private fun runApp() = application {
     val playerState by player.state.collectAsState()
     var windowVisible by remember { mutableStateOf(true) }
     var miniOpen by remember { mutableStateOf(false) }
+    // Mini pencere durumu (konum + varyant) tek kaynaktan — motordan bağımsız
+    val miniModel = remember { MiniWindowModel() }
     val windowState = rememberWindowState(size = DpSize(1280.dp, 800.dp))
 
     fun showWindow() {
@@ -225,8 +227,12 @@ private fun runApp() = application {
         }
     }
 
-    // Her zaman üstte kalabilen mini oynatıcı (ayrı, çerçevesiz pencere)
+    // Her zaman üstte kalabilen mini oynatıcı (ayrı, çerçevesiz pencere).
+    // Varyant modelde tutulur; değişince pencere aynı konumda swap olur.
     if (miniOpen) {
-        MiniPlayerWindow(player = player, onExpand = { showWindow() })
+        when (miniModel.variant) {
+            MiniVariant.STANDARD -> MiniPlayerWindow(player, miniModel, onExpand = { showWindow() })
+            MiniVariant.VINYL -> MiniVinylWindow(player, miniModel, onExpand = { showWindow() })
+        }
     }
 }

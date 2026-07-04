@@ -6,7 +6,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.blur
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -43,18 +43,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberWindowState
 import coil3.compose.AsyncImage
 import com.ozgen.navicloud.playback.PlayerController
@@ -70,12 +68,13 @@ import kotlinx.coroutines.delay
  * sürüklenerek taşınır, iğne ikonu topmost'u açar/kapatır, büyüt ana pencereye döner.
  */
 @Composable
-fun MiniPlayerWindow(player: PlayerController, onExpand: () -> Unit) {
+fun MiniPlayerWindow(player: PlayerController, model: MiniWindowModel, onExpand: () -> Unit) {
     val state = rememberWindowState(
-        size = DpSize(420.dp, 190.dp),
-        position = WindowPosition(Alignment.BottomEnd),
+        size = MINI_STANDARD_SIZE,
+        position = initialMiniPosition(model, MINI_STANDARD_SIZE),
     )
     var alwaysOnTop by remember { mutableStateOf(true) }
+    val scope = rememberCoroutineScope()
 
     Window(
         onCloseRequest = onExpand,
@@ -88,6 +87,10 @@ fun MiniPlayerWindow(player: PlayerController, onExpand: () -> Unit) {
     ) {
         // Çerçevesiz pencereyi taşımak için AWT ref'i
         val win = window
+        // Açılışta yetkili konum doğrulama/clamp. Konum sürükleme bittiğinde
+        // (snapAndPersist) persist edilir; yıkım anında win.x/y stale okunabildiği
+        // için onDispose'da OKUNMAZ (bozuk 0,0 kaydını önler).
+        LaunchedEffect(win) { MiniGeometry.place(win, model) }
 
         NaviCloudTheme {
             val ps by player.state.collectAsState()
@@ -144,22 +147,7 @@ fun MiniPlayerWindow(player: PlayerController, onExpand: () -> Unit) {
                         // geri besleme döngüsüne girip titreme/gecikme yapıyordu.
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f).pointerInput(win) {
-                                var last: java.awt.Point? = null
-                                detectDragGestures(
-                                    onDragStart = { last = java.awt.MouseInfo.getPointerInfo()?.location },
-                                    onDragEnd = { last = null },
-                                    onDragCancel = { last = null },
-                                ) { change, _ ->
-                                    change.consume()
-                                    val cur = java.awt.MouseInfo.getPointerInfo()?.location ?: return@detectDragGestures
-                                    val prev = last
-                                    if (prev != null) {
-                                        win.setLocation(win.x + (cur.x - prev.x), win.y + (cur.y - prev.y))
-                                    }
-                                    last = cur
-                                }
-                            },
+                            modifier = Modifier.weight(1f).miniWindowDrag(win, model, scope),
                         ) {
                             if (track?.artworkUrl != null) {
                                 AsyncImage(
@@ -197,6 +185,14 @@ fun MiniPlayerWindow(player: PlayerController, onExpand: () -> Unit) {
                                 Icons.Rounded.PushPin,
                                 contentDescription = "Her zaman üstte",
                                 tint = if (alwaysOnTop) accent else Color(0x99FFFFFF),
+                                modifier = Modifier.size(17.dp),
+                            )
+                        }
+                        IconButton(onClick = { model.switchVariant(MiniVariant.VINYL) }, modifier = Modifier.size(30.dp)) {
+                            Icon(
+                                Icons.Rounded.Album,
+                                contentDescription = "Plak görünümü",
+                                tint = Color(0x99FFFFFF),
                                 modifier = Modifier.size(17.dp),
                             )
                         }

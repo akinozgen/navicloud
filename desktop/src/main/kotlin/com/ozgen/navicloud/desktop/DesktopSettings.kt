@@ -77,6 +77,11 @@ object DesktopPrefs {
         val volume: Int = 100,
         val closeToTray: Boolean = true,
         val internetLyrics: Boolean = true,
+        // Mini oynatıcı: son pencere konumu (AWT ekran px) + görünüm varyantı.
+        // null konum = henüz taşınmadı → varsayılan (sağ-alt) konuma çık.
+        val miniX: Int? = null,
+        val miniY: Int? = null,
+        val miniVariant: String = MiniVariant.STANDARD.name,
     )
 
     private val file = File(System.getProperty("user.home"), ".navicloud/settings.json")
@@ -133,6 +138,15 @@ object DesktopPrefs {
             internetLyricsFlow.value = value
             save(load().copy(internetLyrics = value))
         }
+
+    /** Mini oynatıcının son konumu (AWT ekran px); hiç taşınmadıysa null. */
+    var miniPosition: java.awt.Point?
+        get() = load().let { p -> if (p.miniX != null && p.miniY != null) java.awt.Point(p.miniX, p.miniY) else null }
+        set(value) = save(load().copy(miniX = value?.x, miniY = value?.y))
+
+    var miniVariant: MiniVariant
+        get() = runCatching { MiniVariant.valueOf(load().miniVariant) }.getOrDefault(MiniVariant.STANDARD)
+        set(value) = save(load().copy(miniVariant = value.name))
 }
 
 @Composable
