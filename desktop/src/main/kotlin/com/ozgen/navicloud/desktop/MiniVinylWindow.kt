@@ -18,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CropLandscape
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,7 +60,7 @@ private const val DEGREES_PER_SEC = 40f
  * - Zemin: kapak blur (art-tint dili) — kendi layer'ında statik, her frame yeniden blur'lanmaz.
  * - Kapak daireye kırpılır (picture-disc); çalarken YAVAŞ döner, pause'da durur (açı korunur).
  * - Delik + label halkası: statik vektör overlay, dönmez (radyal simetrik → görünmez fark, ucuz).
- * - Hover'da ortada tek kontrol (play/pause) belirir; hover bitince kaybolur.
+ * - Hover'da kontroller belirir: solda önceki, ortada play/pause, sağda sonraki; hover bitince kaybolur.
  * - Sağ üstte küçük ikon → standart mini oynatıcıya döner. Konum/persist Task 1 ile ortak.
  */
 @Composable
@@ -195,8 +197,25 @@ fun MiniVinylWindow(player: PlayerController, model: MiniWindowModel, onExpand: 
                         }
                     }
 
-                    // 3) Hover kontrolü: tek play/pause (alfa 0 iken hiç çizilmez → sürükleme serbest)
+                    // 3) Hover kontrolleri (alfa 0 iken hiç çizilmez → sürükleme serbest):
+                    //    solda önceki, ortada play/pause, sağda sonraki.
                     if (controlAlpha > 0.01f) {
+                        // Önceki (sol)
+                        FilledIconButton(
+                            onClick = { player.skipPrevious() },
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .padding(start = 8.dp)
+                                .size(38.dp)
+                                .graphicsLayer { alpha = controlAlpha },
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = Color(0x66000000),
+                                contentColor = Color.White,
+                            ),
+                        ) {
+                            Icon(Icons.Rounded.SkipPrevious, "Önceki", modifier = Modifier.size(22.dp))
+                        }
+                        // Play/pause (orta)
                         FilledIconButton(
                             onClick = { player.togglePlayPause() },
                             modifier = Modifier.size(56.dp).graphicsLayer { alpha = controlAlpha },
@@ -210,6 +229,21 @@ fun MiniVinylWindow(player: PlayerController, model: MiniWindowModel, onExpand: 
                                 contentDescription = if (ps.isPlaying) "Duraklat" else "Çal",
                                 modifier = Modifier.size(30.dp),
                             )
+                        }
+                        // Sonraki (sağ)
+                        FilledIconButton(
+                            onClick = { player.skipNext() },
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 8.dp)
+                                .size(38.dp)
+                                .graphicsLayer { alpha = controlAlpha },
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = Color(0x66000000),
+                                contentColor = Color.White,
+                            ),
+                        ) {
+                            Icon(Icons.Rounded.SkipNext, "Sonraki", modifier = Modifier.size(22.dp))
                         }
                     }
 
