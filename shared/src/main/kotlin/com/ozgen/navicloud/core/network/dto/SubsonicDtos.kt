@@ -26,6 +26,16 @@ data class SubsonicResponse(
     val lyricsList: LyricsListDto? = null,
     val scanStatus: ScanStatusDto? = null,
     val similarSongs2: SongListDto? = null,
+    val playQueue: PlayQueueDto? = null,
+)
+
+@Serializable
+data class PlayQueueDto(
+    val current: String? = null,
+    val position: Long? = null,      // ms
+    val changed: String? = null,     // ISO ts (yalnız gösterim)
+    val changedBy: String? = null,   // client adı (yalnız gösterim)
+    val entry: List<SongDto> = emptyList(),
 )
 
 @Serializable

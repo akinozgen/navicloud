@@ -130,7 +130,7 @@ class MpvPlayerController(
         artworkUrl = runCatching { musicRepository.coverArtUrl(coverArt, 1200) }.getOrNull(),
     )
 
-    private fun playAt(i: Int, skipAttempts: Int = 0) {
+    private fun playAt(i: Int, skipAttempts: Int = 0, startMs: Long = 0L) {
         val track = queue.getOrNull(i) ?: return
         index = i
         scope.launch {
@@ -140,7 +140,7 @@ class MpvPlayerController(
                 if (local == null && queueCore.isOffline()) {
                     if (skipAttempts < queue.size) {
                         val next = if (i + 1 < queue.size) i + 1 else 0
-                        playAt(next, skipAttempts + 1)
+                        playAt(next, skipAttempts + 1, startMs)
                     } else {
                         engine.command("stop")
                         syncState()
@@ -153,6 +153,12 @@ class MpvPlayerController(
                 loadedAtMs = System.currentTimeMillis()
                 trackActive = false
                 engine.play(url)
+                // Kaldığın yerden: dosya yüklenince (durationSec>0) hedef konuma ara
+                if (startMs > 0) {
+                    var waited = 0L
+                    while (waited < 6000 && engine.durationSec <= 0.0) { delay(100); waited += 100 }
+                    engine.seekTo(startMs / 1000.0)
+                }
                 runCatching { musicRepository.scrobble(track.song.id, submission = false) }
                 syncState()
                 saveQueue()
@@ -199,7 +205,7 @@ class MpvPlayerController(
         }
     }
 
-    override fun play(songs: List<Song>, startIndex: Int, context: PlaybackContext?, contextLabel: String?) {
+    override fun play(songs: List<Song>, startIndex: Int, context: PlaybackContext?, contextLabel: String?, startPositionMs: Long) {
         playbackContext = context
         _currentContext.value = context
         _contextLabel.value = contextLabel
@@ -215,7 +221,7 @@ class MpvPlayerController(
             val tracks = playable.map { it.toQueueTrack() }
             queue.clear()
             queue.addAll(tracks)
-            playAt(target)
+            playAt(target, startMs = startPositionMs)
         }
     }
 

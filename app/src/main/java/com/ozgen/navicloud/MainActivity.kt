@@ -12,8 +12,11 @@ import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.data.RecentSearchesStore
 import com.ozgen.navicloud.data.ServerRepository
 import com.ozgen.navicloud.data.SettingsRepository
+import androidx.lifecycle.lifecycleScope
 import com.ozgen.navicloud.playback.PlaybackService
 import com.ozgen.navicloud.playback.PlayerController
+import com.ozgen.navicloud.playback.QueueSyncManager
+import kotlinx.coroutines.launch
 import com.ozgen.navicloud.ui.AppContainer
 import com.ozgen.navicloud.ui.LocalAppContainer
 import com.ozgen.navicloud.ui.NaviCloudRoot
@@ -32,10 +35,12 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var recentSearches: RecentSearchesStore
     @Inject lateinit var audioEffects: com.ozgen.navicloud.audio.AudioEffectsController
+    @Inject lateinit var queueSync: QueueSyncManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        queueSync.start()
         handleOpenPlayerIntent(intent)
         setContent {
             // Paylaşılan UI'ın bağımlılık kabı — Hilt grafiğinden beslenir
@@ -48,6 +53,7 @@ class MainActivity : ComponentActivity() {
                     offline = settingsRepository,
                     recents = recentSearches,
                     audioEffects = audioEffects,
+                    queueSync = queueSync,
                 )
             }
             CompositionLocalProvider(
@@ -65,6 +71,18 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleOpenPlayerIntent(intent)
+    }
+
+    // Ön plana gelince başka cihazın bıraktığı kuyruğu yokla; arka plana/kapanışa geçerken
+    // güncel durumu sunucuya it (throttle bypass). İkisi de sessiz fail.
+    override fun onStart() {
+        super.onStart()
+        queueSync.requestResumeCheck()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        lifecycleScope.launch { queueSync.flush() }
     }
 
     private fun handleOpenPlayerIntent(intent: Intent?) {

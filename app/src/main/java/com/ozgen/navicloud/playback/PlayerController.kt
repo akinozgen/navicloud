@@ -268,6 +268,7 @@ class Media3PlayerController @Inject constructor(
         startIndex: Int,
         context: PlaybackContext?,
         contextLabel: String?,
+        startPositionMs: Long,
     ) {
         playbackContext = context
         _currentContext.value = context
@@ -281,7 +282,8 @@ class Media3PlayerController @Inject constructor(
                 ?.takeIf { it >= 0 } ?: 0
             val items = playable.map { it.toItem() }
             _controller.value?.run {
-                setMediaItems(items, effectiveIndex, 0L)
+                // Başlangıç konumu setMediaItems'a verilir → prepare/play sonrası sıfırlanmaz (yarışsız)
+                setMediaItems(items, effectiveIndex, startPositionMs.coerceAtLeast(0L))
                 prepare()
                 play()
             }

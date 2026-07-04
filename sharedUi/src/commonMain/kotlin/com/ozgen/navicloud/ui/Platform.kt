@@ -13,6 +13,7 @@ import com.ozgen.navicloud.data.OfflineModeSource
 import com.ozgen.navicloud.data.RecentSearchesStore
 import com.ozgen.navicloud.data.ServerSource
 import com.ozgen.navicloud.playback.PlayerController
+import com.ozgen.navicloud.playback.QueueSyncManager
 
 /**
  * Paylaşılan UI'ın bağımlılık kabı — Hilt yerine hafif kompozisyon yerel'i.
@@ -27,6 +28,8 @@ class AppContainer(
     val recents: RecentSearchesStore,
     /** Ses/EQ efektleri. Desteklemeyen platform default NoOp bırakır. */
     val audioEffects: AudioEffectsController = NoOpAudioEffectsController(),
+    /** Cihazlar arası kuyruk senkronu. Sağlanmayan platform null bırakır → sessiz devre dışı. */
+    val queueSync: QueueSyncManager? = null,
 )
 
 val LocalAppContainer = staticCompositionLocalOf<AppContainer> {

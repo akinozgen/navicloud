@@ -72,6 +72,8 @@ interface PlayerController {
         startIndex: Int = 0,
         context: PlaybackContext? = null,
         contextLabel: String? = null,
+        /** Başlangıç parçasında başlanacak konum (ms) — cihazlar arası "kaldığın yerden" için. */
+        startPositionMs: Long = 0L,
     )
 
     /** Şarkıların KOPYASINI çalanın hemen arkasına ekler (taşıma değil). */

@@ -164,3 +164,18 @@ class FileQueueStateStore : QueueStateStore {
         runCatching { file.delete() }
     }
 }
+
+/** Kuyruk senkronu durumu: ~/.navicloud/queue_sync.json */
+class FileQueueSyncStateStore : com.ozgen.navicloud.playback.QueueSyncStateStore {
+    private val file = File(System.getProperty("user.home"), ".navicloud/queue_sync.json")
+
+    override suspend fun save(json: String) {
+        runCatching {
+            file.parentFile?.mkdirs()
+            file.writeText(json)
+        }
+    }
+
+    override suspend fun load(): String? =
+        runCatching { if (file.exists()) file.readText() else null }.getOrNull()
+}

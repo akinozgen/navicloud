@@ -96,6 +96,15 @@ private fun String?.realImageUrlOrNull(): String? =
 @Serializable
 data class PlaylistDetail(val playlist: Playlist, val songs: List<Song>)
 
+/** Sunucudan çekilen uzak kuyruk durumu (cihazlar arası devam için). */
+data class RemotePlayQueue(
+    val songs: List<Song>,
+    val currentId: String?,
+    val positionMs: Long,
+    val changed: String?,
+    val changedBy: String?,
+)
+
 // TTL'ler: entity ne kadar oynaksa o kadar kısa
 private const val TTL_HOME = 30L * 60 * 1000
 private const val TTL_LISTS = 6L * 60 * 60 * 1000
@@ -271,6 +280,27 @@ class MusicRepository @Inject constructor(
 
     suspend fun scrobble(songId: String, submission: Boolean) {
         runCatching { api().scrobble(songId, submission).unwrap() }
+    }
+
+    // --- Kuyruk senkronu (cihazlar arası) ---
+    // Tüm çağrılar sessiz fail: ağ/uç hatası çökmeye ya da görünür hataya yol açmaz.
+
+    suspend fun savePlayQueue(ids: List<String>, current: String?, positionMs: Long) {
+        runCatching { api().savePlayQueue(ids, current, positionMs).unwrap() }
+    }
+
+    /** Sunucudaki kuyruk yoksa/boşsa/hata varsa null. */
+    suspend fun getPlayQueue(): RemotePlayQueue? {
+        val r = runCatching { api().getPlayQueue().unwrap() }.getOrNull() ?: return null
+        val pq = r.playQueue ?: return null
+        if (pq.entry.isEmpty()) return null
+        return RemotePlayQueue(
+            songs = pq.entry.map { it.toModel() },
+            currentId = pq.current,
+            positionMs = pq.position ?: 0L,
+            changed = pq.changed,
+            changedBy = pq.changedBy,
+        )
     }
 
     suspend fun addToPlaylist(playlistId: String, songId: String) {

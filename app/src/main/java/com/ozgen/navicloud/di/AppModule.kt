@@ -102,6 +102,30 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideQueueSyncStateStore(impl: com.ozgen.navicloud.playback.DataStoreQueueSyncStateStore): com.ozgen.navicloud.playback.QueueSyncStateStore = impl
+
+    @Provides
+    @Singleton
+    fun provideQueueSyncManager(
+        music: com.ozgen.navicloud.data.MusicRepository,
+        servers: com.ozgen.navicloud.data.ServerSource,
+        offline: com.ozgen.navicloud.data.OfflineModeSource,
+        store: com.ozgen.navicloud.playback.QueueSyncStateStore,
+        json: Json,
+        player: com.ozgen.navicloud.playback.PlayerController,
+    ): com.ozgen.navicloud.playback.QueueSyncManager =
+        com.ozgen.navicloud.playback.QueueSyncManager(
+            music, servers, offline, store, json,
+            kotlinx.coroutines.CoroutineScope(
+                kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default,
+            ),
+            player,
+            // Android: MediaController yalnız ana thread'den çağrılabilir
+            kotlinx.coroutines.Dispatchers.Main,
+        )
+
+    @Provides
+    @Singleton
     fun provideAudioEffectsController(impl: com.ozgen.navicloud.data.AudioEffectsRepository): com.ozgen.navicloud.audio.AudioEffectsController = impl
 
     @Provides

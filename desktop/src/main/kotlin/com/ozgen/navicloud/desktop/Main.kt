@@ -39,6 +39,7 @@ import java.io.File
 private class DesktopDeps(
     val container: AppContainer,
     val volume: com.ozgen.navicloud.ui.VolumeController,
+    val queueSync: com.ozgen.navicloud.playback.QueueSyncManager,
 )
 
 /** Uygulama/tepsi ikonu: mor→indigo gradyan yuvarlak kare + beyaz bulut + mor play. */
@@ -110,7 +111,19 @@ fun main() = application {
         ).apply { restoreQueue() }
         // Windows medya tuşları + kontrol merkezi/flyout oynatıcısı (SMTC)
         SmtcController(player, okHttp).start()
+        // Cihazlar arası kuyruk senkronu — açılışta pull (checkForResume start() içinde tetiklenir),
+        // track/pause/periyodik push, kapanışta flushBlocking.
+        val queueSync = com.ozgen.navicloud.playback.QueueSyncManager(
+            music, servers, offline, FileQueueSyncStateStore(), json,
+            kotlinx.coroutines.CoroutineScope(
+                kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default,
+            ),
+            player,
+            // Masaüstü: mpv erişimi thread-güvenli → ana thread zorunlu değil
+            kotlinx.coroutines.Dispatchers.Default,
+        ).apply { start() }
         DesktopDeps(
+            queueSync = queueSync,
             container = AppContainer(
                 music = music,
                 player = player,
@@ -118,6 +131,7 @@ fun main() = application {
                 downloads = downloads,
                 offline = offline,
                 recents = InMemoryRecentSearches(),
+                queueSync = queueSync,
             ),
             volume = object : com.ozgen.navicloud.ui.VolumeController {
                 override var volume: Float
@@ -165,12 +179,14 @@ fun main() = application {
             Item("Önceki", enabled = playerState.currentTrack != null, onClick = { player.skipPrevious() })
             Item("Sonraki", enabled = playerState.currentTrack != null, onClick = { player.skipNext() })
             Separator()
-            Item("Çıkış", onClick = ::exitApplication)
+            Item("Çıkış", onClick = { deps.queueSync.flushBlocking(1500); exitApplication() })
         },
     )
 
     Window(
         onCloseRequest = {
+            // Kapanış/küçültmede güncel kuyruğu sunucuya it (timeout'lu, asılmaz)
+            deps.queueSync.flushBlocking(1500)
             // Ayar açıksa pencereyi tepsiye küçült; kapalıysa tamamen çık
             if (DesktopPrefs.closeToTray) windowVisible = false else exitApplication()
         },
@@ -179,9 +195,13 @@ fun main() = application {
         title = "NaviCloud",
         icon = NaviCloudIconPainter,
     ) {
-        // Gizliyken tekrar gösterilince öne getir (tepsiden dönüş)
+        // Gizliyken tekrar gösterilince öne getir (tepsiden dönüş) + başka cihazın
+        // bıraktığı kuyruğu yeniden yokla (açıkken de sync yakalasın)
         LaunchedEffect(windowVisible) {
-            if (windowVisible) runCatching { window.toFront() }
+            if (windowVisible) {
+                runCatching { window.toFront() }
+                deps.queueSync.requestResumeCheck()
+            }
         }
         CompositionLocalProvider(
             LocalAppContainer provides deps.container,

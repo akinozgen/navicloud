@@ -8,6 +8,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
@@ -29,8 +30,12 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarDefaults
@@ -282,7 +287,62 @@ private fun MainShell(vm: AppViewModel, server: Server, platformSettings: @Compo
                         }
                     }
                 }
+
+                // Cihazlar arası "kaldığın yerden devam et" bandı (her düzende üstte).
+                ResumeSyncBanner()
             }
         }
     }
+}
+
+@Composable
+private fun BoxScope.ResumeSyncBanner() {
+    val sync = LocalAppContainer.current.queueSync ?: return
+    val offer by sync.resumeOffer.collectAsStateWithLifecycle()
+    val o = offer ?: return
+    val track = o.songs.getOrNull(o.currentIndex)
+    Card(
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .statusBarsPadding()
+            .padding(12.dp)
+            .fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 16.dp, top = 12.dp, bottom = 8.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Kaldığın yerden devam et",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    buildString {
+                        // changedBy her iki platformda da "NaviCloud" — cihaz ayırt etmez;
+                        // yalnız farklı/anlamlıysa göster (ör. ileride "NaviCloud Desktop").
+                        o.changedBy?.takeIf { it.isNotBlank() && it != "NaviCloud" }
+                            ?.let { append(it); append(" · ") }
+                        track?.title?.let { append(it); append(" · ") }
+                        append(formatMmSs(o.positionMs))
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+            TextButton(onClick = { sync.dismissResume() }) { Text("Kapat") }
+            Button(onClick = { sync.applyResume(o) }) { Text("Devam") }
+        }
+    }
+}
+
+private fun formatMmSs(ms: Long): String {
+    val total = (ms / 1000).coerceAtLeast(0)
+    val m = total / 60
+    val s = total % 60
+    return "$m:${s.toString().padStart(2, '0')}"
 }

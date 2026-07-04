@@ -1,7 +1,10 @@
 package com.ozgen.navicloud.core.network
 
 import com.ozgen.navicloud.core.network.dto.SubsonicEnvelope
+import retrofit2.http.Field
+import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.Query
 
 interface SubsonicApi {
@@ -98,4 +101,17 @@ interface SubsonicApi {
         @Query("id") artistId: String,
         @Query("count") count: Int = 25,
     ): SubsonicEnvelope
+
+    // Kuyruk senkronu — savePlayQueue POST form (büyük kuyruk = uzun id listesi, URL limitini
+    // aşmasın; auth interceptor query'ye eklendiği için gövde sadece kuyruk verisi taşır).
+    @FormUrlEncoded
+    @POST("savePlayQueue")
+    suspend fun savePlayQueue(
+        @Field("id") ids: List<String>,
+        @Field("current") current: String?,
+        @Field("position") position: Long?,
+    ): SubsonicEnvelope
+
+    @GET("getPlayQueue")
+    suspend fun getPlayQueue(): SubsonicEnvelope
 }
