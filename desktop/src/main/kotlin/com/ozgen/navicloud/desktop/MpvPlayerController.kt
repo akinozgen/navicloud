@@ -97,6 +97,10 @@ class MpvPlayerController(
         scope.launch { queueCore.persist(songs, i, pos, label) }
     }
 
+    // Restore edilen konum: ilk play/toggle'da kaldığı yerden başlasın (bkz. togglePlayPause)
+    @Volatile
+    private var pendingResumeMs = 0L
+
     /** Uygulama açılışında kuyruğu geri getirir — bilinçli olarak ÇALMAZ. */
     fun restoreQueue() {
         scope.launch {
@@ -104,6 +108,7 @@ class MpvPlayerController(
             if (queue.isNotEmpty()) return@launch
             queue.addAll(saved.songs.map { it.toQueueTrack() })
             index = saved.index.coerceIn(0, queue.size - 1)
+            pendingResumeMs = saved.positionMs
             _contextLabel.value = saved.contextLabel
             syncState()
         }
@@ -244,7 +249,16 @@ class MpvPlayerController(
     }
 
     override fun togglePlayPause() {
-        engine.setPaused(!engine.isPaused)
+        // mpv idle = dosya yüklü değil (restore sonrası ya da kuyruk sonu): pause bayrağını
+        // çevirmek hiçbir şey çalmaz — çalmayı GERÇEKTEN başlat (restore konumundan devam).
+        // Bug, RC-2 uçtan uca testinde bulundu: restart sonrası play tuşu ölüydü.
+        if (engine.isIdle && queue.getOrNull(index) != null) {
+            val resume = pendingResumeMs
+            pendingResumeMs = 0L
+            playAt(index, startMs = resume)
+        } else {
+            engine.setPaused(!engine.isPaused)
+        }
         syncState()
     }
 

@@ -25,4 +25,9 @@ dependencies {
     api(libs.okhttp)
     // @Inject/@Singleton — Hilt (Android) ve Koin/manuel (desktop) ikisi de okuyabilir
     api(libs.javax.inject)
+    // Uzaktan kumanda WS sunucusu (KtorRcServer bu modülde; platformlar sadece shared tipini kullanır).
+    // OkHttp WS istemcisi zaten yukarıdaki okhttp'de. implementation → ktor api'si dışa sızmaz.
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.cio)
+    implementation(libs.ktor.server.websockets)
 }

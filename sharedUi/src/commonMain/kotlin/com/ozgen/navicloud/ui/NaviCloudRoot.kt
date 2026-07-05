@@ -23,18 +23,22 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CastConnected
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -45,9 +49,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -288,23 +294,154 @@ private fun MainShell(vm: AppViewModel, server: Server, platformSettings: @Compo
                     }
                 }
 
-                // Cihazlar arası "kaldığın yerden devam et" bandı (her düzende üstte).
-                ResumeSyncBanner()
+                // Cihazlar arası bantlar (her düzende üstte): kumanda göstergeleri + "kaldığın yerden devam".
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .fillMaxWidth(),
+                ) {
+                    RemoteControlBanners()
+                    ResumeSyncBanner()
+                }
             }
         }
     }
 }
 
+/**
+ * Uzaktan kumanda bantları (RC-3): hedef Remote ise "X kumanda ediliyor · Bu cihaza dön";
+ * bu cihaz BAŞKASINCA kumanda ediliyorsa "uzaktan kumanda ediliyor · Kumandayı al".
+ * Bağlantı koptuğunda (FAILED) toast — hedef zaten otomatik Local'e düşmüştür.
+ */
 @Composable
-private fun BoxScope.ResumeSyncBanner() {
+private fun RemoteControlBanners() {
+    val rc = LocalAppContainer.current.remoteControl ?: return
+    val target by rc.target.collectAsStateWithLifecycle()
+    val peerName by rc.currentPeerName.collectAsStateWithLifecycle()
+    val controlledBy by rc.controlledBy.collectAsStateWithLifecycle()
+    val connState by rc.connState.collectAsStateWithLifecycle()
+
+    val toast = rememberToaster()
+    var wasConnected by remember { mutableStateOf(false) }
+    LaunchedEffect(connState) {
+        if (connState == com.ozgen.navicloud.remote.ConnState.CONNECTED) wasConnected = true
+        if (connState == com.ozgen.navicloud.remote.ConnState.FAILED && wasConnected) {
+            wasConnected = false
+            toast("Bağlantı koptu")
+        }
+    }
+
+    val t = target
+    when {
+        t is com.ozgen.navicloud.remote.ControlTarget.Remote -> RcBannerRow(
+            text = "${peerName ?: "Uzak cihaz"} kumanda ediliyor",
+            actionLabel = "Bu cihaza dön",
+            onAction = { rc.controlLocal() },
+        )
+        controlledBy > 0 -> RcBannerRow(
+            text = "Bu cihaz uzaktan kumanda ediliyor",
+            actionLabel = "Kumandayı al",
+            onAction = { rc.takeControl() },
+        )
+    }
+
+    // RC-5 alıcı: biri eşleşmek istiyorsa PIN'i göster
+    val incomingPin by rc.incomingPairPin.collectAsStateWithLifecycle()
+    incomingPin?.let { pin ->
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("Eşleştirme kodu") },
+            text = {
+                Column {
+                    Text("Bağlanan cihaza bu kodu gir:")
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        pin,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            },
+            confirmButton = {},
+        )
+    }
+
+    // RC-5/RC-7 controller: uzak cihaz PIN ya da sabit parola istiyorsa giriş dialog'u
+    val pinPrompt by rc.pinPrompt.collectAsStateWithLifecycle()
+    pinPrompt?.let { prompt ->
+        var entered by remember(prompt) { mutableStateOf("") }
+        val ok = if (prompt.secret) entered.isNotBlank() else entered.length == 6
+        AlertDialog(
+            onDismissRequest = { prompt.cancel() },
+            title = { Text(if (prompt.secret) "Parola" else "Eşleştirme") },
+            text = {
+                Column {
+                    Text(
+                        if (prompt.secret) {
+                            "${prompt.peerName} için parolayı gir:"
+                        } else {
+                            "${prompt.peerName} ekranındaki kodu gir:"
+                        },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = entered,
+                        onValueChange = {
+                            entered = if (prompt.secret) it else it.filter(Char::isDigit).take(6)
+                        },
+                        singleLine = true,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { prompt.submit(entered) }, enabled = ok) {
+                    Text(if (prompt.secret) "Bağlan" else "Eşleştir")
+                }
+            },
+            dismissButton = { TextButton(onClick = { prompt.cancel() }) { Text("Vazgeç") } },
+        )
+    }
+}
+
+@Composable
+private fun RcBannerRow(text: String, actionLabel: String, onAction: () -> Unit) {
+    Card(
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp).fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 16.dp, top = 4.dp, bottom = 4.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                Icons.Rounded.CastConnected, contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp),
+            )
+            Text(
+                text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onAction) { Text(actionLabel) }
+        }
+    }
+}
+
+@Composable
+private fun ResumeSyncBanner() {
     val sync = LocalAppContainer.current.queueSync ?: return
+    // Uzak hedefteyken gizle: "Devam" LOKAL cihazda çalar — kumanda ederken kafa karıştırır (RC-3 kararı)
+    val rcTarget = LocalAppContainer.current.remoteControl?.target?.collectAsStateWithLifecycle()?.value
+    if (rcTarget is com.ozgen.navicloud.remote.ControlTarget.Remote) return
     val offer by sync.resumeOffer.collectAsStateWithLifecycle()
     val o = offer ?: return
     val track = o.songs.getOrNull(o.currentIndex)
     Card(
         modifier = Modifier
-            .align(Alignment.TopCenter)
-            .statusBarsPadding()
             .padding(12.dp)
             .fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),

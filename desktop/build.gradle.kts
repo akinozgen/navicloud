@@ -15,6 +15,7 @@ dependencies {
     implementation(compose.material3)
     implementation(compose.materialIconsExtended)
     implementation("net.java.dev.jna:jna:${libs.versions.jna.get()}")
+    implementation(libs.jmdns) // mDNS keşif (uzaktan kumanda cihaz listesi)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:${libs.versions.kotlinxCoroutines.get()}")
@@ -25,7 +26,7 @@ compose.desktop {
         mainClass = "com.ozgen.navicloud.desktop.MainKt"
         nativeDistributions {
             packageName = "NaviCloud"
-            packageVersion = "1.2.2"
+            packageVersion = "1.3.0"
             description = "Navidrome istemcisi"
             vendor = "ozgen"
             windows {

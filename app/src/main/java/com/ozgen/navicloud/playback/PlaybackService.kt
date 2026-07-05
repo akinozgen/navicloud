@@ -33,6 +33,8 @@ class PlaybackService : MediaSessionService() {
     @Inject lateinit var streamCache: StreamCache
     @Inject lateinit var settings: SettingsRepository
     @Inject lateinit var audioEffects: com.ozgen.navicloud.data.AudioEffectsRepository
+    @Inject lateinit var remoteControlServer: com.ozgen.navicloud.remote.RemoteControlServer
+    @Inject lateinit var remoteControlManager: com.ozgen.navicloud.remote.RemoteControlManager
 
     private var mediaSession: MediaSession? = null
     private var audioEffectsEngine: AudioEffectsEngine? = null
@@ -79,6 +81,18 @@ class PlaybackService : MediaSessionService() {
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(sessionActivity)
             .build()
+        // Uzaktan kumanda alıcısı + mDNS keşfi: servis yaşadıkça bu cihaz LAN'dan kumanda
+        // edilebilir + diğer cihazları görür. Varsayılan port doluysa OS seçer; sessiz fail.
+        scope.launch {
+            runCatching { remoteControlServer.start(com.ozgen.navicloud.remote.RC_DEFAULT_PORT) }
+                .recoverCatching { remoteControlServer.start(0) }
+            runCatching { remoteControlManager.start(remoteControlServer.boundPort) }
+            // Alıcı göstergesi + PIN gösterimi + "kumandayı al" (RC-3/RC-5)
+            remoteControlManager.attachReceiver(
+                remoteControlServer.controllerCount,
+                remoteControlServer.pairPin,
+            ) { remoteControlServer.kickControllers() }
+        }
     }
 
     companion object {
@@ -185,6 +199,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        runCatching { remoteControlManager.stop() } // mDNS goodbye + hedefi lokale döndür
+        runCatching { remoteControlServer.stop() }
         scope.cancel()
         audioEffectsEngine?.release()
         audioEffectsEngine = null

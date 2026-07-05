@@ -50,6 +50,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Cast
+import androidx.compose.material.icons.rounded.CastConnected
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Favorite
@@ -702,6 +704,23 @@ private fun FullPlayerContent(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
+            // Uzaktan kumanda — cihaz seçici (remoteControl sağlandıysa; Remote iken accent)
+            val rc = com.ozgen.navicloud.ui.LocalAppContainer.current.remoteControl
+            if (rc != null) {
+                val rcTarget by rc.target.collectAsStateWithLifecycle()
+                var showDevicePicker by remember { mutableStateOf(false) }
+                val isRemote = rcTarget is com.ozgen.navicloud.remote.ControlTarget.Remote
+                IconButton(onClick = { showDevicePicker = true }) {
+                    Icon(
+                        if (isRemote) Icons.Rounded.CastConnected else Icons.Rounded.Cast,
+                        contentDescription = "Cihaz seç",
+                        tint = if (isRemote) MaterialTheme.colorScheme.primary else Color.White,
+                    )
+                }
+                if (showDevicePicker) {
+                    com.ozgen.navicloud.ui.components.DevicePickerSheet(onDismiss = { showDevicePicker = false })
+                }
+            }
             // Mini oynatıcı — yalnız masaüstünde (toggle sağlandıysa)
             val miniToggle = com.ozgen.navicloud.ui.LocalMiniPlayerToggle.current
             if (miniToggle != null) {

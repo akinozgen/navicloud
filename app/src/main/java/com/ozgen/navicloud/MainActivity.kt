@@ -36,6 +36,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var recentSearches: RecentSearchesStore
     @Inject lateinit var audioEffects: com.ozgen.navicloud.audio.AudioEffectsController
     @Inject lateinit var queueSync: QueueSyncManager
+    @Inject lateinit var remoteControl: com.ozgen.navicloud.remote.RemoteControlManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +55,7 @@ class MainActivity : ComponentActivity() {
                     recents = recentSearches,
                     audioEffects = audioEffects,
                     queueSync = queueSync,
+                    remoteControl = remoteControl,
                 )
             }
             CompositionLocalProvider(

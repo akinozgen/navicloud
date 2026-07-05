@@ -82,6 +82,11 @@ object DesktopPrefs {
         val miniX: Int? = null,
         val miniY: Int? = null,
         val miniVariant: String = MiniVariant.STANDARD.name,
+        // Uzaktan kumanda: kalıcı cihaz kimliği + düzenlenebilir ad (RC-1/RC-2)
+        val deviceId: String? = null,
+        val deviceName: String? = null,
+        // Sabit uzaktan kumanda parolası (RC-7). null/boş → PIN modu.
+        val remoteSecret: String? = null,
     )
 
     private val file = File(System.getProperty("user.home"), ".navicloud/settings.json")
@@ -147,6 +152,26 @@ object DesktopPrefs {
     var miniVariant: MiniVariant
         get() = runCatching { MiniVariant.valueOf(load().miniVariant) }.getOrDefault(MiniVariant.STANDARD)
         set(value) = save(load().copy(miniVariant = value.name))
+
+    /** Kalıcı cihaz kimliği — ilk erişimde üretilir (uzaktan kumanda handshake/mDNS dedup). */
+    val deviceId: String
+        get() = load().deviceId ?: java.util.UUID.randomUUID().toString().also {
+            save(load().copy(deviceId = it))
+        }
+
+    /** Cihaz seçicide görünen ad — otomatik default (hostname), ayardan düzenlenebilir. */
+    var deviceName: String
+        get() = load().deviceName ?: defaultDeviceName()
+        set(value) = save(load().copy(deviceName = value.trim().ifBlank { null }))
+
+    private fun defaultDeviceName(): String =
+        runCatching { java.net.InetAddress.getLocalHost().hostName }
+            .getOrNull()?.takeIf { it.isNotBlank() }?.let { "NaviCloud • $it" } ?: "NaviCloud Masaüstü"
+
+    /** Sabit uzaktan kumanda parolası (RC-7); boş = PIN modu. */
+    var remoteSecret: String
+        get() = load().remoteSecret.orEmpty()
+        set(value) = save(load().copy(remoteSecret = value.trim().ifBlank { null }))
 }
 
 @Composable
@@ -380,6 +405,31 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                 })
             },
         )
+
+        SectionHeader("Uzaktan kumanda")
+        var rcSecret by remember { mutableStateOf(DesktopPrefs.remoteSecret) }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Text(
+                "Tüm cihazlarına aynı parolayı gir; birbirine tek dokunuşla bağlanır. " +
+                    "Boş bırakırsan bağlanırken kod sorulur.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = rcSecret,
+                    onValueChange = { rcSecret = it },
+                    singleLine = true,
+                    placeholder = { Text("Parola") },
+                    modifier = Modifier.weight(1f),
+                )
+                androidx.compose.material3.Button(
+                    onClick = { DesktopPrefs.remoteSecret = rcSecret },
+                    enabled = rcSecret != DesktopPrefs.remoteSecret,
+                ) { Text("Kaydet") }
+            }
+        }
 
         SectionHeader("Hakkında")
         SettingRow(

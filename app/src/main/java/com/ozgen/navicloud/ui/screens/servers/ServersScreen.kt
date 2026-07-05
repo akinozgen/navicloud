@@ -147,6 +147,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // Uzaktan kumanda sabit parolası (RC-7)
+    val rcSecret: StateFlow<String> = settings.rcSecret.stateIn(viewModelScope, SharingStarted.Eagerly, "")
+    fun setRcSecret(s: String) = viewModelScope.launch { settings.setRcSecret(s) }
+
     fun setStreamCacheMax(mb: Int) = viewModelScope.launch { settings.setStreamCacheMaxMb(mb) }
     fun setInternetLyrics(on: Boolean) = viewModelScope.launch { settings.setInternetLyrics(on) }
     fun setDownloadWifiOnly(on: Boolean) = viewModelScope.launch { settings.setDownloadWifiOnly(on) }
@@ -410,6 +414,33 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                         modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                     )
                 }
+            }
+        }
+
+        // ---- UZAKTAN KUMANDA ----
+        SectionHeader("Uzaktan kumanda")
+        val rcSecret by vm.rcSecret.collectAsStateWithLifecycle()
+        var rcField by remember(rcSecret) { mutableStateOf(rcSecret) }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Text(
+                "Tüm cihazlarına aynı parolayı gir; birbirine tek dokunuşla bağlanır. " +
+                    "Boş bırakırsan bağlanırken kod sorulur.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = rcField,
+                    onValueChange = { rcField = it },
+                    singleLine = true,
+                    placeholder = { Text("Parola") },
+                    modifier = Modifier.weight(1f),
+                )
+                androidx.compose.material3.Button(
+                    onClick = { vm.setRcSecret(rcField) },
+                    enabled = rcField != rcSecret,
+                ) { Text("Kaydet") }
             }
         }
 
