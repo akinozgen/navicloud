@@ -18,6 +18,9 @@ private val KEY_DOWNLOAD_WIFI_ONLY = booleanPreferencesKey("download_wifi_only")
 private val KEY_PREFETCH_ENABLED = booleanPreferencesKey("prefetch_enabled")
 private val KEY_PREFETCH_WIFI_ONLY = booleanPreferencesKey("prefetch_wifi_only")
 private val KEY_INTERNET_LYRICS = booleanPreferencesKey("internet_lyrics")
+private val KEY_RC_DEVICE_ID = stringPreferencesKey("rc_device_id")
+private val KEY_RC_DEVICE_NAME = stringPreferencesKey("rc_device_name")
+private val KEY_RC_SECRET = stringPreferencesKey("rc_secret")
 
 @Singleton
 class SettingsRepository @Inject constructor(
@@ -71,5 +74,41 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setInternetLyrics(enabled: Boolean) {
         dataStore.edit { it[KEY_INTERNET_LYRICS] = enabled }
+    }
+
+    // --- Uzaktan kumanda kimliği (RC-1/RC-2) ---
+
+    /** Kalıcı cihaz kimliği — ilk çağrıda üretilip saklanır (handshake + mDNS dedup). */
+    suspend fun rcDeviceId(): String {
+        var id: String? = null
+        dataStore.edit { prefs ->
+            id = prefs[KEY_RC_DEVICE_ID] ?: java.util.UUID.randomUUID().toString().also {
+                prefs[KEY_RC_DEVICE_ID] = it
+            }
+        }
+        return id!!
+    }
+
+    /** Cihaz seçicide görünen ad — otomatik default (model), ayardan düzenlenebilir. */
+    val rcDeviceName: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_RC_DEVICE_NAME]?.takeIf { it.isNotBlank() }
+            ?: "NaviCloud • ${android.os.Build.MODEL}"
+    }
+
+    suspend fun setRcDeviceName(name: String) {
+        dataStore.edit { prefs ->
+            val v = name.trim()
+            if (v.isBlank()) prefs.remove(KEY_RC_DEVICE_NAME) else prefs[KEY_RC_DEVICE_NAME] = v
+        }
+    }
+
+    /** Sabit uzaktan kumanda parolası (RC-7); boş = PIN modu. */
+    val rcSecret: Flow<String> = dataStore.data.map { it[KEY_RC_SECRET].orEmpty() }
+
+    suspend fun setRcSecret(secret: String) {
+        dataStore.edit { prefs ->
+            val v = secret.trim()
+            if (v.isBlank()) prefs.remove(KEY_RC_SECRET) else prefs[KEY_RC_SECRET] = v
+        }
     }
 }

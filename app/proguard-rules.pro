@@ -9,3 +9,10 @@
 -keepclasseswithmembers class com.ozgen.navicloud.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
+
+# Ktor (uzaktan kumanda WS sunucusu — RC) + SLF4J (Ktor logger'ı; sağlayıcı yok, NOP)
+-dontwarn org.slf4j.**
+-dontwarn io.ktor.**
+-dontwarn kotlinx.coroutines.debug.**
+-keep class io.ktor.** { *; }
+-keep class kotlinx.coroutines.** { *; }

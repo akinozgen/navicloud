@@ -30,6 +30,8 @@ class AppContainer(
     val audioEffects: AudioEffectsController = NoOpAudioEffectsController(),
     /** Cihazlar arası kuyruk senkronu. Sağlanmayan platform null bırakır → sessiz devre dışı. */
     val queueSync: QueueSyncManager? = null,
+    /** Uzaktan kumanda (cihaz seçici). null = özellik gizli. [player] bu durumda ActivePlayerController olmalı. */
+    val remoteControl: com.ozgen.navicloud.remote.RemoteControlManager? = null,
 )
 
 val LocalAppContainer = staticCompositionLocalOf<AppContainer> {

@@ -16,6 +16,10 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -116,7 +120,8 @@ object AppModule {
         offline: com.ozgen.navicloud.data.OfflineModeSource,
         store: com.ozgen.navicloud.playback.QueueSyncStateStore,
         json: Json,
-        player: com.ozgen.navicloud.playback.PlayerController,
+        // LOKAL player (Media3) — kuyruk senkronu BU cihazın çaldığını yazar; uzak kumanda karışmaz
+        player: com.ozgen.navicloud.playback.Media3PlayerController,
     ): com.ozgen.navicloud.playback.QueueSyncManager =
         com.ozgen.navicloud.playback.QueueSyncManager(
             music, servers, offline, store, json,
@@ -143,11 +148,100 @@ object AppModule {
     ): com.ozgen.navicloud.playback.QueueCore =
         com.ozgen.navicloud.playback.QueueCore(music, downloads, offline, store, json)
 
-    // Platform-bağımsız PlayerController arayüzü → Android'de Media3 implementasyonu.
-    // Masaüstü (KMP) portunda burası vlcj tabanlı implementasyona bağlanacak.
+    // UI'ın gördüğü PlayerController = lokal↔uzak swap proxy'si (ActivePlayerController).
+    // Lokal Media3 implementasyonuna ihtiyacı olanlar (QueueSync, RC server/manager) somut tipi enjekte eder.
+    @Provides
+    @Singleton
+    fun provideActivePlayerController(
+        local: com.ozgen.navicloud.playback.Media3PlayerController,
+    ): com.ozgen.navicloud.remote.ActivePlayerController =
+        com.ozgen.navicloud.remote.ActivePlayerController(
+            local,
+            kotlinx.coroutines.CoroutineScope(
+                kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default,
+            ),
+        )
+
     @Provides
     @Singleton
     fun providePlayerController(
-        impl: com.ozgen.navicloud.playback.Media3PlayerController,
-    ): com.ozgen.navicloud.playback.PlayerController = impl
+        active: com.ozgen.navicloud.remote.ActivePlayerController,
+    ): com.ozgen.navicloud.playback.PlayerController = active
+
+    // Uzaktan kumanda orkestratörü (RC-2): keşif + hedef geçişi + akıllı aktarım + busy.
+    @Provides
+    @Singleton
+    fun provideRemoteControlManager(
+        @ApplicationContext context: Context,
+        local: com.ozgen.navicloud.playback.Media3PlayerController,
+        active: com.ozgen.navicloud.remote.ActivePlayerController,
+        music: com.ozgen.navicloud.data.MusicRepository,
+        servers: com.ozgen.navicloud.data.ServerSource,
+        settings: com.ozgen.navicloud.data.SettingsRepository,
+        pairing: com.ozgen.navicloud.remote.DataStorePairingStore,
+        okHttp: OkHttpClient,
+        json: Json,
+    ): com.ozgen.navicloud.remote.RemoteControlManager {
+        val deviceIdBlocking = kotlinx.coroutines.runBlocking { settings.rcDeviceId() }
+        val scope = kotlinx.coroutines.CoroutineScope(
+            kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default,
+        )
+        return com.ozgen.navicloud.remote.RemoteControlManager(
+            local = local,
+            active = active,
+            client = com.ozgen.navicloud.remote.OkHttpRcClient(okHttp, json),
+            discovery = com.ozgen.navicloud.remote.NsdPeerDiscovery(context, deviceIdBlocking),
+            scope = scope,
+            // Android: MediaController yalnız ana thread'den çağrılabilir (QueueSync kuralı)
+            playerDispatcher = kotlinx.coroutines.Dispatchers.Main,
+            selfInfo = {
+                com.ozgen.navicloud.remote.RcDeviceInfo(
+                    deviceId = settings.rcDeviceId(),
+                    name = settings.rcDeviceName.first(),
+                    platform = "android",
+                )
+            },
+            serverIdFlow = servers.activeServer.map { s ->
+                s?.baseUrl?.let { com.ozgen.navicloud.remote.rcServerId(it) }
+            },
+            artworkResolver = { song -> runCatching { music.coverArtUrl(song.coverArt) }.getOrNull() },
+            selfName = settings.rcDeviceName.stateIn(scope, SharingStarted.Eagerly, "NaviCloud"),
+            setSelfNameImpl = { settings.setRcDeviceName(it) },
+            pairing = pairing,
+            secret = { settings.rcSecret.first().ifBlank { null } },
+        )
+    }
+
+    // Uzaktan kumanda alıcısı (RC-1): lokal player'ı LAN WS'inde expose eder.
+    // PlaybackService onCreate/onDestroy'da start/stop edilir (servis ömrü = kontrol edilebilirlik).
+    @Provides
+    @Singleton
+    fun provideRemoteControlServer(
+        player: com.ozgen.navicloud.playback.Media3PlayerController,
+        manager: com.ozgen.navicloud.remote.RemoteControlManager,
+        settings: com.ozgen.navicloud.data.SettingsRepository,
+        pairing: com.ozgen.navicloud.remote.DataStorePairingStore,
+        json: Json,
+    ): com.ozgen.navicloud.remote.RemoteControlServer =
+        com.ozgen.navicloud.remote.RemoteControlServer(
+            server = com.ozgen.navicloud.remote.KtorRcServer(json),
+            localPlayer = player,
+            scope = kotlinx.coroutines.CoroutineScope(
+                kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default,
+            ),
+            // Android: MediaController yalnız ana thread'den çağrılabilir (QueueSync kuralı)
+            playerDispatcher = kotlinx.coroutines.Dispatchers.Main,
+            deviceInfo = {
+                com.ozgen.navicloud.remote.RcDeviceInfo(
+                    deviceId = settings.rcDeviceId(),
+                    name = settings.rcDeviceName.first(),
+                    platform = "android",
+                )
+            },
+            volumeSink = null, // mobilde donanım sesi; uzaktan VOLUME no-op
+            // Kumanda ederken kilitli (soru turu kararı)
+            isBusy = manager::isBusy,
+            pairing = pairing,
+            secret = { settings.rcSecret.first().ifBlank { null } },
+        )
 }

@@ -32,6 +32,8 @@ import com.ozgen.navicloud.ui.AppContainer
 import com.ozgen.navicloud.ui.LocalAppContainer
 import com.ozgen.navicloud.ui.NaviCloudRoot
 import com.ozgen.navicloud.ui.theme.NaviCloudTheme
+import com.ozgen.navicloud.remote.rcServerId
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import java.io.File
@@ -40,6 +42,7 @@ private class DesktopDeps(
     val container: AppContainer,
     val volume: com.ozgen.navicloud.ui.VolumeController,
     val queueSync: com.ozgen.navicloud.playback.QueueSyncManager,
+    val rcManager: com.ozgen.navicloud.remote.RemoteControlManager,
 )
 
 /** Uygulama/tepsi ikonu: mor→indigo gradyan yuvarlak kare + beyaz bulut + mor play. */
@@ -79,6 +82,11 @@ private val NaviCloudIconPainter: Painter = object : Painter() {
 
 /** NaviCloud Desktop: paylaşılan UI + libmpv ses motoru. */
 fun main() {
+    // Tek örnek: zaten çalışan varsa onu öne getirt ve çık (çift tıkta yeni pencere açma).
+    if (!SingleInstance.acquire()) {
+        SingleInstance.signalExisting()
+        return
+    }
     // Saydam (yuvarlak köşeli) mini pencere için: Windows'un varsayılan D3D
     // backend'i saydam pencerede çizilmeyen bölgeyi opak siyah bırakıyordu.
     // OpenGL backend per-pixel alpha'yı doğru temizliyor. renderApi global
@@ -120,6 +128,62 @@ private fun runApp() = application {
         ).apply { restoreQueue() }
         // Windows medya tuşları + kontrol merkezi/flyout oynatıcısı (SMTC)
         SmtcController(player, okHttp).start()
+        // Uzaktan kumanda (RC-1/RC-2): alıcı sunucu + mDNS keşif + lokal↔uzak swap proxy'si.
+        // UI container.player olarak ACTIVE'i görür; QueueSync/SMTC LOKAL player'da kalır.
+        val rcScope = kotlinx.coroutines.CoroutineScope(
+            kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default,
+        )
+        val activePlayer = com.ozgen.navicloud.remote.ActivePlayerController(player, rcScope)
+        val selfNameFlow = kotlinx.coroutines.flow.MutableStateFlow(DesktopPrefs.deviceName)
+        val rcPairing = FilePairingStore()
+        val rcManager = com.ozgen.navicloud.remote.RemoteControlManager(
+            local = player,
+            active = activePlayer,
+            client = com.ozgen.navicloud.remote.OkHttpRcClient(okHttp, json),
+            discovery = JmDnsPeerDiscovery(DesktopPrefs.deviceId),
+            scope = rcScope,
+            // mpv erişimi thread-güvenli → ana thread zorunlu değil
+            playerDispatcher = kotlinx.coroutines.Dispatchers.Default,
+            selfInfo = {
+                com.ozgen.navicloud.remote.RcDeviceInfo(DesktopPrefs.deviceId, selfNameFlow.value, "desktop")
+            },
+            serverIdFlow = servers.activeServer.map { s -> s?.baseUrl?.let(::rcServerId) },
+            artworkResolver = { song -> runCatching { music.coverArtUrl(song.coverArt) }.getOrNull() },
+            selfName = selfNameFlow,
+            setSelfNameImpl = { name ->
+                DesktopPrefs.deviceName = name
+                selfNameFlow.value = DesktopPrefs.deviceName
+            },
+            pairing = rcPairing,
+            secret = { DesktopPrefs.remoteSecret.ifBlank { null } },
+        )
+        val rcServer = com.ozgen.navicloud.remote.RemoteControlServer(
+            server = com.ozgen.navicloud.remote.KtorRcServer(json),
+            localPlayer = player,
+            scope = rcScope,
+            playerDispatcher = kotlinx.coroutines.Dispatchers.Default,
+            deviceInfo = {
+                com.ozgen.navicloud.remote.RcDeviceInfo(DesktopPrefs.deviceId, DesktopPrefs.deviceName, "desktop")
+            },
+            pairing = rcPairing,
+            volumeSink = object : com.ozgen.navicloud.remote.VolumeSink {
+                override var volume: Float
+                    get() = engine.volume / 100f
+                    set(value) {
+                        engine.volume = (value * 100).toInt().coerceIn(0, 100)
+                        DesktopPrefs.volume = (value * 100).toInt()
+                    }
+            },
+            // Kumanda ederken kilitli (soru turu kararı): meşgulken gelen Hello reddedilir
+            isBusy = rcManager::isBusy,
+            secret = { DesktopPrefs.remoteSecret.ifBlank { null } },
+        )
+        // Varsayılan port doluysa OS seçsin; mDNS gerçek boundPort'u yayınlar. Sessiz fail.
+        runCatching { rcServer.start(com.ozgen.navicloud.remote.RC_DEFAULT_PORT) }
+            .recoverCatching { rcServer.start(0) }
+        runCatching { rcManager.start(rcServer.boundPort) }
+        // Alıcı göstergesi + PIN gösterimi + "kumandayı al" (RC-3/RC-5)
+        rcManager.attachReceiver(rcServer.controllerCount, rcServer.pairPin) { rcServer.kickControllers() }
         // Cihazlar arası kuyruk senkronu — açılışta pull (checkForResume start() içinde tetiklenir),
         // track/pause/periyodik push, kapanışta flushBlocking.
         val queueSync = com.ozgen.navicloud.playback.QueueSyncManager(
@@ -133,21 +197,29 @@ private fun runApp() = application {
         ).apply { start() }
         DesktopDeps(
             queueSync = queueSync,
+            rcManager = rcManager,
             container = AppContainer(
                 music = music,
-                player = player,
+                player = activePlayer, // UI lokal↔uzak swap proxy'sini görür
                 servers = servers,
                 downloads = downloads,
                 offline = offline,
                 recents = InMemoryRecentSearches(),
                 queueSync = queueSync,
+                remoteControl = rcManager,
             ),
+            // Ses slider'ı: hedef Remote iken UZAK cihazın sesini sürer (VOLUME cmd), değilse lokal mpv (RC-3)
             volume = object : com.ozgen.navicloud.ui.VolumeController {
                 override var volume: Float
-                    get() = engine.volume / 100f
+                    get() = if (rcManager.isBusy()) rcManager.remoteVolume.value ?: 1f
+                    else engine.volume / 100f
                     set(value) {
-                        engine.volume = (value * 100).toInt()
-                        DesktopPrefs.volume = (value * 100).toInt()
+                        if (rcManager.isBusy()) {
+                            rcManager.setRemoteVolume(value)
+                        } else {
+                            engine.volume = (value * 100).toInt()
+                            DesktopPrefs.volume = (value * 100).toInt()
+                        }
                     }
             },
         )
@@ -160,11 +232,22 @@ private fun runApp() = application {
     // Mini pencere durumu (konum + varyant) tek kaynaktan — motordan bağımsız
     val miniModel = remember { MiniWindowModel() }
     val windowState = rememberWindowState(size = DpSize(1280.dp, 800.dp))
+    // Ana pencere AWT referansı (tek-instance "öne getir" için) — Window içeriğinde set edilir.
+    var windowRef by remember { mutableStateOf<androidx.compose.ui.awt.ComposeWindow?>(null) }
 
     fun showWindow() {
         miniOpen = false
         windowState.isMinimized = false
         windowVisible = true
+    }
+
+    // Tek-instance: ikinci kez açılış sinyali gelince mevcut pencereyi öne getir (tepside/minimize'da bile).
+    val focusReq by SingleInstance.focusRequests.collectAsState()
+    LaunchedEffect(focusReq) {
+        if (focusReq > 0) {
+            showWindow()
+            windowRef?.let { runCatching { it.toFront(); it.requestFocus() } }
+        }
     }
 
     fun openMini() {
@@ -190,7 +273,11 @@ private fun runApp() = application {
             Item("Önceki", enabled = playerState.currentTrack != null, onClick = { player.skipPrevious() })
             Item("Sonraki", enabled = playerState.currentTrack != null, onClick = { player.skipNext() })
             Separator()
-            Item("Çıkış", onClick = { deps.queueSync.flushBlocking(1500); exitApplication() })
+            Item("Çıkış", onClick = {
+                deps.queueSync.flushBlocking(1500)
+                deps.rcManager.stop() // mDNS goodbye — diğer cihazların listesinden düş
+                exitApplication()
+            })
         },
     )
 
@@ -198,14 +285,22 @@ private fun runApp() = application {
         onCloseRequest = {
             // Kapanış/küçültmede güncel kuyruğu sunucuya it (timeout'lu, asılmaz)
             deps.queueSync.flushBlocking(1500)
-            // Ayar açıksa pencereyi tepsiye küçült; kapalıysa tamamen çık
-            if (DesktopPrefs.closeToTray) windowVisible = false else exitApplication()
+            // Ayar açıksa pencereyi tepsiye küçült (advertise SÜRER — hâlâ kumanda edilebilir);
+            // kapalıysa mDNS goodbye + tam çıkış
+            if (DesktopPrefs.closeToTray) {
+                windowVisible = false
+            } else {
+                deps.rcManager.stop()
+                exitApplication()
+            }
         },
         visible = windowVisible,
         state = windowState,
         title = "NaviCloud",
         icon = NaviCloudIconPainter,
     ) {
+        // Pencere AWT referansını tek-instance "öne getir" için dışarı ver
+        androidx.compose.runtime.SideEffect { windowRef = window }
         // Gizliyken tekrar gösterilince öne getir (tepsiden dönüş) + başka cihazın
         // bıraktığı kuyruğu yeniden yokla (açıkken de sync yakalasın)
         LaunchedEffect(windowVisible) {
