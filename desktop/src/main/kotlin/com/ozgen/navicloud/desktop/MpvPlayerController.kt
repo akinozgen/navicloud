@@ -35,7 +35,14 @@ class MpvPlayerController(
     private val localFile: (String) -> String? = { null },
 ) : PlayerController {
     private var lastSaveMs = 0L
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    // Kuyruk mutasyonları UI (AWT EDT), MPRIS (dbus thread) ve poll döngüsünden gelir.
+    // Düz ArrayList'e eşzamanlı addAll/removeAt, elemanı iki pozisyonda bırakabiliyordu
+    // (kuyruk ekranında "duplicate LazyColumn key" çökmesi) — tüm erişim tek worker'a
+    // serileştirilir: public API'ler scope.launch'a sarılıdır.
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val queueDispatcher = Dispatchers.Default.limitedParallelism(1)
+    private val scope = CoroutineScope(SupervisorJob() + queueDispatcher)
 
     private val queue = mutableListOf<QueueTrack>()
     private var index = -1
@@ -136,9 +143,9 @@ class MpvPlayerController(
     )
 
     private fun playAt(i: Int, skipAttempts: Int = 0, startMs: Long = 0L) {
-        val track = queue.getOrNull(i) ?: return
-        index = i
         scope.launch {
+            val track = queue.getOrNull(i) ?: return@launch
+            index = i
             runCatching {
                 val local = localFile(track.song.id)
                 // Offline modda indirilmemiş parça atlanır (en çok kuyruk boyu deneme)
@@ -157,6 +164,10 @@ class MpvPlayerController(
                     ?: musicRepository.streamUrl(track.song.id, q.kbps, if (q.kbps != null) "mp3" else null)
                 loadedAtMs = System.currentTimeMillis()
                 trackActive = false
+                // loadfile'dan ÖNCE: yeni akış ses sunucusuna doğru başlıkla açılsın
+                engine.setMediaTitle(
+                    track.song.artist?.let { "$it — ${track.song.title}" } ?: track.song.title,
+                )
                 engine.play(url)
                 // Kaldığın yerden: dosya yüklenince (durationSec>0) hedef konuma ara
                 if (startMs > 0) {
@@ -211,10 +222,10 @@ class MpvPlayerController(
     }
 
     override fun play(songs: List<Song>, startIndex: Int, context: PlaybackContext?, contextLabel: String?, startPositionMs: Long) {
-        playbackContext = context
-        _currentContext.value = context
-        _contextLabel.value = contextLabel
         scope.launch {
+            playbackContext = context
+            _currentContext.value = context
+            _contextLabel.value = contextLabel
             val playable = queueCore.filterForOffline(songs)
             if (playable.isEmpty()) {
                 if (songs.isNotEmpty()) println("TOAST: Offline mod: bu içerikte indirilmiş şarkı yok")
@@ -249,23 +260,27 @@ class MpvPlayerController(
     }
 
     override fun togglePlayPause() {
-        // mpv idle = dosya yüklü değil (restore sonrası ya da kuyruk sonu): pause bayrağını
-        // çevirmek hiçbir şey çalmaz — çalmayı GERÇEKTEN başlat (restore konumundan devam).
-        // Bug, RC-2 uçtan uca testinde bulundu: restart sonrası play tuşu ölüydü.
-        if (engine.isIdle && queue.getOrNull(index) != null) {
-            val resume = pendingResumeMs
-            pendingResumeMs = 0L
-            playAt(index, startMs = resume)
-        } else {
-            engine.setPaused(!engine.isPaused)
+        scope.launch {
+            // mpv idle = dosya yüklü değil (restore sonrası ya da kuyruk sonu): pause bayrağını
+            // çevirmek hiçbir şey çalmaz — çalmayı GERÇEKTEN başlat (restore konumundan devam).
+            // Bug, RC-2 uçtan uca testinde bulundu: restart sonrası play tuşu ölüydü.
+            if (engine.isIdle && queue.getOrNull(index) != null) {
+                val resume = pendingResumeMs
+                pendingResumeMs = 0L
+                playAt(index, startMs = resume)
+            } else {
+                engine.setPaused(!engine.isPaused)
+            }
+            syncState()
         }
-        syncState()
     }
 
     override fun seekTo(positionMs: Long) = engine.seekTo(positionMs / 1000.0)
-    override fun skipNext() = advance()
+    override fun skipNext() { scope.launch { advance() } }
     override fun skipPrevious() {
-        if (positionMs > 3000 || index <= 0) engine.seekTo(0.0) else playAt(index - 1)
+        scope.launch {
+            if (positionMs > 3000 || index <= 0) engine.seekTo(0.0) else playAt(index - 1)
+        }
     }
 
     override fun seekToQueueItem(index: Int) = playAt(index)
@@ -273,21 +288,29 @@ class MpvPlayerController(
     private fun indexOfUid(uid: String): Int? =
         queue.indexOfFirst { it.uid == uid }.takeIf { it >= 0 }
 
-    override fun seekToUid(uid: String) { indexOfUid(uid)?.let { playAt(it) } }
+    override fun seekToUid(uid: String) {
+        scope.launch { indexOfUid(uid)?.let { playAt(it) } }
+    }
 
     override fun removeQueueItemByUid(uid: String) {
-        val i = indexOfUid(uid) ?: return
-        val removingCurrent = i == index
-        queue.removeAt(i)
-        if (i < index) index--
-        when {
-            queue.isEmpty() -> stop()
-            removingCurrent -> playAt(index.coerceIn(0, queue.size - 1))
-            else -> syncState()
+        scope.launch {
+            val i = indexOfUid(uid) ?: return@launch
+            val removingCurrent = i == index
+            queue.removeAt(i)
+            if (i < index) index--
+            when {
+                queue.isEmpty() -> stopInternal()
+                removingCurrent -> playAt(index.coerceIn(0, queue.size - 1))
+                else -> syncState()
+            }
         }
     }
 
     override fun moveQueueItemUidTo(uid: String, target: Int) {
+        scope.launch { moveUidInternal(uid, target) }
+    }
+
+    private fun moveUidInternal(uid: String, target: Int) {
         val from = indexOfUid(uid) ?: return
         val to = target.coerceIn(0, queue.size - 1)
         if (from == to) return
@@ -303,32 +326,44 @@ class MpvPlayerController(
     }
 
     override fun playNextByUid(uid: String) {
-        val from = indexOfUid(uid) ?: return
-        var target = index + 1
-        if (from < target) target--
-        moveQueueItemUidTo(uid, target.coerceIn(0, queue.size - 1))
+        scope.launch {
+            val from = indexOfUid(uid) ?: return@launch
+            var target = index + 1
+            if (from < target) target--
+            moveUidInternal(uid, target.coerceIn(0, queue.size - 1))
+        }
     }
 
     override fun toggleShuffle() {
-        shuffle = !shuffle
-        syncState()
+        scope.launch {
+            shuffle = !shuffle
+            syncState()
+        }
     }
 
     override fun cycleRepeat() {
-        repeat = when (repeat) {
-            RepeatMode.OFF -> RepeatMode.ALL
-            RepeatMode.ALL -> RepeatMode.ONE
-            RepeatMode.ONE -> RepeatMode.OFF
+        scope.launch {
+            repeat = when (repeat) {
+                RepeatMode.OFF -> RepeatMode.ALL
+                RepeatMode.ALL -> RepeatMode.ONE
+                RepeatMode.ONE -> RepeatMode.OFF
+            }
+            syncState()
         }
-        syncState()
     }
 
     override fun toggleEndless() {
-        _endless.value = !_endless.value
-        maybeContinueEndless()
+        scope.launch {
+            _endless.value = !_endless.value
+            maybeContinueEndless()
+        }
     }
 
     override fun stop() {
+        scope.launch { stopInternal() }
+    }
+
+    private fun stopInternal() {
         engine.command("stop")
         queue.clear()
         index = -1
