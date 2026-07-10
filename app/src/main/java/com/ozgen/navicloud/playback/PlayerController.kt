@@ -248,7 +248,7 @@ class Media3PlayerController @Inject constructor(
         if (filtered.isEmpty() && songs.isNotEmpty()) {
             android.widget.Toast.makeText(
                 context,
-                "Offline mod: bu içerikte indirilmiş şarkı yok",
+                com.ozgen.navicloud.i18n.I18n.strings.playerOfflineNoDownloads,
                 android.widget.Toast.LENGTH_SHORT,
             ).show()
         }

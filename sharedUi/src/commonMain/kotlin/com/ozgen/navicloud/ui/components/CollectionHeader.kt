@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.ozgen.navicloud.core.model.Song
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 import kotlin.random.Random
 
 /**
@@ -89,6 +90,7 @@ fun CollectionActionRow(
     /** This collection is the active playback context and playing → show pause. */
     isPlaying: Boolean = false,
 ) {
+    val strings = LocalStrings.current
     var menuOpen by remember { mutableStateOf(false) }
 
     Row(
@@ -100,29 +102,29 @@ fun CollectionActionRow(
             IconButton(onClick = { menuOpen = true }) {
                 Icon(
                     Icons.Rounded.MoreVert,
-                    contentDescription = "Seçenekler",
+                    contentDescription = strings.commonOptions,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(
-                    text = { Text("Karıştırarak çal") },
+                    text = { Text(strings.collectionShufflePlay) },
                     leadingIcon = { Icon(Icons.Rounded.Shuffle, null) },
                     onClick = { menuOpen = false; onShuffle() },
                 )
                 DropdownMenuItem(
-                    text = { Text("Sıradakine ekle") },
+                    text = { Text(strings.commonPlayNext) },
                     leadingIcon = { Icon(Icons.Rounded.PlaylistPlay, null) },
                     onClick = { menuOpen = false; onPlayNext() },
                 )
                 DropdownMenuItem(
-                    text = { Text("Kuyruğa ekle") },
+                    text = { Text(strings.commonAddToQueue) },
                     leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
                     onClick = { menuOpen = false; onAddToQueue() },
                 )
                 if (downloadState != DownloadState.NONE) {
                     DropdownMenuItem(
-                        text = { Text("İndirilenleri kaldır") },
+                        text = { Text(strings.collectionRemoveDownloads) },
                         leadingIcon = { Icon(Icons.Rounded.Delete, null) },
                         onClick = { menuOpen = false; onRemoveDownload() },
                     )
@@ -139,7 +141,7 @@ fun CollectionActionRow(
         ) {
             Icon(
                 if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                contentDescription = if (isPlaying) "Duraklat" else "Çal",
+                contentDescription = if (isPlaying) strings.commonPause else strings.commonPlay,
                 modifier = Modifier.size(36.dp),
             )
         }
@@ -151,14 +153,14 @@ fun CollectionActionRow(
             DownloadState.DONE -> IconButton(onClick = onRemoveDownload) {
                 Icon(
                     Icons.Rounded.DownloadDone,
-                    contentDescription = "İndirildi",
+                    contentDescription = strings.collectionDownloaded,
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }
             DownloadState.NONE -> IconButton(onClick = onDownload) {
                 Icon(
                     Icons.Rounded.DownloadForOffline,
-                    contentDescription = "İndir",
+                    contentDescription = strings.commonDownload,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ozgen.navicloud.ui.containerViewModel
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -44,7 +45,7 @@ class LoginViewModel(
     private val _state = MutableStateFlow(LoginUiState())
     val state: StateFlow<LoginUiState> = _state
 
-    fun connect(name: String, url: String, username: String, password: String) {
+    fun connect(name: String, url: String, username: String, password: String, connectionFailedMessage: String) {
         viewModelScope.launch {
             _state.value = LoginUiState(loading = true)
             runCatching {
@@ -52,7 +53,7 @@ class LoginViewModel(
             }.onSuccess {
                 _state.value = LoginUiState()
             }.onFailure { e ->
-                _state.value = LoginUiState(error = e.message ?: "Bağlantı başarısız")
+                _state.value = LoginUiState(error = e.message ?: connectionFailedMessage)
             }
         }
     }
@@ -60,6 +61,7 @@ class LoginViewModel(
 
 @Composable
 fun LoginScreen(vm: LoginViewModel = containerViewModel { LoginViewModel(it.servers) }) {
+    val strings = LocalStrings.current
     val state by vm.state.collectAsStateWithLifecycle()
     val name = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
     val url = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
@@ -78,7 +80,7 @@ fun LoginScreen(vm: LoginViewModel = containerViewModel { LoginViewModel(it.serv
         Text("NaviCloud", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(4.dp))
         Text(
-            "Navidrome sunucuna bağlan",
+            strings.loginSubtitle,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -87,7 +89,7 @@ fun LoginScreen(vm: LoginViewModel = containerViewModel { LoginViewModel(it.serv
         OutlinedTextField(
             value = name.value,
             onValueChange = { name.value = it },
-            label = { Text("Sunucu adı (isteğe bağlı)") },
+            label = { Text(strings.loginServerName) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -95,8 +97,8 @@ fun LoginScreen(vm: LoginViewModel = containerViewModel { LoginViewModel(it.serv
         OutlinedTextField(
             value = url.value,
             onValueChange = { url.value = it },
-            label = { Text("Sunucu adresi") },
-            placeholder = { Text("http://sunucu-adresi:port") },
+            label = { Text(strings.loginServerUrl) },
+            placeholder = { Text(strings.loginServerUrlHint) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             modifier = Modifier.fillMaxWidth(),
@@ -105,7 +107,7 @@ fun LoginScreen(vm: LoginViewModel = containerViewModel { LoginViewModel(it.serv
         OutlinedTextField(
             value = username.value,
             onValueChange = { username.value = it },
-            label = { Text("Kullanıcı adı") },
+            label = { Text(strings.loginUsername) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -113,7 +115,7 @@ fun LoginScreen(vm: LoginViewModel = containerViewModel { LoginViewModel(it.serv
         OutlinedTextField(
             value = password.value,
             onValueChange = { password.value = it },
-            label = { Text("Şifre") },
+            label = { Text(strings.loginPassword) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -127,14 +129,14 @@ fun LoginScreen(vm: LoginViewModel = containerViewModel { LoginViewModel(it.serv
 
         Spacer(Modifier.height(24.dp))
         Button(
-            onClick = { vm.connect(name.value, url.value, username.value, password.value) },
+            onClick = { vm.connect(name.value, url.value, username.value, password.value, strings.loginConnectionFailed) },
             enabled = !state.loading && url.value.isNotBlank() && username.value.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (state.loading) {
                 CircularProgressIndicator(modifier = Modifier.height(20.dp).fillMaxWidth(0.1f), strokeWidth = 2.dp)
             } else {
-                Text("Bağlan")
+                Text(strings.loginConnect)
             }
         }
     }

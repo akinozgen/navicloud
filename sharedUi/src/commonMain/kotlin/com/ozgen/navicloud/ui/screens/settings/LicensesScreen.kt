@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 
 /** Kullanılan açık kaynak bir bileşen. */
 data class LicenseEntry(
@@ -60,23 +61,24 @@ val androidLicenses: List<LicenseEntry> = listOf(
 
 /** Yalnız masaüstü (Windows). */
 val desktopLicenses: List<LicenseEntry> = listOf(
-    LicenseEntry(
-        "libmpv (mpv)", "LGPL-2.1 veya sonrası", "https://github.com/mpv-player/mpv",
-        note = "Ses motoru. libmpv-2.dll olarak gömülü ve dinamik bağlı; DLL değiştirilebilir.",
-    ),
-    LicenseEntry(
-        "FFmpeg", "LGPL-2.1 veya sonrası", "https://ffmpeg.org",
-        note = "libmpv içinde kod çözme/çözümleme için kullanılır.",
-    ),
-    LicenseEntry(
-        "Java Native Access (JNA)", "Apache-2.0 / LGPL-2.1", "https://github.com/java-native-access/jna",
-        note = "libmpv'ye JVM'den erişim.",
-    ),
-    LicenseEntry(
-        "windows-rs", "MIT / Apache-2.0", "https://github.com/microsoft/windows-rs",
-        note = "Medya tuşları / kontrol merkezi (SMTC) yardımcısında kullanılır.",
-    ),
+    LicenseEntry("libmpv (mpv)", "LGPL-2.1 or later", "https://github.com/mpv-player/mpv"),
+    LicenseEntry("FFmpeg", "LGPL-2.1 or later", "https://ffmpeg.org"),
+    LicenseEntry("Java Native Access (JNA)", "Apache-2.0 / LGPL-2.1", "https://github.com/java-native-access/jna"),
+    LicenseEntry("windows-rs", "MIT / Apache-2.0", "https://github.com/microsoft/windows-rs"),
 )
+
+/** Bileşen adına göre yerelleştirilmiş açıklama (data listesi statik olduğu için burada çözülür). */
+@Composable
+private fun licenseNote(name: String): String? {
+    val s = LocalStrings.current
+    return when (name) {
+        "libmpv (mpv)" -> s.licensesMpvNote
+        "FFmpeg" -> s.licensesFfmpegNote
+        "Java Native Access (JNA)" -> s.licensesJnaNote
+        "windows-rs" -> s.licensesWindowsRsNote
+        else -> null
+    }
+}
 
 /**
  * Açık kaynak lisansları ekranı. Her platform kendi bileşen listesini geçer
@@ -85,6 +87,7 @@ val desktopLicenses: List<LicenseEntry> = listOf(
 @Composable
 fun LicensesScreen(entries: List<LicenseEntry>, onBack: () -> Unit) {
     val uriHandler = LocalUriHandler.current
+    val strings = LocalStrings.current
     Column(
         Modifier
             .fillMaxSize()
@@ -96,12 +99,12 @@ fun LicensesScreen(entries: List<LicenseEntry>, onBack: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Geri")
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = strings.commonBack)
             }
-            Text("Açık kaynak lisansları", style = MaterialTheme.typography.headlineSmall)
+            Text(strings.licensesTitle, style = MaterialTheme.typography.headlineSmall)
         }
         Text(
-            "NaviCloud aşağıdaki açık kaynak yazılımlarla mümkün oldu. Teşekkürler.",
+            strings.licensesIntro,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -122,9 +125,10 @@ fun LicensesScreen(entries: List<LicenseEntry>, onBack: () -> Unit) {
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
-                    if (e.note != null) {
+                    val note = licenseNote(e.name)
+                    if (note != null) {
                         Text(
-                            e.note,
+                            note,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -137,7 +141,7 @@ fun LicensesScreen(entries: List<LicenseEntry>, onBack: () -> Unit) {
                 }
                 Icon(
                     Icons.AutoMirrored.Rounded.OpenInNew,
-                    contentDescription = "Aç",
+                    contentDescription = strings.licensesOpen,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

@@ -144,6 +144,7 @@ import com.ozgen.navicloud.ui.components.SongContextMenuItems
 import com.ozgen.navicloud.ui.components.SongItem
 import com.ozgen.navicloud.ui.components.WavySeekBar
 import com.ozgen.navicloud.ui.components.formatDuration
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 import com.ozgen.navicloud.ui.screens.nowplaying.NowPlayingViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -601,6 +602,7 @@ private fun MiniRow(
     alpha: Float,
     onClick: () -> Unit,
 ) {
+    val strings = LocalStrings.current
     // The sheet lives outside any Surface, so LocalContentColor defaults to
     // black — every color here must be explicit.
     Row(
@@ -631,12 +633,12 @@ private fun MiniRow(
         IconButton(onClick = { vm.player.togglePlayPause() }) {
             Icon(
                 if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                contentDescription = if (isPlaying) "Duraklat" else "Çal",
+                contentDescription = if (isPlaying) strings.commonPause else strings.commonPlay,
                 tint = Color.White,
             )
         }
         IconButton(onClick = { vm.player.skipNext() }) {
-            Icon(Icons.Rounded.SkipNext, contentDescription = "Sonraki", tint = Color.White)
+            Icon(Icons.Rounded.SkipNext, contentDescription = strings.commonNext, tint = Color.White)
         }
     }
 }
@@ -656,6 +658,7 @@ private fun FullPlayerContent(
     /** Yatay/kısa ekran: kapak solda, kontroller sağda. */
     sideBySide: Boolean = false,
 ) {
+    val strings = LocalStrings.current
     val playerState by vm.player.state.collectAsStateWithLifecycle()
     val item = playerState.currentTrack
     var positionMs by remember { mutableLongStateOf(0L) }
@@ -693,10 +696,10 @@ private fun FullPlayerContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onCollapse) {
-                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Kapat", tint = Color.White)
+                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = strings.commonClose, tint = Color.White)
             }
             Text(
-                item?.song?.album ?: "Şu an çalıyor",
+                item?.song?.album ?: strings.playerNowPlaying,
                 style = MaterialTheme.typography.labelLarge,
                 color = Color.White,
                 textAlign = TextAlign.Center,
@@ -713,7 +716,7 @@ private fun FullPlayerContent(
                 IconButton(onClick = { showDevicePicker = true }) {
                     Icon(
                         if (isRemote) Icons.Rounded.CastConnected else Icons.Rounded.Cast,
-                        contentDescription = "Cihaz seç",
+                        contentDescription = strings.playerSelectDevice,
                         tint = if (isRemote) MaterialTheme.colorScheme.primary else Color.White,
                     )
                 }
@@ -725,7 +728,7 @@ private fun FullPlayerContent(
             val miniToggle = com.ozgen.navicloud.ui.LocalMiniPlayerToggle.current
             if (miniToggle != null) {
                 IconButton(onClick = miniToggle) {
-                    Icon(Icons.Rounded.PictureInPictureAlt, contentDescription = "Mini oynatıcı", tint = Color.White)
+                    Icon(Icons.Rounded.PictureInPictureAlt, contentDescription = strings.playerMiniPlayer, tint = Color.White)
                 }
             }
             // Aktif uyku zamanlayıcı göstergesi: süreli → geri sayım (mm:ss),
@@ -734,9 +737,9 @@ private fun FullPlayerContent(
             if (sleepState.active) {
                 val sleepLabel = when (val p = sleepState.preset) {
                     is SleepTimerPreset.Duration ->
-                        sleepState.remainingMs?.let { formatDuration((it / 1000).toInt()) } ?: "${p.minutes} dk"
-                    SleepTimerPreset.EndOfTrack -> "Parça sonu"
-                    SleepTimerPreset.EndOfQueue -> "Kuyruk sonu"
+                        sleepState.remainingMs?.let { formatDuration((it / 1000).toInt()) } ?: strings.playerSleepMinutesShort(p.minutes)
+                    SleepTimerPreset.EndOfTrack -> strings.playerSleepEndOfTrack
+                    SleepTimerPreset.EndOfQueue -> strings.playerSleepEndOfQueue
                     null -> ""
                 }
                 Row(
@@ -748,7 +751,7 @@ private fun FullPlayerContent(
                 ) {
                     Icon(
                         Icons.Rounded.Bedtime,
-                        contentDescription = "Uyku zamanlayıcı",
+                        contentDescription = strings.playerSleepTimer,
                         tint = accent,
                         modifier = Modifier.size(16.dp),
                     )
@@ -760,7 +763,7 @@ private fun FullPlayerContent(
             var menuOpen by remember { mutableStateOf(false) }
             Box {
                 IconButton(onClick = { menuOpen = true }) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = "Seçenekler", tint = Color.White)
+                    Icon(Icons.Rounded.MoreVert, contentDescription = strings.commonOptions, tint = Color.White)
                 }
                 item?.let {
                     PlayerOverflowMenu(
@@ -799,7 +802,7 @@ private fun FullPlayerContent(
                         if (albumId != null) {
                             Icon(
                                 Icons.Rounded.ChevronRight,
-                                contentDescription = "Albüme git",
+                                contentDescription = strings.commonGoToAlbum,
                                 tint = Color(0x99FFFFFF),
                             )
                         }
@@ -835,10 +838,10 @@ private fun FullPlayerContent(
                     }
                 }
                 IconButton(onClick = { item?.song?.let { menuActions?.showInfo?.invoke(it) } }) {
-                    Icon(Icons.Rounded.Info, contentDescription = "Parça bilgisi", tint = Color(0xB3FFFFFF))
+                    Icon(Icons.Rounded.Info, contentDescription = strings.playerTrackInfo, tint = Color(0xB3FFFFFF))
                 }
                 IconButton(onClick = onOpenLyrics) {
-                    Icon(Icons.Rounded.Lyrics, contentDescription = "Şarkı sözleri", tint = Color(0xB3FFFFFF))
+                    Icon(Icons.Rounded.Lyrics, contentDescription = strings.playerLyrics, tint = Color(0xB3FFFFFF))
                 }
                 // One-shot pop on favourite toggle — state change, not a loop
                 val starScale = remember { Animatable(1f) }
@@ -849,7 +852,7 @@ private fun FullPlayerContent(
                 IconButton(onClick = { item?.song?.id?.let { vm.toggleStar(it) } }) {
                     Icon(
                         if (starred) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                        contentDescription = "Favori",
+                        contentDescription = strings.commonFavorite,
                         tint = if (starred) accent else Color(0xB3FFFFFF),
                         modifier = Modifier.graphicsLayer {
                             scaleX = starScale.value
@@ -898,7 +901,7 @@ private fun FullPlayerContent(
                 IconButton(onClick = { vm.player.toggleShuffle() }) {
                     Icon(
                         Icons.Rounded.Shuffle,
-                        contentDescription = "Karıştır",
+                        contentDescription = strings.commonShuffle,
                         tint = if (playerState.shuffle) accent else Color(0xB3FFFFFF),
                         modifier = Modifier
                             .background(
@@ -911,7 +914,7 @@ private fun FullPlayerContent(
                 IconButton(onClick = { vm.player.skipPrevious() }) {
                     Icon(
                         Icons.Rounded.SkipPrevious,
-                        contentDescription = "Önceki",
+                        contentDescription = strings.commonPrevious,
                         tint = Color.White,
                         modifier = Modifier.size(40.dp),
                     )
@@ -937,14 +940,14 @@ private fun FullPlayerContent(
                 ) {
                     Icon(
                         if (playerState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = if (playerState.isPlaying) "Duraklat" else "Çal",
+                        contentDescription = if (playerState.isPlaying) strings.commonPause else strings.commonPlay,
                         modifier = Modifier.size(38.dp),
                     )
                 }
                 IconButton(onClick = { vm.player.skipNext() }) {
                     Icon(
                         Icons.Rounded.SkipNext,
-                        contentDescription = "Sonraki",
+                        contentDescription = strings.commonNext,
                         tint = Color.White,
                         modifier = Modifier.size(40.dp),
                     )
@@ -954,7 +957,7 @@ private fun FullPlayerContent(
                     Icon(
                         if (playerState.repeat == com.ozgen.navicloud.playback.RepeatMode.ONE) Icons.Rounded.RepeatOne
                         else Icons.Rounded.Repeat,
-                        contentDescription = "Tekrar",
+                        contentDescription = strings.commonRepeat,
                         tint = if (repeatActive) accent else Color(0xB3FFFFFF),
                         modifier = Modifier
                             .background(
@@ -996,7 +999,7 @@ private fun FullPlayerContent(
                                 vol < 0.5f -> Icons.AutoMirrored.Rounded.VolumeDown
                                 else -> Icons.AutoMirrored.Rounded.VolumeUp
                             },
-                            contentDescription = if (vol <= 0.01f) "Sesi aç" else "Sessize al",
+                            contentDescription = if (vol <= 0.01f) strings.playerUnmute else strings.playerMute,
                             tint = Color(0x99FFFFFF),
                             modifier = Modifier.size(18.dp),
                         )
@@ -1073,6 +1076,7 @@ private fun QueuePanel(
     onShow: () -> Unit,
     onHide: () -> Unit = {},
 ) {
+    val strings = LocalStrings.current
     val state by player.state.collectAsStateWithLifecycle()
     val endless by player.endless.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
@@ -1165,7 +1169,7 @@ private fun QueuePanel(
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        if (nextItem != null) "Sıradaki: ${nextItem.song.title}" else "Kuyruk",
+                        if (nextItem != null) strings.playerUpNext(nextItem.song.title) else strings.playerQueue,
                         style = MaterialTheme.typography.labelLarge,
                         color = Color(0x99FFFFFF),
                         maxLines = 1,
@@ -1185,14 +1189,14 @@ private fun QueuePanel(
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            currentItem?.song?.title ?: "Kuyruk",
+                            currentItem?.song?.title ?: strings.playerQueue,
                             style = MaterialTheme.typography.titleSmall,
                             color = Color.White,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            currentItem?.song?.artist ?: "${state.queue.size} şarkı",
+                            currentItem?.song?.artist ?: strings.commonSongCount(state.queue.size),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0x99FFFFFF),
                             maxLines = 1,
@@ -1200,7 +1204,7 @@ private fun QueuePanel(
                         )
                     }
                     IconButton(onClick = { player.stop() }) {
-                        Icon(Icons.Rounded.Stop, contentDescription = "Durdur", tint = Color(0x80FFFFFF))
+                        Icon(Icons.Rounded.Stop, contentDescription = strings.playerStop, tint = Color(0x80FFFFFF))
                     }
                     FilledIconButton(
                         onClick = { player.togglePlayPause() },
@@ -1212,7 +1216,7 @@ private fun QueuePanel(
                     ) {
                         Icon(
                             if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = if (state.isPlaying) "Duraklat" else "Çal",
+                            contentDescription = if (state.isPlaying) strings.commonPause else strings.commonPlay,
                         )
                     }
                 }
@@ -1224,7 +1228,7 @@ private fun QueuePanel(
                     if (contextLabel != null) {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                             Text(
-                                "Şuradan çalınıyor:",
+                                strings.playerPlayingFrom,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color(0x99FFFFFF),
                             )
@@ -1243,12 +1247,12 @@ private fun QueuePanel(
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(
-                                "Otomatik oynatma",
+                                strings.playerAutoplay,
                                 style = MaterialTheme.typography.titleSmall,
                                 color = Color.White,
                             )
                             Text(
-                                "Kuyruk bitince benzer içerikle devam eder",
+                                strings.playerAutoplayDesc,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color(0x99FFFFFF),
                             )
@@ -1390,7 +1394,7 @@ private fun QueuePanel(
                                 trailingContent = {
                                     Icon(
                                         Icons.Rounded.DragHandle,
-                                        contentDescription = "Sürükle",
+                                        contentDescription = strings.playerDragReorder,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         // Long-press to reorder: an always-on handle swallows
                                         // horizontal swipes too, killing swipe-to-play-next
@@ -1416,14 +1420,15 @@ private fun PlayerOverflowMenu(
     onOpenSleepTimer: () -> Unit,
     onOpenAudioFx: () -> Unit,
 ) {
+    val strings = LocalStrings.current
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         DropdownMenuItem(
-            text = { Text("Ses / Ekolayzer") },
+            text = { Text(strings.playerSoundEqualizer) },
             leadingIcon = { Icon(Icons.Rounded.GraphicEq, null) },
             onClick = { onDismiss(); onOpenAudioFx() },
         )
         DropdownMenuItem(
-            text = { Text(if (sleepActive) "Uyku zamanlayıcı • açık" else "Uyku zamanlayıcı") },
+            text = { Text(if (sleepActive) strings.playerSleepTimerOn else strings.playerSleepTimer) },
             leadingIcon = { Icon(Icons.Rounded.Bedtime, null) },
             onClick = { onDismiss(); onOpenSleepTimer() },
         )
@@ -1434,20 +1439,21 @@ private fun PlayerOverflowMenu(
 
 @Composable
 private fun SleepTimerSheet(player: PlayerController, onClose: () -> Unit) {
+    val strings = LocalStrings.current
     val state by player.sleepTimer.collectAsStateWithLifecycle()
     val navBarPad = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     Column(Modifier.fillMaxWidth().padding(bottom = navBarPad + 16.dp)) {
         Text(
-            "Uyku zamanlayıcı",
+            strings.playerSleepTimer,
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
         if (state.active) {
             val (title, sub) = when (val p = state.preset) {
                 is SleepTimerPreset.Duration ->
-                    (state.remainingMs?.let { formatDuration((it / 1000).toInt()) } ?: "${p.minutes} dk") to "kaldı"
-                SleepTimerPreset.EndOfTrack -> "Parça bitince" to "duracak"
-                SleepTimerPreset.EndOfQueue -> "Kuyruk bitince" to "duracak"
+                    (state.remainingMs?.let { formatDuration((it / 1000).toInt()) } ?: strings.playerSleepMinutesShort(p.minutes)) to strings.playerSleepRemaining
+                SleepTimerPreset.EndOfTrack -> strings.playerSleepEndOfTrackTitle to strings.playerSleepWillStop
+                SleepTimerPreset.EndOfQueue -> strings.playerSleepEndOfQueueTitle to strings.playerSleepWillStop
                 null -> "" to ""
             }
             Row(
@@ -1469,27 +1475,27 @@ private fun SleepTimerSheet(player: PlayerController, onClose: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                TextButton(onClick = { player.cancelSleepTimer() }) { Text("İptal et") }
+                TextButton(onClick = { player.cancelSleepTimer() }) { Text(strings.playerSleepCancel) }
             }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
         }
         SleepTimerPreset.DURATIONS.forEach { m ->
             SleepTimerRow(
                 icon = Icons.Rounded.Timer,
-                label = "$m dakika",
+                label = strings.playerSleepMinutes(m),
                 selected = (state.preset as? SleepTimerPreset.Duration)?.minutes == m,
                 onClick = { player.startSleepTimer(SleepTimerPreset.Duration(m)); onClose() },
             )
         }
         SleepTimerRow(
             icon = Icons.Rounded.MusicNote,
-            label = "Parça bitince",
+            label = strings.playerSleepEndOfTrackTitle,
             selected = state.preset == SleepTimerPreset.EndOfTrack,
             onClick = { player.startSleepTimer(SleepTimerPreset.EndOfTrack); onClose() },
         )
         SleepTimerRow(
             icon = Icons.AutoMirrored.Rounded.QueueMusic,
-            label = "Kuyruk bitince",
+            label = strings.playerSleepEndOfQueueTitle,
             selected = state.preset == SleepTimerPreset.EndOfQueue,
             onClick = { player.startSleepTimer(SleepTimerPreset.EndOfQueue); onClose() },
         )
@@ -1531,6 +1537,7 @@ private fun LyricsSheet(
     positionMsProvider: () -> Long,
     onSeekLine: (Long) -> Unit,
 ) {
+    val strings = LocalStrings.current
     var positionMs by remember { mutableLongStateOf(0L) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -1543,11 +1550,11 @@ private fun LyricsSheet(
         loading -> Box(
             Modifier.fillMaxWidth().height(220.dp),
             contentAlignment = Alignment.Center,
-        ) { Text("Sözler yükleniyor…") }
+        ) { Text(strings.playerLyricsLoading) }
         lyrics == null || lyrics.lines.isEmpty() -> Box(
             Modifier.fillMaxWidth().height(220.dp),
             contentAlignment = Alignment.Center,
-        ) { Text("Bu şarkı için söz bulunamadı", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        ) { Text(strings.playerLyricsEmpty, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         else -> {
             val synced = lyrics.synced
             val activeIndex = if (synced) {

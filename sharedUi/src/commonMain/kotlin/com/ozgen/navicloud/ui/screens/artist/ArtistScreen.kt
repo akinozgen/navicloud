@@ -44,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ozgen.navicloud.ui.containerViewModel
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -127,6 +128,7 @@ class ArtistViewModel(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewModel = containerViewModel(key = "artist-$artistId") { ArtistViewModel(it.music, it.player, artistId) }) {
+    val strings = LocalStrings.current
     val state by vm.state.collectAsStateWithLifecycle()
 
     when {
@@ -134,7 +136,7 @@ fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewM
             CircularProgressIndicator()
         }
         state.detail == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(state.error ?: "Sanatçı yüklenemedi", color = MaterialTheme.colorScheme.error)
+            Text(state.error ?: strings.artistLoadError, color = MaterialTheme.colorScheme.error)
         }
         else -> {
             val detail = state.detail!!
@@ -191,7 +193,7 @@ fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewM
                                     .clip(CircleShape)
                                     .background(Color(0x66000000)),
                             ) {
-                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Geri", tint = Color.White)
+                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = strings.commonBack, tint = Color.White)
                             }
                             Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
                                 Text(
@@ -202,7 +204,7 @@ fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewM
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
-                                    "${detail.albums.size} albüm",
+                                    strings.artistAlbumCount(detail.albums.size),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = Color(0xB3FFFFFF),
                                 )
@@ -220,7 +222,7 @@ fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewM
                             ) {
                                 Icon(Icons.Rounded.PlayArrow, contentDescription = null)
                                 Spacer(Modifier.size(4.dp))
-                                Text("Çal")
+                                Text(strings.commonPlay)
                             }
                             OutlinedButton(
                                 onClick = { vm.playArtist(shuffle = true) },
@@ -228,19 +230,19 @@ fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewM
                             ) {
                                 Icon(Icons.Rounded.Shuffle, contentDescription = null)
                                 Spacer(Modifier.size(4.dp))
-                                Text("Karıştır")
+                                Text(strings.commonShuffle)
                             }
                         }
                     }
                     if (state.topSongs.isNotEmpty()) {
-                        item(key = "h-popular") { SectionTitle("Popüler") }
+                        item(key = "h-popular") { SectionTitle(strings.artistPopular) }
                         val top = state.topSongs.take(10)
                         items(top.size, key = { "top-" + top[it].id }, contentType = { "song" }) { i ->
                             SongItem(top[i], onClick = { vm.player.play(top, i, context = vm.playbackContext(), contextLabel = detail.artist.name) })
                         }
                     }
                     if (detail.albums.isNotEmpty()) {
-                        item(key = "h-albums") { SectionTitle("Albümler") }
+                        item(key = "h-albums") { SectionTitle(strings.artistAlbums) }
                         item(key = "row-albums") {
                             LazyRow(
                                 contentPadding = PaddingValues(horizontal = 16.dp),
@@ -254,7 +256,7 @@ fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewM
                         }
                     }
                     if (detail.similar.isNotEmpty()) {
-                        item(key = "h-similar") { SectionTitle("Benzer sanatçılar") }
+                        item(key = "h-similar") { SectionTitle(strings.artistSimilar) }
                         item(key = "row-similar") {
                             LazyRow(
                                 contentPadding = PaddingValues(horizontal = 16.dp),
@@ -272,7 +274,7 @@ fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewM
                         item(key = "bio") {
                             var expanded by remember { mutableStateOf(false) }
                             Column(Modifier.padding(16.dp)) {
-                                Text("Hakkında", style = MaterialTheme.typography.titleLarge)
+                                Text(strings.artistAbout, style = MaterialTheme.typography.titleLarge)
                                 Spacer(Modifier.height(8.dp))
                                 Text(
                                     bio.replace(Regex("<[^>]*>"), ""),
@@ -283,7 +285,7 @@ fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewM
                                     modifier = Modifier.padding(bottom = 4.dp),
                                 )
                                 Text(
-                                    if (expanded) "Daha az göster" else "Devamını oku",
+                                    if (expanded) strings.artistBioCollapse else strings.artistBioExpand,
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier

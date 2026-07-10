@@ -40,6 +40,7 @@ import com.ozgen.navicloud.remote.ConnState
 import com.ozgen.navicloud.remote.ControlTarget
 import com.ozgen.navicloud.remote.RemoteControlManager
 import com.ozgen.navicloud.ui.LocalAppContainer
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 
 /**
  * Spotify Connect tarzı cihaz seçici (RC-3). "Bu cihaz" + aynı Navidrome'daki keşfedilen peer'lar.
@@ -49,6 +50,7 @@ import com.ozgen.navicloud.ui.LocalAppContainer
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DevicePickerSheet(onDismiss: () -> Unit) {
+    val strings = LocalStrings.current
     val rc: RemoteControlManager = LocalAppContainer.current.remoteControl ?: return
     val devices by rc.devices.collectAsStateWithLifecycle()
     val target by rc.target.collectAsStateWithLifecycle()
@@ -61,7 +63,7 @@ fun DevicePickerSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             Text(
-                "Cihaz seç",
+                strings.playerSelectDevice,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
             )
@@ -70,13 +72,13 @@ fun DevicePickerSheet(onDismiss: () -> Unit) {
             DeviceRow(
                 icon = Icons.Rounded.Cast,
                 name = selfName,
-                subtitle = "Bu cihaz",
+                subtitle = strings.devicePickerThisDevice,
                 selected = target is ControlTarget.Local,
                 enabled = true,
                 trailing = {
                     IconButton(onClick = { editingName = true }) {
                         Icon(
-                            Icons.Rounded.Edit, contentDescription = "Adı düzenle",
+                            Icons.Rounded.Edit, contentDescription = strings.devicePickerEditName,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp),
                         )
                     }
@@ -91,10 +93,10 @@ fun DevicePickerSheet(onDismiss: () -> Unit) {
                     icon = if (d.platform == "android") Icons.Rounded.Smartphone else Icons.Rounded.Computer,
                     name = d.name,
                     subtitle = when {
-                        d.busy -> "Meşgul"
-                        isTarget && connState == ConnState.CONNECTED -> "Buradan çalıyor"
-                        isTarget && (connState == ConnState.CONNECTING || connState == ConnState.PAIRING) -> "Bağlanıyor…"
-                        d.platform == "manual" -> "Elle eklendi"
+                        d.busy -> strings.devicePickerBusy
+                        isTarget && connState == ConnState.CONNECTED -> strings.devicePickerPlayingHere
+                        isTarget && (connState == ConnState.CONNECTING || connState == ConnState.PAIRING) -> strings.devicePickerConnecting
+                        d.platform == "manual" -> strings.devicePickerAddedManually
                         else -> d.host
                     },
                     selected = isTarget && connState == ConnState.CONNECTED,
@@ -106,7 +108,7 @@ fun DevicePickerSheet(onDismiss: () -> Unit) {
                             // Eşleşmişse "unut" (RC-7) — bir dahaki sefere yeniden PIN/parola ister
                             d.deviceId in pairedIds -> IconButton(onClick = { rc.forget(d.deviceId) }) {
                                 Icon(
-                                    Icons.Rounded.LinkOff, contentDescription = "Cihazı unut",
+                                    Icons.Rounded.LinkOff, contentDescription = strings.devicePickerForgetDevice,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp),
                                 )
                             }
@@ -118,7 +120,7 @@ fun DevicePickerSheet(onDismiss: () -> Unit) {
 
             if (devices.isEmpty()) {
                 Text(
-                    "Ağda başka cihaz yok.",
+                    strings.devicePickerNoDevices,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
@@ -126,7 +128,7 @@ fun DevicePickerSheet(onDismiss: () -> Unit) {
             }
             if (connState == ConnState.FAILED) {
                 Text(
-                    "Bağlanılamadı.",
+                    strings.devicePickerConnectFailed,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
@@ -135,7 +137,7 @@ fun DevicePickerSheet(onDismiss: () -> Unit) {
 
             Spacer(Modifier.height(4.dp))
             TextButton(onClick = { addingManual = true }, modifier = Modifier.padding(horizontal = 12.dp)) {
-                Text("IP ile ekle")
+                Text(strings.devicePickerAddByIp)
             }
         }
     }
@@ -144,7 +146,7 @@ fun DevicePickerSheet(onDismiss: () -> Unit) {
         var name by remember { mutableStateOf(selfName) }
         AlertDialog(
             onDismissRequest = { editingName = false },
-            title = { Text("Cihaz adı") },
+            title = { Text(strings.devicePickerDeviceName) },
             text = {
                 OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true)
             },
@@ -152,9 +154,9 @@ fun DevicePickerSheet(onDismiss: () -> Unit) {
                 TextButton(onClick = {
                     if (name.isNotBlank()) rc.setSelfName(name)
                     editingName = false
-                }) { Text("Kaydet") }
+                }) { Text(strings.commonSave) }
             },
-            dismissButton = { TextButton(onClick = { editingName = false }) { Text("Vazgeç") } },
+            dismissButton = { TextButton(onClick = { editingName = false }) { Text(strings.commonCancel) } },
         )
     }
 
@@ -162,11 +164,11 @@ fun DevicePickerSheet(onDismiss: () -> Unit) {
         var hostPort by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { addingManual = false },
-            title = { Text("IP ile ekle") },
+            title = { Text(strings.devicePickerAddByIp) },
             text = {
                 Column {
                     Text(
-                        "Cihaz listede yoksa IP adresini yaz.",
+                        strings.devicePickerAddByIpHint,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -184,9 +186,9 @@ fun DevicePickerSheet(onDismiss: () -> Unit) {
                     val port = parts.getOrNull(1)?.toIntOrNull() ?: 46464
                     if (host.isNotBlank()) rc.addManualPeer(host, port)
                     addingManual = false
-                }) { Text("Ekle") }
+                }) { Text(strings.commonAdd) }
             },
-            dismissButton = { TextButton(onClick = { addingManual = false }) { Text("Vazgeç") } },
+            dismissButton = { TextButton(onClick = { addingManual = false }) { Text(strings.commonCancel) } },
         )
     }
 }
@@ -201,6 +203,7 @@ private fun DeviceRow(
     trailing: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
 ) {
+    val strings = LocalStrings.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -228,7 +231,7 @@ private fun DeviceRow(
         }
         trailing?.invoke()
         if (selected) {
-            Icon(Icons.Rounded.Check, contentDescription = "Seçili", tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Rounded.Check, contentDescription = strings.devicePickerSelected, tint = MaterialTheme.colorScheme.primary)
         }
     }
 }

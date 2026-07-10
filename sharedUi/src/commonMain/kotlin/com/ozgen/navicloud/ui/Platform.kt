@@ -32,6 +32,9 @@ class AppContainer(
     val queueSync: QueueSyncManager? = null,
     /** Uzaktan kumanda (cihaz seçici). null = özellik gizli. [player] bu durumda ActivePlayerController olmalı. */
     val remoteControl: com.ozgen.navicloud.remote.RemoteControlManager? = null,
+    /** Seçili uygulama dili (SYSTEM/TR/EN). Kök bunu LocalStrings'e çevirir. */
+    val language: kotlinx.coroutines.flow.Flow<com.ozgen.navicloud.i18n.AppLanguage> =
+        kotlinx.coroutines.flow.flowOf(com.ozgen.navicloud.i18n.AppLanguage.SYSTEM),
 )
 
 val LocalAppContainer = staticCompositionLocalOf<AppContainer> {

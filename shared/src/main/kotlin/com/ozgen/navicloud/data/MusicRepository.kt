@@ -148,7 +148,7 @@ class MusicRepository @Inject constructor(
         }
         val fresh = entry != null && System.currentTimeMillis() - entry.updatedAt < ttlMs
         if (decoded != null && (offline || (fresh && !force))) return decoded
-        if (offline) throw IllegalStateException("Offline moddasın — bu içerik daha önce yüklenmemiş")
+        if (offline) throw IllegalStateException(com.ozgen.navicloud.i18n.I18n.strings.offlineContentUnavailable)
         return try {
             val value = fetch()
             cache.put(CachedEntry(fullKey, json.encodeToString(value), System.currentTimeMillis()))

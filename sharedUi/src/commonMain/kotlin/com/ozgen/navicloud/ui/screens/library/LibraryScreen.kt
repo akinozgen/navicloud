@@ -73,6 +73,8 @@ import com.ozgen.navicloud.ui.components.Artwork
 import com.ozgen.navicloud.ui.components.NaviChip
 import com.ozgen.navicloud.ui.components.PillSearchField
 import com.ozgen.navicloud.ui.components.SongItem
+import com.ozgen.navicloud.ui.i18n.LocalStrings
+import com.ozgen.navicloud.i18n.I18n
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -83,13 +85,19 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class LibraryTab(val title: String) {
-    PLAYLISTS("Çalma Listeleri"),
-    ALBUMS("Albümler"),
-    ARTISTS("Sanatçılar"),
-    SONGS("Şarkılar"),
-    FAVORITES("Favoriler"),
-    DOWNLOADS("İndirilenler"),
+enum class LibraryTab { PLAYLISTS, ALBUMS, ARTISTS, SONGS, FAVORITES, DOWNLOADS }
+
+@Composable
+private fun LibraryTab.label(): String {
+    val s = LocalStrings.current
+    return when (this) {
+        LibraryTab.PLAYLISTS -> s.libraryTabPlaylists
+        LibraryTab.ALBUMS -> s.libraryTabAlbums
+        LibraryTab.ARTISTS -> s.libraryTabArtists
+        LibraryTab.SONGS -> s.libraryTabSongs
+        LibraryTab.FAVORITES -> s.libraryTabFavorites
+        LibraryTab.DOWNLOADS -> s.libraryTabDownloads
+    }
 }
 
 private const val SONGS_PAGE = 200
@@ -218,7 +226,7 @@ class LibraryViewModel(
             tab == LibraryTab.DOWNLOADS || offline -> {
                 val dl = downloads.value
                 if (dl.isNotEmpty()) {
-                    player.play(dl.shuffled(), context = PlaybackContext.AllSongs, contextLabel = "İndirilenler")
+                    player.play(dl.shuffled(), context = PlaybackContext.AllSongs, contextLabel = I18n.strings.libraryTabDownloads)
                 }
             }
             tab == LibraryTab.FAVORITES -> {
@@ -226,14 +234,14 @@ class LibraryViewModel(
                     val favs = _state.value.starred?.songs
                         ?: runCatching { repo.starred().songs }.getOrDefault(emptyList())
                     if (favs.isNotEmpty()) {
-                        player.play(favs.shuffled(), context = PlaybackContext.AllSongs, contextLabel = "Favoriler")
+                        player.play(favs.shuffled(), context = PlaybackContext.AllSongs, contextLabel = I18n.strings.libraryTabFavorites)
                     }
                 }
             }
             else -> viewModelScope.launch {
                 runCatching { repo.randomSongs(40) }.onSuccess { first ->
                     if (first.isNotEmpty()) {
-                        player.play(first, context = PlaybackContext.AllSongs, contextLabel = "Karışık çalma")
+                        player.play(first, context = PlaybackContext.AllSongs, contextLabel = I18n.strings.libraryCtxShuffleMix)
                         runCatching { repo.randomSongs(160) }.onSuccess { more ->
                             val seen = first.map { it.id }.toSet()
                             val extra = more.filter { it.id !in seen }
@@ -279,6 +287,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
     val activeDownload by vm.activeDownload.collectAsStateWithLifecycle()
     val q = state.query.trim()
     val fabExpanded = remember { mutableStateOf(true) }
+    val strings = LocalStrings.current
 
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
@@ -287,7 +296,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "Kitaplık",
+                strings.libraryTitle,
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.weight(1f),
             )
@@ -305,14 +314,14 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
             IconButton(onClick = { vm.refresh() }) {
                 Icon(
                     Icons.Rounded.Refresh,
-                    contentDescription = "Yenile",
+                    contentDescription = strings.commonRefresh,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             IconButton(onClick = { navController.navigate("servers") }) {
                 Icon(
                     Icons.Rounded.Settings,
-                    contentDescription = "Ayarlar",
+                    contentDescription = strings.commonSettings,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -327,7 +336,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
             LibraryTab.entries.forEach { tab ->
                 NaviChip(
                     selected = state.tab == tab,
-                    label = tab.title,
+                    label = tab.label(),
                     onClick = { vm.selectTab(tab) },
                 )
             }
@@ -335,7 +344,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
         PillSearchField(
             value = state.query,
             onValueChange = vm::onQueryChange,
-            placeholder = "Bu listede ara",
+            placeholder = strings.librarySearchHint,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
         )
 
@@ -364,7 +373,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
                                 Column {
                                     Text(pl.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(
-                                        "Çalma listesi • ${pl.songCount} şarkı",
+                                        strings.libraryPlaylistSubtitle(pl.songCount),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -386,7 +395,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             androidx.compose.material3.TextButton(onClick = { vm.toggleAlbumSort() }) {
-                                Text(if (state.albumsByRecent) "Son eklenen" else "Ada göre")
+                                Text(if (state.albumsByRecent) strings.librarySortRecent else strings.librarySortAlpha)
                                 Icon(Icons.Rounded.ArrowDropDown, contentDescription = null)
                             }
                             Spacer(Modifier.weight(1f))
@@ -394,7 +403,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
                                 Icon(
                                     if (state.albumsAsGrid) Icons.AutoMirrored.Rounded.List
                                     else Icons.Rounded.GridView,
-                                    contentDescription = "Görünüm",
+                                    contentDescription = strings.libraryView,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -438,7 +447,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
                                         Column {
                                             Text(album.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                             Text(
-                                                "Albüm • ${album.artist}",
+                                                strings.libraryAlbumSubtitle(album.artist),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 maxLines = 1,
@@ -470,7 +479,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
                                 Column {
                                     Text(artist.name, style = MaterialTheme.typography.titleSmall)
                                     Text(
-                                        "Sanatçı • ${artist.albumCount} albüm",
+                                        strings.libraryArtistSubtitle(artist.albumCount),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -495,7 +504,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
                     }
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
                         items(items.size, key = { items[it].id }, contentType = { "song" }) { i ->
-                            SongItem(items[i], onClick = { vm.playSongs(items, i, PlaybackContext.AllSongs, "Tüm şarkılar") })
+                            SongItem(items[i], onClick = { vm.playSongs(items, i, PlaybackContext.AllSongs, strings.libraryCtxAllSongs) })
                         }
                         if (state.songsLoadingMore) {
                             item(key = "loading-more") {
@@ -531,8 +540,8 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
                             item(key = "active-download") {
                                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                                     Text(
-                                        "İndiriliyor: ${active.title}" +
-                                            if (active.queued > 1) " (+${active.queued - 1} sırada)" else "",
+                                        strings.downloadInProgress(active.title) +
+                                            if (active.queued > 1) strings.downloadQueuedSuffix(active.queued - 1) else "",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -550,7 +559,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
-                                    if (state.downloadsGrouped) "Albüme göre gruplu" else "Düz liste",
+                                    if (state.downloadsGrouped) strings.libraryDownloadsGrouped else strings.libraryDownloadsFlat,
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.weight(1f),
@@ -559,14 +568,14 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
                                     Icon(
                                         if (state.downloadsGrouped) Icons.AutoMirrored.Rounded.List
                                         else Icons.Rounded.GridView,
-                                        contentDescription = "Gruplamayı değiştir",
+                                        contentDescription = strings.libraryToggleGrouping,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             }
                         }
                         if (state.downloadsGrouped) {
-                            val groups = items.groupBy { it.album ?: "Bilinmeyen Albüm" }.toSortedMap()
+                            val groups = items.groupBy { it.album ?: strings.libraryUnknownAlbum }.toSortedMap()
                             groups.forEach { (albumName, songs) ->
                                 item(key = "hdr-$albumName") {
                                     Text(
@@ -587,7 +596,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
                         if (items.isEmpty() && active == null) {
                             item(key = "empty") {
                                 Text(
-                                    "Henüz indirilen şarkı yok. Albüm veya çalma listesi sayfasındaki indirme düğmesini kullan.",
+                                    strings.libraryDownloadsEmpty,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(24.dp),
@@ -604,7 +613,7 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
         onClick = { vm.shuffleAll() },
         expanded = fabExpanded.value,
         icon = { Icon(Icons.Rounded.Shuffle, contentDescription = null) },
-        text = { Text("Shuffle all") },
+        text = { Text(strings.libraryShuffleAll) },
         modifier = Modifier
             .align(Alignment.BottomEnd)
             .padding(16.dp),

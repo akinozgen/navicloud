@@ -18,6 +18,7 @@ import com.ozgen.navicloud.audio.AudioEffectsCapabilities
 import com.ozgen.navicloud.audio.AudioEffectsController
 import com.ozgen.navicloud.audio.AudioEffectsState
 import com.ozgen.navicloud.audio.ReverbPreset
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 
 /**
  * "Ses / Ekolayzer" sheet'inin efekt bölümleri: bas → genişlik → ortam → kazanç.
@@ -34,11 +35,12 @@ internal fun AudioEffectSections(
     accent: Color,
 ) {
     val master = state.masterEnabled
+    val strings = LocalStrings.current
 
     HorizontalDivider(Modifier.padding(vertical = 10.dp))
 
     EffectSliderSection(
-        title = "Bas güçlendirme",
+        title = strings.audioFxBassBoost,
         supported = caps.bass,
         master = master,
         on = state.bassEnabled,
@@ -49,7 +51,7 @@ internal fun AudioEffectSections(
     )
 
     EffectSliderSection(
-        title = "Genişlik",
+        title = strings.audioFxWidth,
         supported = caps.virtualizer,
         master = master,
         on = state.virtualizerEnabled,
@@ -62,11 +64,11 @@ internal fun AudioEffectSections(
     // Ortam (reverb): slider yerine preset seçici
     val reverbEnabled = master && caps.reverb
     EffectSectionHeader(
-        title = "Ortam",
+        title = strings.audioFxAmbience,
         checked = state.reverbEnabled,
         enabled = reverbEnabled,
         onCheckedChange = { fx.setReverb(it, null) },
-        subtitle = if (!caps.reverb) "Cihaz desteklemiyor" else null,
+        subtitle = if (!caps.reverb) strings.audioFxNotSupported else null,
     )
     if (state.reverbEnabled && reverbEnabled) {
         Row(
@@ -77,14 +79,14 @@ internal fun AudioEffectSections(
                 FilterChip(
                     selected = state.reverbPreset == p,
                     onClick = { fx.setReverb(true, p) },
-                    label = { Text(p.label) },
+                    label = { Text(strings.reverbPresetLabel(p)) },
                 )
             }
         }
     }
 
     EffectSliderSection(
-        title = "Ses kazancı",
+        title = strings.audioFxLoudness,
         supported = caps.gain,
         master = master,
         on = state.gainEnabled,
@@ -107,12 +109,13 @@ private fun EffectSliderSection(
     onLevel: (Float) -> Unit,
 ) {
     val enabled = master && supported
+    val strings = LocalStrings.current
     EffectSectionHeader(
         title = title,
         checked = on,
         enabled = enabled,
         onCheckedChange = onToggle,
-        subtitle = if (!supported) "Cihaz desteklemiyor" else null,
+        subtitle = if (!supported) strings.audioFxNotSupported else null,
     )
     if (on && enabled) {
         ThinSlider(

@@ -21,6 +21,7 @@ private val KEY_INTERNET_LYRICS = booleanPreferencesKey("internet_lyrics")
 private val KEY_RC_DEVICE_ID = stringPreferencesKey("rc_device_id")
 private val KEY_RC_DEVICE_NAME = stringPreferencesKey("rc_device_name")
 private val KEY_RC_SECRET = stringPreferencesKey("rc_secret")
+private val KEY_LANGUAGE = stringPreferencesKey("app_language")
 
 @Singleton
 class SettingsRepository @Inject constructor(
@@ -110,5 +111,13 @@ class SettingsRepository @Inject constructor(
             val v = secret.trim()
             if (v.isBlank()) prefs.remove(KEY_RC_SECRET) else prefs[KEY_RC_SECRET] = v
         }
+    }
+
+    /** Uygulama dili (SYSTEM/TURKISH/ENGLISH); varsayılan sistem locale'i. */
+    val language: Flow<com.ozgen.navicloud.i18n.AppLanguage> =
+        dataStore.data.map { com.ozgen.navicloud.i18n.appLanguageOf(it[KEY_LANGUAGE]) }
+
+    suspend fun setLanguage(language: com.ozgen.navicloud.i18n.AppLanguage) {
+        dataStore.edit { it[KEY_LANGUAGE] = language.name }
     }
 }

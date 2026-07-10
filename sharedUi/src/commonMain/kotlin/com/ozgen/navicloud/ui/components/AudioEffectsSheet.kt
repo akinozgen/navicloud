@@ -37,6 +37,7 @@ import com.ozgen.navicloud.audio.AudioEffectsController
 import com.ozgen.navicloud.audio.EQ_BANDS_HZ
 import com.ozgen.navicloud.audio.EQ_GAIN_MAX_DB
 import com.ozgen.navicloud.audio.EqPreset
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 import kotlin.math.abs
 
 /**
@@ -51,6 +52,7 @@ fun AudioEffectsSheet(fx: AudioEffectsController) {
     val caps by fx.capabilities.collectAsStateWithLifecycle()
     val navBarPad = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val accent = MaterialTheme.colorScheme.primary
+    val strings = LocalStrings.current
 
     Column(
         Modifier
@@ -62,12 +64,12 @@ fun AudioEffectsSheet(fx: AudioEffectsController) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    "Ses efektleri",
+                    strings.audioFxSheetTitle,
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    "Yalnız bu cihazda çalar",
+                    strings.audioFxThisDeviceOnly,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -82,7 +84,7 @@ fun AudioEffectsSheet(fx: AudioEffectsController) {
             val eqEnabled = state.masterEnabled && caps.eq
 
             EffectSectionHeader(
-                title = "Ekolayzer",
+                title = strings.audioFxEqualizer,
                 checked = state.eqEnabled,
                 enabled = eqEnabled,
                 onCheckedChange = { fx.setEqEnabled(it) },
@@ -100,7 +102,7 @@ fun AudioEffectsSheet(fx: AudioEffectsController) {
                         selected = state.eqPreset == p,
                         enabled = eqEnabled,
                         onClick = { fx.setEqPreset(p) },
-                        label = { Text(p.label) },
+                        label = { Text(strings.eqPresetLabel(p)) },
                     )
                 }
             }

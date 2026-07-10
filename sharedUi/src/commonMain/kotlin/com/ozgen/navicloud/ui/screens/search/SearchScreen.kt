@@ -46,6 +46,7 @@ import com.ozgen.navicloud.ui.components.Artwork
 import com.ozgen.navicloud.ui.components.NaviChip
 import com.ozgen.navicloud.ui.components.PillSearchField
 import com.ozgen.navicloud.ui.components.SongItem
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -56,11 +57,17 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class SearchFilter(val title: String) {
-    ALL("Tümü"),
-    SONGS("Şarkılar"),
-    ALBUMS("Albümler"),
-    ARTISTS("Sanatçılar"),
+enum class SearchFilter { ALL, SONGS, ALBUMS, ARTISTS }
+
+@Composable
+private fun SearchFilter.label(): String {
+    val s = LocalStrings.current
+    return when (this) {
+        SearchFilter.ALL -> s.searchAll
+        SearchFilter.SONGS -> s.searchSongs
+        SearchFilter.ALBUMS -> s.searchAlbums
+        SearchFilter.ARTISTS -> s.searchArtists
+    }
 }
 
 data class SearchUiState(
@@ -126,12 +133,13 @@ class SearchViewModel(
 fun SearchScreen(navController: NavController, vm: SearchViewModel = containerViewModel { SearchViewModel(it.music, it.recents, it.player) }) {
     val state by vm.state.collectAsStateWithLifecycle()
     val result = state.result
+    val strings = LocalStrings.current
 
     Column(Modifier.fillMaxSize()) {
         PillSearchField(
             value = state.query,
             onValueChange = vm::onQueryChange,
-            placeholder = "Şarkı, albüm veya sanatçı ara",
+            placeholder = strings.searchHint,
             modifier = Modifier.padding(16.dp),
         )
         Row(
@@ -144,7 +152,7 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = containerVi
             SearchFilter.entries.forEach { f ->
                 NaviChip(
                     selected = state.filter == f,
-                    label = f.title,
+                    label = f.label(),
                     onClick = { vm.onFilterChange(f) },
                 )
             }
@@ -161,14 +169,14 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = containerVi
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                "Son aramalar",
+                                strings.searchRecent,
                                 style = MaterialTheme.typography.titleLarge,
                                 modifier = Modifier.weight(1f).padding(vertical = 8.dp),
                             )
                             IconButton(onClick = { vm.clearRecents() }) {
                                 Icon(
                                     Icons.Rounded.Close,
-                                    contentDescription = "Temizle",
+                                    contentDescription = strings.commonClear,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -196,7 +204,7 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = containerVi
                             IconButton(onClick = { vm.removeRecent(recents[i]) }) {
                                 Icon(
                                     Icons.Rounded.Close,
-                                    contentDescription = "Kaldır",
+                                    contentDescription = strings.searchRemoveRecent,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -215,13 +223,13 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = containerVi
                 SearchFilter.ALL -> {
                     val topSongs = result.songs.take(6)
                     if (topSongs.isNotEmpty()) {
-                        item(key = "h-songs") { SectionTitle("Şarkılar") }
+                        item(key = "h-songs") { SectionTitle(strings.searchSongs) }
                         items(topSongs.size, key = { "s-" + topSongs[it].id }, contentType = { "song" }) { i ->
                             SongItem(topSongs[i], onClick = { vm.recordSearch(); vm.player.play(topSongs, i, context = PlaybackContext.AllSongs) })
                         }
                     }
                     if (result.albums.isNotEmpty()) {
-                        item(key = "h-albums") { SectionTitle("Albümler") }
+                        item(key = "h-albums") { SectionTitle(strings.searchAlbums) }
                         item(key = "row-albums") {
                             LazyRow(
                                 contentPadding = PaddingValues(horizontal = 16.dp),
@@ -235,7 +243,7 @@ fun SearchScreen(navController: NavController, vm: SearchViewModel = containerVi
                         }
                     }
                     if (result.artists.isNotEmpty()) {
-                        item(key = "h-artists") { SectionTitle("Sanatçılar") }
+                        item(key = "h-artists") { SectionTitle(strings.searchArtists) }
                         item(key = "row-artists") {
                             LazyRow(
                                 contentPadding = PaddingValues(horizontal = 16.dp),

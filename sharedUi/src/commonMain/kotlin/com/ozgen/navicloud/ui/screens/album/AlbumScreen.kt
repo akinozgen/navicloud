@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ozgen.navicloud.ui.containerViewModel
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -135,6 +136,7 @@ class AlbumViewModel(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewModel = containerViewModel(key = "album-$albumId") { AlbumViewModel(it.music, it.downloads, it.player, albumId) }) {
+    val strings = LocalStrings.current
     val state by vm.state.collectAsStateWithLifecycle()
 
     when {
@@ -142,7 +144,7 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
             CircularProgressIndicator()
         }
         state.detail == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(state.error ?: "Albüm yüklenemedi", color = MaterialTheme.colorScheme.error)
+            Text(state.error ?: strings.albumLoadError, color = MaterialTheme.colorScheme.error)
         }
         else -> {
             val detail = state.detail!!
@@ -155,13 +157,13 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Geri")
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = strings.commonBack)
                         }
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = { vm.toggleStar() }) {
                             Icon(
                                 if (state.starred) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                                contentDescription = "Favori",
+                                contentDescription = strings.commonFavorite,
                                 tint = if (state.starred) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -176,9 +178,9 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                         // Small centered meta line above the cover (YT mindset)
                         Text(
                             listOfNotNull(
-                                "Albüm",
+                                strings.albumType,
                                 detail.album.year?.toString(),
-                                "${detail.songs.size} şarkı",
+                                strings.commonSongCount(detail.songs.size),
                             ).joinToString(" • "),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -235,7 +237,7 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                             onAddToQueue = { vm.player.addToQueue(detail.songs) },
                             onDownload = {
                                 if (vm.downloadAll()) {
-                                    toast("İndirme kuyruğa alındı")
+                                    toast(strings.commonDownloadQueued)
                                 }
                             },
                             onRemoveDownload = { vm.removeDownloads() },
@@ -255,7 +257,7 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                 }
                 item(key = "footer") {
                     Text(
-                        "${detail.songs.size} şarkı • ${formatDuration(detail.album.duration)}",
+                        strings.albumFooterSummary(detail.songs.size, formatDuration(detail.album.duration)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(16.dp),

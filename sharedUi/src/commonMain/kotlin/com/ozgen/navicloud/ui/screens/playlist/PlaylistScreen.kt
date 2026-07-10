@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ozgen.navicloud.ui.containerViewModel
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -116,6 +117,7 @@ class PlaylistViewModel(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistScreen(navController: NavController, playlistId: String, vm: PlaylistViewModel = containerViewModel(key = "playlist-$playlistId") { PlaylistViewModel(it.music, it.downloads, it.player, playlistId) }) {
+    val strings = LocalStrings.current
     val state by vm.state.collectAsStateWithLifecycle()
 
     when {
@@ -123,7 +125,7 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
             CircularProgressIndicator()
         }
         state.detail == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(state.error ?: "Çalma listesi yüklenemedi", color = MaterialTheme.colorScheme.error)
+            Text(state.error ?: strings.playlistLoadError, color = MaterialTheme.colorScheme.error)
         }
         else -> {
             val detail = state.detail!!
@@ -135,7 +137,7 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Geri")
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = strings.commonBack)
                         }
                     }
             }
@@ -146,7 +148,7 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                     ) {
                         // Small centered meta line above the cover (YT mindset)
                         Text(
-                            "Çalma listesi • ${detail.playlist.songCount} şarkı",
+                            strings.playlistHeaderSubtitle(detail.playlist.songCount),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 12.dp),
@@ -205,7 +207,7 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                             onAddToQueue = { vm.player.addToQueue(detail.songs) },
                             onDownload = {
                                 if (vm.downloadAll()) {
-                                    toast("İndirme kuyruğa alındı")
+                                    toast(strings.commonDownloadQueued)
                                 }
                             },
                             onRemoveDownload = { vm.removeDownloads() },

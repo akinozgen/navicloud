@@ -211,6 +211,7 @@ private fun runApp() = application {
                 recents = InMemoryRecentSearches(),
                 queueSync = queueSync,
                 remoteControl = rcManager,
+                language = DesktopPrefs.languageFlow,
             ),
             // Ses slider'ı: hedef Remote iken UZAK cihazın sesini sürer (VOLUME cmd), değilse lokal mpv (RC-3)
             volume = object : com.ozgen.navicloud.ui.VolumeController {
@@ -231,6 +232,8 @@ private fun runApp() = application {
 
     val player = deps.container.player
     val playerState by player.state.collectAsState()
+    val language by DesktopPrefs.languageFlow.collectAsState()
+    val strings = com.ozgen.navicloud.i18n.stringsFor(language)
     var windowVisible by remember { mutableStateOf(true) }
     var miniOpen by remember { mutableStateOf(false) }
     // Mini pencere durumu (konum + varyant) tek kaynaktan — motordan bağımsız
@@ -294,7 +297,7 @@ private fun runApp() = application {
         LaunchedEffect(playerState.currentTrack, playerState.isPlaying) {
             linuxTray.update(
                 tooltip = playerState.currentTrack?.let { "${it.song.artist} — ${it.song.title}" } ?: "",
-                playLabel = if (playerState.isPlaying) "Duraklat" else "Çal",
+                playLabel = if (playerState.isPlaying) strings.commonPause else strings.commonPlay,
                 hasTrack = playerState.currentTrack != null,
             )
         }
@@ -305,18 +308,18 @@ private fun runApp() = application {
             tooltip = playerState.currentTrack?.let { "${it.song.artist} — ${it.song.title}" } ?: "NaviCloud",
             onAction = { showWindow() },
             menu = {
-                Item("Göster", onClick = { showWindow() })
-                Item("Mini oynatıcı", onClick = { openMini() })
+                Item(strings.trayShow, onClick = { showWindow() })
+                Item(strings.playerMiniPlayer, onClick = { openMini() })
                 Separator()
                 Item(
-                    if (playerState.isPlaying) "Duraklat" else "Çal",
+                    if (playerState.isPlaying) strings.commonPause else strings.commonPlay,
                     enabled = playerState.currentTrack != null,
                     onClick = { player.togglePlayPause() },
                 )
-                Item("Önceki", enabled = playerState.currentTrack != null, onClick = { player.skipPrevious() })
-                Item("Sonraki", enabled = playerState.currentTrack != null, onClick = { player.skipNext() })
+                Item(strings.commonPrevious, enabled = playerState.currentTrack != null, onClick = { player.skipPrevious() })
+                Item(strings.commonNext, enabled = playerState.currentTrack != null, onClick = { player.skipNext() })
                 Separator()
-                Item("Çıkış", onClick = { quitApp() })
+                Item(strings.trayExit, onClick = { quitApp() })
             },
         )
     }

@@ -68,6 +68,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.ozgen.navicloud.core.model.Server
+import com.ozgen.navicloud.i18n.I18n
+import com.ozgen.navicloud.i18n.stringsFor
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 import com.ozgen.navicloud.ui.components.LocalArtResolver
 import com.ozgen.navicloud.ui.components.SongMenuHost
 import com.ozgen.navicloud.ui.player.PlayerSheet
@@ -85,28 +88,42 @@ fun NaviCloudRoot(
     platformSettings: @Composable (NavHostController) -> Unit,
     vm: AppViewModel = containerViewModel { AppViewModel(it.servers, it.player) },
 ) {
-    val appState by vm.appState.collectAsStateWithLifecycle()
-    when (val s = appState) {
-        AppState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+    val language by LocalAppContainer.current.language
+        .collectAsStateWithLifecycle(remember { I18n.language })
+    LaunchedEffect(language) { I18n.language = language }
+    CompositionLocalProvider(LocalStrings provides stringsFor(language)) {
+        val appState by vm.appState.collectAsStateWithLifecycle()
+        when (val st = appState) {
+            AppState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            AppState.NeedsLogin -> LoginScreen()
+            is AppState.Ready -> key(st.server.id) { MainShell(vm, st.server, platformSettings) }
         }
-        AppState.NeedsLogin -> LoginScreen()
-        is AppState.Ready -> key(s.server.id) { MainShell(vm, s.server, platformSettings) }
     }
 }
 
 private data class BottomTab(
     val route: String,
-    val label: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val selectedIcon: androidx.compose.ui.graphics.vector.ImageVector,
 )
 
 private val tabs = listOf(
-    BottomTab("home", "Ana Sayfa", Icons.Outlined.Home, Icons.Rounded.Home),
-    BottomTab("search", "Ara", Icons.Outlined.Search, Icons.Rounded.Search),
-    BottomTab("library", "Kitaplık", Icons.Outlined.LibraryMusic, Icons.Rounded.LibraryMusic),
+    BottomTab("home", Icons.Outlined.Home, Icons.Rounded.Home),
+    BottomTab("search", Icons.Outlined.Search, Icons.Rounded.Search),
+    BottomTab("library", Icons.Outlined.LibraryMusic, Icons.Rounded.LibraryMusic),
 )
+
+@Composable
+private fun tabLabel(route: String): String {
+    val s = LocalStrings.current
+    return when (route) {
+        "home" -> s.rootTabHome
+        "search" -> s.rootTabSearch
+        else -> s.rootTabLibrary
+    }
+}
 
 @Composable
 private fun MainShell(vm: AppViewModel, server: Server, platformSettings: @Composable (NavHostController) -> Unit) {
@@ -216,12 +233,12 @@ private fun MainShell(vm: AppViewModel, server: Server, platformSettings: @Compo
                                 ) {
                                     Icon(
                                         if (selected) tab.selectedIcon else tab.icon,
-                                        contentDescription = tab.label,
+                                        contentDescription = tabLabel(tab.route),
                                         tint = if (selected) MaterialTheme.colorScheme.onBackground
                                         else MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Text(
-                                        tab.label,
+                                        tabLabel(tab.route),
                                         style = MaterialTheme.typography.titleSmall,
                                         color = if (selected) MaterialTheme.colorScheme.onBackground
                                         else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -263,10 +280,10 @@ private fun MainShell(vm: AppViewModel, server: Server, platformSettings: @Compo
                                             icon = {
                                                 Icon(
                                                     if (selected) tab.selectedIcon else tab.icon,
-                                                    contentDescription = tab.label,
+                                                    contentDescription = tabLabel(tab.route),
                                                 )
                                             },
-                                            label = { Text(tab.label, style = MaterialTheme.typography.labelMedium) },
+                                            label = { Text(tabLabel(tab.route), style = MaterialTheme.typography.labelMedium) },
                                             colors = NavigationBarItemDefaults.colors(
                                                 selectedIconColor = MaterialTheme.colorScheme.onBackground,
                                                 selectedTextColor = MaterialTheme.colorScheme.onBackground,
@@ -317,6 +334,7 @@ private fun MainShell(vm: AppViewModel, server: Server, platformSettings: @Compo
 @Composable
 private fun RemoteControlBanners() {
     val rc = LocalAppContainer.current.remoteControl ?: return
+    val s = LocalStrings.current
     val target by rc.target.collectAsStateWithLifecycle()
     val peerName by rc.currentPeerName.collectAsStateWithLifecycle()
     val controlledBy by rc.controlledBy.collectAsStateWithLifecycle()
@@ -328,20 +346,20 @@ private fun RemoteControlBanners() {
         if (connState == com.ozgen.navicloud.remote.ConnState.CONNECTED) wasConnected = true
         if (connState == com.ozgen.navicloud.remote.ConnState.FAILED && wasConnected) {
             wasConnected = false
-            toast("Bağlantı koptu")
+            toast(s.commonConnectionLost)
         }
     }
 
     val t = target
     when {
         t is com.ozgen.navicloud.remote.ControlTarget.Remote -> RcBannerRow(
-            text = "${peerName ?: "Uzak cihaz"} kumanda ediliyor",
-            actionLabel = "Bu cihaza dön",
+            text = s.rootControllingRemote(peerName ?: s.rootRemoteDeviceFallback),
+            actionLabel = s.rootSwitchToThisDevice,
             onAction = { rc.controlLocal() },
         )
         controlledBy > 0 -> RcBannerRow(
-            text = "Bu cihaz uzaktan kumanda ediliyor",
-            actionLabel = "Kumandayı al",
+            text = s.rootControlledRemotely,
+            actionLabel = s.rootTakeControl,
             onAction = { rc.takeControl() },
         )
     }
@@ -351,10 +369,10 @@ private fun RemoteControlBanners() {
     incomingPin?.let { pin ->
         AlertDialog(
             onDismissRequest = { },
-            title = { Text("Eşleştirme kodu") },
+            title = { Text(s.rootPairingCodeTitle) },
             text = {
                 Column {
-                    Text("Bağlanan cihaza bu kodu gir:")
+                    Text(s.rootEnterCodeOnConnecting)
                     Spacer(Modifier.height(12.dp))
                     Text(
                         pin,
@@ -374,14 +392,14 @@ private fun RemoteControlBanners() {
         val ok = if (prompt.secret) entered.isNotBlank() else entered.length == 6
         AlertDialog(
             onDismissRequest = { prompt.cancel() },
-            title = { Text(if (prompt.secret) "Parola" else "Eşleştirme") },
+            title = { Text(if (prompt.secret) s.rootPassword else s.rootPairing) },
             text = {
                 Column {
                     Text(
                         if (prompt.secret) {
-                            "${prompt.peerName} için parolayı gir:"
+                            s.rootEnterPasswordFor(prompt.peerName)
                         } else {
-                            "${prompt.peerName} ekranındaki kodu gir:"
+                            s.rootEnterCodeFrom(prompt.peerName)
                         },
                     )
                     Spacer(Modifier.height(8.dp))
@@ -396,10 +414,10 @@ private fun RemoteControlBanners() {
             },
             confirmButton = {
                 TextButton(onClick = { prompt.submit(entered) }, enabled = ok) {
-                    Text(if (prompt.secret) "Bağlan" else "Eşleştir")
+                    Text(if (prompt.secret) s.rootConnect else s.rootPair)
                 }
             },
-            dismissButton = { TextButton(onClick = { prompt.cancel() }) { Text("Vazgeç") } },
+            dismissButton = { TextButton(onClick = { prompt.cancel() }) { Text(s.commonCancel) } },
         )
     }
 }
@@ -439,6 +457,7 @@ private fun ResumeSyncBanner() {
     if (rcTarget is com.ozgen.navicloud.remote.ControlTarget.Remote) return
     val offer by sync.resumeOffer.collectAsStateWithLifecycle()
     val o = offer ?: return
+    val s = LocalStrings.current
     val track = o.songs.getOrNull(o.currentIndex)
     Card(
         modifier = Modifier
@@ -453,7 +472,7 @@ private fun ResumeSyncBanner() {
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    "Kaldığın yerden devam et",
+                    s.rootResumeTitle,
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -471,8 +490,8 @@ private fun ResumeSyncBanner() {
                     maxLines = 1,
                 )
             }
-            TextButton(onClick = { sync.dismissResume() }) { Text("Kapat") }
-            Button(onClick = { sync.applyResume(o) }) { Text("Devam") }
+            TextButton(onClick = { sync.dismissResume() }) { Text(s.commonClose) }
+            Button(onClick = { sync.applyResume(o) }) { Text(s.rootResume) }
         }
     }
 }

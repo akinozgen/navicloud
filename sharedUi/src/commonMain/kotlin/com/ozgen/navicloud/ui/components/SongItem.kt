@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ozgen.navicloud.core.model.Song
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 
 /**
  * Central song actions. Provided once (MainShell), consumed by every SongItem.
@@ -80,6 +81,7 @@ fun SongItem(
     trailingContent: (@Composable () -> Unit)? = null,
 )  {
     val actions = LocalSongMenu.current
+    val strings = LocalStrings.current
     var menuOpen by remember { mutableStateOf(false) }
     // Star state is server-side; track the toggle locally so the menu reflects it immediately
     var starred by rememberSaveable(song.id) { mutableStateOf(song.starred) }
@@ -144,7 +146,7 @@ fun SongItem(
                 IconButton(onClick = { menuOpen = true }) {
                     Icon(
                         Icons.Rounded.MoreVert,
-                        contentDescription = "Şarkı menüsü",
+                        contentDescription = strings.songItemMenu,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -186,60 +188,61 @@ fun SongContextMenuItems(
     queueUid: String? = null,
 ) {
     val actions = LocalSongMenu.current ?: return
+    val strings = LocalStrings.current
     var starred by rememberSaveable(song.id) { mutableStateOf(song.starred) }
 
     run {
         DropdownMenuItem(
-            text = { Text("Sıradakine ekle") },
+            text = { Text(strings.commonPlayNext) },
             leadingIcon = { Icon(Icons.Rounded.PlaylistPlay, null) },
             onClick = { onDismiss(); actions.playNext(song) },
         )
         DropdownMenuItem(
-            text = { Text("Kuyruğa ekle") },
+            text = { Text(strings.commonAddToQueue) },
             leadingIcon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
             onClick = { onDismiss(); actions.addToQueue(song) },
         )
         DropdownMenuItem(
-            text = { Text("Çalma listesine ekle") },
+            text = { Text(strings.songMenuAddToPlaylist) },
             leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
             onClick = { onDismiss(); actions.addToPlaylist(song) },
         )
         song.albumId?.let { albumId ->
             DropdownMenuItem(
-                text = { Text("Albüme git") },
+                text = { Text(strings.commonGoToAlbum) },
                 leadingIcon = { Icon(Icons.Rounded.Album, null) },
                 onClick = { onDismiss(); actions.goToAlbum(albumId) },
             )
         }
         song.artistId?.let { artistId ->
             DropdownMenuItem(
-                text = { Text("Sanatçıya git") },
+                text = { Text(strings.songMenuGoToArtist) },
                 leadingIcon = { Icon(Icons.Rounded.Person, null) },
                 onClick = { onDismiss(); actions.goToArtist(artistId) },
             )
         }
         if (inQueue && queueUid != null) {
             DropdownMenuItem(
-                text = { Text("Kuyruktan kaldır") },
+                text = { Text(strings.songMenuRemoveFromQueue) },
                 leadingIcon = { Icon(Icons.Rounded.RemoveCircleOutline, null) },
                 onClick = { onDismiss(); actions.removeFromQueue(queueUid) },
             )
         }
         if (actions.isDownloaded(song.id)) {
             DropdownMenuItem(
-                text = { Text("İndirileni kaldır") },
+                text = { Text(strings.songMenuRemoveDownload) },
                 leadingIcon = { Icon(Icons.Rounded.Delete, null) },
                 onClick = { onDismiss(); actions.removeDownload(song.id) },
             )
         } else {
             DropdownMenuItem(
-                text = { Text("İndir") },
+                text = { Text(strings.commonDownload) },
                 leadingIcon = { Icon(Icons.Rounded.DownloadForOffline, null) },
                 onClick = { onDismiss(); actions.download(song) },
             )
         }
         DropdownMenuItem(
-            text = { Text(if (starred) "Favorilerden çıkar" else "Favorilere ekle") },
+            text = { Text(if (starred) strings.songMenuRemoveFavorite else strings.songMenuAddFavorite) },
             leadingIcon = {
                 Icon(if (starred) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null)
             },
@@ -250,7 +253,7 @@ fun SongContextMenuItems(
             },
         )
         DropdownMenuItem(
-            text = { Text("Bilgi") },
+            text = { Text(strings.songMenuInfo) },
             leadingIcon = { Icon(Icons.Rounded.Info, null) },
             onClick = { onDismiss(); actions.showInfo(song) },
         )

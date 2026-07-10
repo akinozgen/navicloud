@@ -21,6 +21,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Minimize
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.MusicNote
@@ -49,7 +50,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.ozgen.navicloud.data.StreamQuality
+import com.ozgen.navicloud.i18n.AppLanguage
 import com.ozgen.navicloud.ui.LocalAppContainer
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 import com.ozgen.navicloud.ui.screens.login.LoginScreen
 import com.ozgen.navicloud.ui.screens.settings.LicensesScreen
 import com.ozgen.navicloud.ui.screens.settings.commonLicenses
@@ -87,6 +90,8 @@ object DesktopPrefs {
         val deviceName: String? = null,
         // Sabit uzaktan kumanda parolası (RC-7). null/boş → PIN modu.
         val remoteSecret: String? = null,
+        // Uygulama dili (SYSTEM/TURKISH/ENGLISH).
+        val language: String = com.ozgen.navicloud.i18n.AppLanguage.SYSTEM.name,
     )
 
     private val file = File(System.getProperty("user.home"), ".navicloud/settings.json")
@@ -166,17 +171,36 @@ object DesktopPrefs {
 
     private fun defaultDeviceName(): String =
         runCatching { java.net.InetAddress.getLocalHost().hostName }
-            .getOrNull()?.takeIf { it.isNotBlank() }?.let { "NaviCloud • $it" } ?: "NaviCloud Masaüstü"
+            .getOrNull()?.takeIf { it.isNotBlank() }?.let { "NaviCloud • $it" }
+            ?: com.ozgen.navicloud.i18n.I18n.strings.deviceDefaultDesktopName
 
     /** Sabit uzaktan kumanda parolası (RC-7); boş = PIN modu. */
     var remoteSecret: String
         get() = load().remoteSecret.orEmpty()
         set(value) = save(load().copy(remoteSecret = value.trim().ifBlank { null }))
+
+    /** Uygulama dili — UI canlı okusun diye flow; ayrıca compose-dışı kod için I18n güncellenir. */
+    val languageFlow: MutableStateFlow<com.ozgen.navicloud.i18n.AppLanguage> =
+        MutableStateFlow(com.ozgen.navicloud.i18n.appLanguageOf(load().language))
+
+    var language: com.ozgen.navicloud.i18n.AppLanguage
+        get() = languageFlow.value
+        set(value) {
+            languageFlow.value = value
+            save(load().copy(language = value.name))
+            com.ozgen.navicloud.i18n.I18n.language = value
+        }
+
+    init {
+        // Compose-dışı toast/tepsi için başlangıç dilini yerleştir.
+        com.ozgen.navicloud.i18n.I18n.language = languageFlow.value
+    }
 }
 
 @Composable
 fun DesktopSettingsScreen(navController: NavHostController) {
     val container = LocalAppContainer.current
+    val s = LocalStrings.current
     val servers by container.servers.servers.collectAsState(emptyList())
     val active by container.servers.activeServer.collectAsState(null)
     val scope = rememberCoroutineScope()
@@ -187,14 +211,16 @@ fun DesktopSettingsScreen(navController: NavHostController) {
     var quality by remember { mutableStateOf(DesktopPrefs.streamQuality) }
     var qualityDialog by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf<Pair<Boolean, Long>?>(null) }
+    var languageDialog by remember { mutableStateOf(false) }
+    val language by DesktopPrefs.languageFlow.collectAsState()
 
     if (adding) {
         Column(Modifier.fillMaxSize()) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(4.dp)) {
                 IconButton(onClick = { adding = false }) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Geri")
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = s.commonBack)
                 }
-                Text("Sunucu ekle", style = MaterialTheme.typography.titleMedium)
+                Text(s.settingsAddServer, style = MaterialTheme.typography.titleMedium)
             }
             LoginScreen()
         }
@@ -218,14 +244,14 @@ fun DesktopSettingsScreen(navController: NavHostController) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = { navController.popBackStack() }) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Geri")
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = s.commonBack)
             }
-            Text("Ayarlar", style = MaterialTheme.typography.headlineSmall)
+            Text(s.settingsTitle, style = MaterialTheme.typography.headlineSmall)
         }
 
-        SectionHeader("Sunucular") {
+        SectionHeader(s.settingsServersSection) {
             IconButton(onClick = { adding = true }) {
-                Icon(Icons.Rounded.Add, contentDescription = "Sunucu ekle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Rounded.Add, contentDescription = s.settingsAddServer, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         servers.forEach { server ->
@@ -251,30 +277,30 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                 }
                 if (servers.size > 1) {
                     IconButton(onClick = { scope.launch { container.servers.removeServer(server.id) } }) {
-                        Icon(Icons.Rounded.Delete, contentDescription = "Sil", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(Icons.Rounded.Delete, contentDescription = s.commonDelete, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
         }
 
-        SectionHeader("Çalma")
+        SectionHeader(s.settingsPlaybackSection)
         SettingRow(
             icon = { Icon(Icons.Rounded.MusicNote, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Akış kalitesi",
-            subtitle = quality.label,
+            title = s.settingsStreamQuality,
+            subtitle = s.streamQualityLabel(quality),
             onClick = { qualityDialog = true },
         )
         SettingRow(
             icon = { Icon(Icons.Rounded.GraphicEq, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Ses motoru",
+            title = s.dsettingsAudioEngine,
             subtitle = backend.label,
             onClick = { backendDialog = true },
         )
         var offline by remember { mutableStateOf(DesktopPrefs.offlineMode) }
         SettingRow(
             icon = { Icon(Icons.Rounded.WifiOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Offline mod",
-            subtitle = "Yalnızca indirilenlerden çalar, ağı kullanmaz",
+            title = s.settingsOfflineMode,
+            subtitle = s.settingsOfflineModeDesc,
             onClick = {
                 offline = !offline
                 DesktopPrefs.offlineMode = offline
@@ -289,8 +315,8 @@ fun DesktopSettingsScreen(navController: NavHostController) {
         var internetLyrics by remember { mutableStateOf(DesktopPrefs.internetLyrics) }
         SettingRow(
             icon = { Icon(Icons.Rounded.Lyrics, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "İnternet sözleri",
-            subtitle = "Sunucuda söz yoksa LRCLIB'ten getir (senkron destekli)",
+            title = s.settingsInternetLyrics,
+            subtitle = s.settingsInternetLyricsDesc,
             onClick = {
                 internetLyrics = !internetLyrics
                 DesktopPrefs.internetLyrics = internetLyrics
@@ -303,19 +329,19 @@ fun DesktopSettingsScreen(navController: NavHostController) {
             },
         )
 
-        SectionHeader("İndirmeler")
+        SectionHeader(s.settingsDownloadsSection)
         val dlCount by container.downloads.totalCount.collectAsState(0)
         val dlBytes by container.downloads.totalSizeBytes.collectAsState(0L)
         val activeDl by container.downloads.active.collectAsState()
         SettingRow(
             icon = { Icon(Icons.Rounded.DownloadForOffline, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "$dlCount şarkı",
+            title = s.commonSongCount(dlCount),
             subtitle = formatBytes(dlBytes),
             onClick = {},
             trailing = {
                 if (dlCount > 0) {
                     TextButton(onClick = { scope.launch { container.downloads.clearAll() } }) {
-                        Text("Tümünü sil", color = MaterialTheme.colorScheme.error)
+                        Text(s.settingsDownloadDeleteAll, color = MaterialTheme.colorScheme.error)
                     }
                 }
             },
@@ -323,7 +349,7 @@ fun DesktopSettingsScreen(navController: NavHostController) {
         activeDl?.let { dl ->
             Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 Text(
-                    "İndiriliyor: ${dl.title}" + if (dl.queued > 1) " (+${dl.queued - 1} sırada)" else "",
+                    s.downloadInProgress(dl.title) + if (dl.queued > 1) s.downloadQueuedSuffix(dl.queued - 1) else "",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -334,7 +360,7 @@ fun DesktopSettingsScreen(navController: NavHostController) {
             }
         }
 
-        SectionHeader("Önbellek")
+        SectionHeader(s.settingsCacheSection)
         var imageCacheBytes by remember { mutableStateOf(0L) }
         LaunchedEffect(Unit) {
             imageCacheBytes = runCatching {
@@ -343,8 +369,8 @@ fun DesktopSettingsScreen(navController: NavHostController) {
         }
         SettingRow(
             icon = { Icon(Icons.Rounded.Image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Görsel önbelleği",
-            subtitle = formatBytes(imageCacheBytes) + " • kapak görselleri",
+            title = s.settingsImageCache,
+            subtitle = s.settingsImageCacheDesc(formatBytes(imageCacheBytes)),
             onClick = {},
             trailing = {
                 if (imageCacheBytes > 0) {
@@ -357,20 +383,20 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                             }
                             imageCacheBytes = 0L
                         }
-                    }) { Text("Temizle") }
+                    }) { Text(s.commonClear) }
                 }
             },
         )
 
-        SectionHeader("Kütüphane")
+        SectionHeader(s.settingsLibrarySection)
         val scanState = scanning
         SettingRow(
             icon = { Icon(Icons.Rounded.CloudSync, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Kütüphaneyi tara",
+            title = s.settingsScanLibrary,
             subtitle = when {
-                scanState?.first == true -> "Taranıyor… ${scanState.second} öğe"
-                scanState != null -> "Tamamlandı • ${scanState.second} öğe"
-                else -> "Sunucuda yeni dosyaları bulur"
+                scanState?.first == true -> s.settingsScanScanning(scanState.second)
+                scanState != null -> s.settingsScanDone(scanState.second)
+                else -> s.settingsScanIdleDesc
             },
             onClick = {
                 scope.launch {
@@ -388,12 +414,22 @@ fun DesktopSettingsScreen(navController: NavHostController) {
             },
         )
 
-        SectionHeader("Uygulama")
+        SectionHeader(s.settingsAppSection)
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Language, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = s.settingsLanguage,
+            subtitle = when (language) {
+                AppLanguage.SYSTEM -> s.languageSystem
+                AppLanguage.TURKISH -> s.languageTurkish
+                AppLanguage.ENGLISH -> s.languageEnglish
+            },
+            onClick = { languageDialog = true },
+        )
         var closeToTray by remember { mutableStateOf(DesktopPrefs.closeToTray) }
         SettingRow(
             icon = { Icon(Icons.Rounded.Minimize, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Kapatınca tepsiye küçült",
-            subtitle = "Pencereyi kapatınca uygulama tepside çalmaya devam eder",
+            title = s.dsettingsCloseToTrayTitle,
+            subtitle = s.dsettingsCloseToTraySubtitle,
             onClick = {
                 closeToTray = !closeToTray
                 DesktopPrefs.closeToTray = closeToTray
@@ -406,12 +442,11 @@ fun DesktopSettingsScreen(navController: NavHostController) {
             },
         )
 
-        SectionHeader("Uzaktan kumanda")
+        SectionHeader(s.settingsRemoteControlSection)
         var rcSecret by remember { mutableStateOf(DesktopPrefs.remoteSecret) }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text(
-                "Tüm cihazlarına aynı parolayı gir; birbirine tek dokunuşla bağlanır. " +
-                    "Boş bırakırsan bağlanırken kod sorulur.",
+                s.settingsRemoteControlDesc,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -421,21 +456,21 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                     value = rcSecret,
                     onValueChange = { rcSecret = it },
                     singleLine = true,
-                    placeholder = { Text("Parola") },
+                    placeholder = { Text(s.commonPassword) },
                     modifier = Modifier.weight(1f),
                 )
                 androidx.compose.material3.Button(
                     onClick = { DesktopPrefs.remoteSecret = rcSecret },
                     enabled = rcSecret != DesktopPrefs.remoteSecret,
-                ) { Text("Kaydet") }
+                ) { Text(s.commonSave) }
             }
         }
 
-        SectionHeader("Hakkında")
+        SectionHeader(s.settingsAboutSection)
         SettingRow(
             icon = { Icon(Icons.Rounded.Description, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Açık kaynak lisansları",
-            subtitle = "Kullanılan kütüphaneler ve lisansları (libmpv dâhil)",
+            title = s.licensesTitle,
+            subtitle = s.dsettingsLicensesSubtitle,
             onClick = { showLicenses = true },
         )
         Spacer(Modifier.height(32.dp))
@@ -444,7 +479,7 @@ fun DesktopSettingsScreen(navController: NavHostController) {
     if (qualityDialog) {
         AlertDialog(
             onDismissRequest = { qualityDialog = false },
-            title = { Text("Akış kalitesi") },
+            title = { Text(s.settingsStreamQuality) },
             text = {
                 Column {
                     StreamQuality.entries.forEach { q ->
@@ -464,13 +499,13 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                                 DesktopPrefs.streamQuality = q
                                 qualityDialog = false
                             })
-                            Text(q.label, style = MaterialTheme.typography.bodyLarge)
+                            Text(s.streamQualityLabel(q), style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { qualityDialog = false }) { Text("Kapat") }
+                TextButton(onClick = { qualityDialog = false }) { Text(s.commonClose) }
             },
         )
     }
@@ -478,7 +513,7 @@ fun DesktopSettingsScreen(navController: NavHostController) {
     if (backendDialog) {
         AlertDialog(
             onDismissRequest = { backendDialog = false },
-            title = { Text("Ses motoru") },
+            title = { Text(s.dsettingsAudioEngine) },
             text = {
                 Column {
                     AudioBackend.entries.forEach { b ->
@@ -501,7 +536,7 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                             Column {
                                 Text(b.label, style = MaterialTheme.typography.bodyLarge)
                                 Text(
-                                    b.description,
+                                    s.dsettingsAudioBackendDefault,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -511,7 +546,46 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = { backendDialog = false }) { Text("Kapat") }
+                TextButton(onClick = { backendDialog = false }) { Text(s.commonClose) }
+            },
+        )
+    }
+
+    if (languageDialog) {
+        AlertDialog(
+            onDismissRequest = { languageDialog = false },
+            title = { Text(s.settingsLanguage) },
+            text = {
+                Column {
+                    AppLanguage.entries.forEach { l ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    DesktopPrefs.language = l
+                                    languageDialog = false
+                                }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = language == l, onClick = {
+                                DesktopPrefs.language = l
+                                languageDialog = false
+                            })
+                            Text(
+                                when (l) {
+                                    AppLanguage.SYSTEM -> s.languageSystem
+                                    AppLanguage.TURKISH -> s.languageTurkish
+                                    AppLanguage.ENGLISH -> s.languageEnglish
+                                },
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { languageDialog = false }) { Text(s.commonClose) }
             },
         )
     }

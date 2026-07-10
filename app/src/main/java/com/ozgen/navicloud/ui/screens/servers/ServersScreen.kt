@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material.icons.rounded.Lyrics
@@ -58,6 +59,8 @@ import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.data.ServerRepository
 import com.ozgen.navicloud.data.SettingsRepository
 import com.ozgen.navicloud.data.StreamQuality
+import com.ozgen.navicloud.i18n.AppLanguage
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 import com.ozgen.navicloud.ui.screens.login.LoginScreen
 import com.ozgen.navicloud.ui.screens.settings.LicensesScreen
 import com.ozgen.navicloud.ui.screens.settings.androidLicenses
@@ -151,6 +154,11 @@ class SettingsViewModel @Inject constructor(
     val rcSecret: StateFlow<String> = settings.rcSecret.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     fun setRcSecret(s: String) = viewModelScope.launch { settings.setRcSecret(s) }
 
+    // Uygulama dili
+    val language: StateFlow<AppLanguage> =
+        settings.language.stateIn(viewModelScope, SharingStarted.Eagerly, AppLanguage.SYSTEM)
+    fun setLanguage(l: AppLanguage) = viewModelScope.launch { settings.setLanguage(l) }
+
     fun setStreamCacheMax(mb: Int) = viewModelScope.launch { settings.setStreamCacheMaxMb(mb) }
     fun setInternetLyrics(on: Boolean) = viewModelScope.launch { settings.setInternetLyrics(on) }
     fun setDownloadWifiOnly(on: Boolean) = viewModelScope.launch { settings.setDownloadWifiOnly(on) }
@@ -200,6 +208,9 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
     var qualityDialog by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
     var cacheSizeDialog by remember { mutableStateOf(false) }
+    var languageDialog by remember { mutableStateOf(false) }
+    val strings = LocalStrings.current
+    val language by vm.language.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) { vm.refreshCacheSizes() }
 
@@ -229,17 +240,17 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = { navController.popBackStack() }) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Geri")
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = strings.commonBack)
             }
-            Text("Ayarlar", style = MaterialTheme.typography.headlineSmall)
+            Text(strings.settingsTitle, style = MaterialTheme.typography.headlineSmall)
         }
 
         // ---- SUNUCULAR ----
-        SectionHeader("Sunucular") {
+        SectionHeader(strings.settingsServersSection) {
             IconButton(onClick = { adding = true }) {
                 Icon(
                     Icons.Rounded.Add,
-                    contentDescription = "Sunucu ekle",
+                    contentDescription = strings.settingsAddServer,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -266,7 +277,7 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                     IconButton(onClick = { vm.removeServer(server.id) }) {
                         Icon(
                             Icons.Rounded.Delete,
-                            contentDescription = "Sil",
+                            contentDescription = strings.commonDelete,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -275,17 +286,17 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
         }
 
         // ---- ÇALMA ----
-        SectionHeader("Çalma")
+        SectionHeader(strings.settingsPlaybackSection)
         SettingRow(
             icon = { Icon(Icons.Rounded.GraphicEq, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Akış kalitesi",
-            subtitle = state.quality.label,
+            title = strings.settingsStreamQuality,
+            subtitle = strings.streamQualityLabel(state.quality),
             onClick = { qualityDialog = true },
         )
         SettingRow(
             icon = { Icon(Icons.Rounded.WifiOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Offline mod",
-            subtitle = "Yalnızca indirilenlerden çalar, ağı kullanmaz",
+            title = strings.settingsOfflineMode,
+            subtitle = strings.settingsOfflineModeDesc,
             onClick = { vm.setOffline(!state.offlineMode) },
             trailing = {
                 Switch(checked = state.offlineMode, onCheckedChange = { vm.setOffline(it) })
@@ -293,8 +304,8 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
         )
         SettingRow(
             icon = { Icon(Icons.Rounded.Downloading, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Sıradakini önceden yükle",
-            subtitle = "Şarkı geçişleri takılmadan başlar",
+            title = strings.settingsPrefetch,
+            subtitle = strings.settingsPrefetchDesc,
             onClick = { vm.setPrefetchEnabled(!state.prefetchEnabled) },
             trailing = {
                 Switch(checked = state.prefetchEnabled, onCheckedChange = { vm.setPrefetchEnabled(it) })
@@ -303,8 +314,8 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
         if (state.prefetchEnabled) {
             SettingRow(
                 icon = { Icon(Icons.Rounded.Wifi, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                title = "Ön yüklemeyi Wi-Fi ile sınırla",
-                subtitle = "Hücresel veride önceden yükleme yapılmaz",
+                title = strings.settingsPrefetchWifiOnly,
+                subtitle = strings.settingsPrefetchWifiOnlyDesc,
                 onClick = { vm.setPrefetchWifiOnly(!state.prefetchWifiOnly) },
                 trailing = {
                     Switch(checked = state.prefetchWifiOnly, onCheckedChange = { vm.setPrefetchWifiOnly(it) })
@@ -314,8 +325,8 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
 
         SettingRow(
             icon = { Icon(Icons.Rounded.Lyrics, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "İnternet sözleri",
-            subtitle = "Sunucuda söz yoksa LRCLIB'ten getir (senkron destekli)",
+            title = strings.settingsInternetLyrics,
+            subtitle = strings.settingsInternetLyricsDesc,
             onClick = { vm.setInternetLyrics(!state.internetLyrics) },
             trailing = {
                 Switch(checked = state.internetLyrics, onCheckedChange = { vm.setInternetLyrics(it) })
@@ -323,57 +334,57 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
         )
 
         // ---- KÜTÜPHANE ----
-        SectionHeader("Kütüphane")
+        SectionHeader(strings.settingsLibrarySection)
         val scanState = scan
         SettingRow(
             icon = { Icon(Icons.Rounded.CloudSync, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Kütüphaneyi tara",
+            title = strings.settingsScanLibrary,
             subtitle = when {
-                scanState?.first == true -> "Taranıyor… ${scanState.second} öğe"
-                scanState != null -> "Tamamlandı • ${scanState.second} öğe"
-                else -> "Sunucuda yeni dosyaları bulur"
+                scanState?.first == true -> strings.settingsScanScanning(scanState.second)
+                scanState != null -> strings.settingsScanDone(scanState.second)
+                else -> strings.settingsScanIdleDesc
             },
             onClick = { vm.startScan(full = false) },
             trailing = {
                 if (scanState?.first == true) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 } else {
-                    TextButton(onClick = { vm.startScan(full = true) }) { Text("Tam tarama") }
+                    TextButton(onClick = { vm.startScan(full = true) }) { Text(strings.settingsScanFull) }
                 }
             },
         )
 
         // ---- ÖNBELLEK ----
-        SectionHeader("Önbellek")
+        SectionHeader(strings.settingsCacheSection)
         SettingRow(
             icon = { Icon(Icons.Rounded.Storage, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Akış önbelleği",
+            title = strings.settingsStreamCache,
             subtitle = "${formatBytes(streamCacheBytes)} / ${formatMb(state.streamCacheMaxMb)}",
             onClick = { cacheSizeDialog = true },
             trailing = {
                 if (streamCacheBytes > 0) {
-                    TextButton(onClick = { vm.clearStreamCache() }) { Text("Temizle") }
+                    TextButton(onClick = { vm.clearStreamCache() }) { Text(strings.commonClear) }
                 }
             },
         )
         SettingRow(
             icon = { Icon(Icons.Rounded.Image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Görsel önbelleği",
-            subtitle = "${formatBytes(imageCacheBytes)} • kapak görselleri",
+            title = strings.settingsImageCache,
+            subtitle = strings.settingsImageCacheDesc(formatBytes(imageCacheBytes)),
             onClick = {},
             trailing = {
                 if (imageCacheBytes > 0) {
-                    TextButton(onClick = { vm.clearImageCache() }) { Text("Temizle") }
+                    TextButton(onClick = { vm.clearImageCache() }) { Text(strings.commonClear) }
                 }
             },
         )
 
         // ---- İNDİRMELER ----
-        SectionHeader("İndirmeler")
+        SectionHeader(strings.settingsDownloadsSection)
         SettingRow(
             icon = { Icon(Icons.Rounded.Wifi, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Sadece Wi-Fi'de indir",
-            subtitle = "Hücresel ağda indirmeler Wi-Fi'yi bekler",
+            title = strings.settingsDownloadWifiOnly,
+            subtitle = strings.settingsDownloadWifiOnlyDesc,
             onClick = { vm.setDownloadWifiOnly(!state.downloadWifiOnly) },
             trailing = {
                 Switch(checked = state.downloadWifiOnly, onCheckedChange = { vm.setDownloadWifiOnly(it) })
@@ -381,13 +392,13 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
         )
         SettingRow(
             icon = { Icon(Icons.Rounded.DownloadForOffline, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "${state.downloadCount} şarkı",
+            title = strings.commonSongCount(state.downloadCount),
             subtitle = formatBytes(state.downloadBytes),
             onClick = {},
             trailing = {
                 if (state.downloadCount > 0) {
                     TextButton(onClick = { clearDialog = true }) {
-                        Text("Tümünü sil", color = MaterialTheme.colorScheme.error)
+                        Text(strings.settingsDownloadDeleteAll, color = MaterialTheme.colorScheme.error)
                     }
                 }
             },
@@ -397,11 +408,11 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
             Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 Text(
                     if (activeDl.waitingForWifi) {
-                        "Wi-Fi bekleniyor: ${activeDl.title}" +
-                            if (activeDl.queued > 1) " (+${activeDl.queued - 1} sırada)" else ""
+                        strings.downloadWaitingForWifi(activeDl.title) +
+                            if (activeDl.queued > 1) strings.downloadQueuedSuffix(activeDl.queued - 1) else ""
                     } else {
-                        "İndiriliyor: ${activeDl.title}" +
-                            if (activeDl.queued > 1) " (+${activeDl.queued - 1} sırada)" else ""
+                        strings.downloadInProgress(activeDl.title) +
+                            if (activeDl.queued > 1) strings.downloadQueuedSuffix(activeDl.queued - 1) else ""
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -418,13 +429,12 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
         }
 
         // ---- UZAKTAN KUMANDA ----
-        SectionHeader("Uzaktan kumanda")
+        SectionHeader(strings.settingsRemoteControlSection)
         val rcSecret by vm.rcSecret.collectAsStateWithLifecycle()
         var rcField by remember(rcSecret) { mutableStateOf(rcSecret) }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text(
-                "Tüm cihazlarına aynı parolayı gir; birbirine tek dokunuşla bağlanır. " +
-                    "Boş bırakırsan bağlanırken kod sorulur.",
+                strings.settingsRemoteControlDesc,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -434,22 +444,35 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                     value = rcField,
                     onValueChange = { rcField = it },
                     singleLine = true,
-                    placeholder = { Text("Parola") },
+                    placeholder = { Text(strings.commonPassword) },
                     modifier = Modifier.weight(1f),
                 )
                 androidx.compose.material3.Button(
                     onClick = { vm.setRcSecret(rcField) },
                     enabled = rcField != rcSecret,
-                ) { Text("Kaydet") }
+                ) { Text(strings.commonSave) }
             }
         }
 
+        // ---- UYGULAMA ----
+        SectionHeader(strings.settingsAppSection)
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Language, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = strings.settingsLanguage,
+            subtitle = when (language) {
+                AppLanguage.SYSTEM -> strings.languageSystem
+                AppLanguage.TURKISH -> strings.languageTurkish
+                AppLanguage.ENGLISH -> strings.languageEnglish
+            },
+            onClick = { languageDialog = true },
+        )
+
         // ---- HAKKINDA ----
-        SectionHeader("Hakkında")
+        SectionHeader(strings.settingsAboutSection)
         SettingRow(
             icon = { Icon(Icons.Rounded.Description, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            title = "Açık kaynak lisansları",
-            subtitle = "Kullanılan kütüphaneler ve lisansları",
+            title = strings.licensesTitle,
+            subtitle = strings.settingsLicensesDesc,
             onClick = { showLicenses = true },
         )
         Spacer(Modifier.height(32.dp))
@@ -458,7 +481,7 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
     if (qualityDialog) {
         AlertDialog(
             onDismissRequest = { qualityDialog = false },
-            title = { Text("Akış kalitesi") },
+            title = { Text(strings.settingsStreamQuality) },
             text = {
                 Column {
                     StreamQuality.entries.forEach { q ->
@@ -476,11 +499,11 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                                 vm.setQuality(q)
                                 qualityDialog = false
                             })
-                            Text(q.label, style = MaterialTheme.typography.bodyLarge)
+                            Text(strings.streamQualityLabel(q), style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                     Text(
-                        "Orijinal dışındaki seçenekler veri kullanımını azaltır.",
+                        strings.settingsStreamQualityDialogNote,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp),
@@ -488,7 +511,7 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                 }
             },
             confirmButton = {
-                TextButton(onClick = { qualityDialog = false }) { Text("Kapat") }
+                TextButton(onClick = { qualityDialog = false }) { Text(strings.commonClose) }
             },
         )
     }
@@ -496,7 +519,7 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
     if (cacheSizeDialog) {
         AlertDialog(
             onDismissRequest = { cacheSizeDialog = false },
-            title = { Text("Akış önbelleği sınırı") },
+            title = { Text(strings.settingsCacheLimitDialogTitle) },
             text = {
                 Column {
                     listOf(256, 512, 1024, 2048).forEach { mb ->
@@ -518,7 +541,7 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                         }
                     }
                     Text(
-                        "Dinlediklerin geçici olarak saklanır; yer gerektiğinde en eskiler silinir. İndirilenler bundan etkilenmez.",
+                        strings.settingsCacheLimitDialogNote,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp),
@@ -526,7 +549,7 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                 }
             },
             confirmButton = {
-                TextButton(onClick = { cacheSizeDialog = false }) { Text("Kapat") }
+                TextButton(onClick = { cacheSizeDialog = false }) { Text(strings.commonClose) }
             },
         )
     }
@@ -534,16 +557,55 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
     if (clearDialog) {
         AlertDialog(
             onDismissRequest = { clearDialog = false },
-            title = { Text("Tüm indirilenler silinsin mi?") },
-            text = { Text("${state.downloadCount} şarkı (${formatBytes(state.downloadBytes)}) cihazdan kaldırılacak.") },
+            title = { Text(strings.settingsClearDownloadsDialogTitle) },
+            text = { Text(strings.settingsClearDownloadsBody(state.downloadCount, formatBytes(state.downloadBytes))) },
             confirmButton = {
                 TextButton(onClick = {
                     vm.clearDownloads()
                     clearDialog = false
-                }) { Text("Sil", color = MaterialTheme.colorScheme.error) }
+                }) { Text(strings.commonDelete, color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { clearDialog = false }) { Text("Vazgeç") }
+                TextButton(onClick = { clearDialog = false }) { Text(strings.commonCancel) }
+            },
+        )
+    }
+
+    if (languageDialog) {
+        AlertDialog(
+            onDismissRequest = { languageDialog = false },
+            title = { Text(strings.settingsLanguage) },
+            text = {
+                Column {
+                    AppLanguage.entries.forEach { l ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    vm.setLanguage(l)
+                                    languageDialog = false
+                                }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = language == l, onClick = {
+                                vm.setLanguage(l)
+                                languageDialog = false
+                            })
+                            Text(
+                                when (l) {
+                                    AppLanguage.SYSTEM -> strings.languageSystem
+                                    AppLanguage.TURKISH -> strings.languageTurkish
+                                    AppLanguage.ENGLISH -> strings.languageEnglish
+                                },
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { languageDialog = false }) { Text(strings.commonClose) }
             },
         )
     }

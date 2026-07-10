@@ -213,7 +213,7 @@ fun MiniVinylWindow(player: PlayerController, model: MiniWindowModel, onExpand: 
                                 contentColor = Color.White,
                             ),
                         ) {
-                            Icon(Icons.Rounded.SkipPrevious, "Önceki", modifier = Modifier.size(22.dp))
+                            Icon(Icons.Rounded.SkipPrevious, com.ozgen.navicloud.i18n.I18n.strings.commonPrevious, modifier = Modifier.size(22.dp))
                         }
                         // Play/pause (orta)
                         FilledIconButton(
@@ -226,7 +226,7 @@ fun MiniVinylWindow(player: PlayerController, model: MiniWindowModel, onExpand: 
                         ) {
                             Icon(
                                 if (ps.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                contentDescription = if (ps.isPlaying) "Duraklat" else "Çal",
+                                contentDescription = if (ps.isPlaying) com.ozgen.navicloud.i18n.I18n.strings.commonPause else com.ozgen.navicloud.i18n.I18n.strings.commonPlay,
                                 modifier = Modifier.size(30.dp),
                             )
                         }
@@ -243,7 +243,7 @@ fun MiniVinylWindow(player: PlayerController, model: MiniWindowModel, onExpand: 
                                 contentColor = Color.White,
                             ),
                         ) {
-                            Icon(Icons.Rounded.SkipNext, "Sonraki", modifier = Modifier.size(22.dp))
+                            Icon(Icons.Rounded.SkipNext, com.ozgen.navicloud.i18n.I18n.strings.commonNext, modifier = Modifier.size(22.dp))
                         }
                     }
 
@@ -254,7 +254,7 @@ fun MiniVinylWindow(player: PlayerController, model: MiniWindowModel, onExpand: 
                     ) {
                         Icon(
                             Icons.Rounded.CropLandscape,
-                            contentDescription = "Standart görünüm",
+                            contentDescription = com.ozgen.navicloud.i18n.I18n.strings.miniStandardView,
                             tint = Color(0xCCFFFFFF),
                             modifier = Modifier.size(16.dp),
                         )

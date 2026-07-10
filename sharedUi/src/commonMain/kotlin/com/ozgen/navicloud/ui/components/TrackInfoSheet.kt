@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import com.ozgen.navicloud.audio.buildTrackInfo
 import com.ozgen.navicloud.core.model.Song
 import com.ozgen.navicloud.data.StreamQuality
+import com.ozgen.navicloud.i18n.Strings
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 
 /**
  * Parça teknik bilgisi bottom sheet'i. Değerler Subsonic metadata'sından;
@@ -30,6 +32,7 @@ import com.ozgen.navicloud.data.StreamQuality
  */
 @Composable
 fun TrackInfoSheet(song: Song, quality: StreamQuality, isLocal: Boolean) {
+    val strings = LocalStrings.current
     val info = remember(song.id, quality, isLocal) { buildTrackInfo(song, quality, isLocal) }
     val navBarPad = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
@@ -49,13 +52,13 @@ fun TrackInfoSheet(song: Song, quality: StreamQuality, isLocal: Boolean) {
         }
         Spacer(Modifier.height(16.dp))
 
-        InfoRow("Format", info.codec)
-        InfoRow("Bit hızı", info.bitrateKbps?.let { "$it kbps" })
-        InfoRow("Örnekleme", info.sampleRateHz?.let { "%.1f kHz".format(it / 1000f) })
-        InfoRow("Bit derinliği", info.bitDepth?.let { "$it bit" })
-        InfoRow("Kanal", info.channels?.let { channelLabel(it) })
-        InfoRow("Süre", formatDuration(info.durationSec))
-        InfoRow("Boyut", info.sizeBytes?.let { formatBytes(it) })
+        InfoRow(strings.trackInfoFormat, info.codec)
+        InfoRow(strings.trackInfoBitRate, info.bitrateKbps?.let { "$it kbps" })
+        InfoRow(strings.trackInfoSampleRate, info.sampleRateHz?.let { "%.1f kHz".format(it / 1000f) })
+        InfoRow(strings.trackInfoBitDepth, info.bitDepth?.let { "$it bit" })
+        InfoRow(strings.trackInfoChannels, info.channels?.let { channelLabel(it, strings) })
+        InfoRow(strings.trackInfoDuration, formatDuration(info.durationSec))
+        InfoRow(strings.trackInfoSize, info.sizeBytes?.let { formatBytes(it) })
 
         Spacer(Modifier.height(4.dp))
         HorizontalDivider()
@@ -64,9 +67,9 @@ fun TrackInfoSheet(song: Song, quality: StreamQuality, isLocal: Boolean) {
         if (info.transcoded) {
             val source = listOfNotNull(info.codec, info.bitrateKbps?.let { "$it kbps" }).joinToString(" • ")
             val output = listOfNotNull(info.outputCodec, info.outputBitrateKbps?.let { "$it kbps" }).joinToString(" • ")
-            InfoRow("Akış", "$source  →  $output")
+            InfoRow(strings.trackInfoStream, "$source  →  $output")
         } else {
-            InfoRow("Akış", "Orijinal • transcode yok")
+            InfoRow(strings.trackInfoStream, strings.trackInfoStreamOriginal)
         }
     }
 }
@@ -96,10 +99,10 @@ private fun InfoRow(label: String, value: String?) {
     }
 }
 
-private fun channelLabel(n: Int): String = when (n) {
-    1 -> "1 • Mono"
-    2 -> "2 • Stereo"
-    else -> "$n kanal"
+private fun channelLabel(n: Int, strings: Strings): String = when (n) {
+    1 -> strings.trackInfoChannelMono
+    2 -> strings.trackInfoChannelStereo
+    else -> strings.trackInfoChannelOther(n)
 }
 
 private fun formatBytes(bytes: Long): String {

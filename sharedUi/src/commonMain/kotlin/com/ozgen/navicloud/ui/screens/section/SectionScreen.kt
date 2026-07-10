@@ -34,6 +34,7 @@ import com.ozgen.navicloud.core.model.HomeSectionType
 import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.ui.components.OverlayAlbumCard
 import com.ozgen.navicloud.ui.containerViewModel
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -96,6 +97,7 @@ fun SectionScreen(
     },
 ) {
     val type = remember(typeName) { HomeSectionType.valueOf(typeName) }
+    val strings = LocalStrings.current
     val state by vm.state.collectAsStateWithLifecycle()
     val gridState = rememberLazyGridState()
 
@@ -115,9 +117,9 @@ fun SectionScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = { navController.popBackStack() }) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Geri")
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = strings.commonBack)
             }
-            Text(type.title, style = MaterialTheme.typography.headlineSmall)
+            Text(strings.homeSectionTitle(type), style = MaterialTheme.typography.headlineSmall)
         }
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 170.dp),

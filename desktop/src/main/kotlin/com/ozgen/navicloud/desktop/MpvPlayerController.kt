@@ -228,7 +228,7 @@ class MpvPlayerController(
             _contextLabel.value = contextLabel
             val playable = queueCore.filterForOffline(songs)
             if (playable.isEmpty()) {
-                if (songs.isNotEmpty()) println("TOAST: Offline mod: bu içerikte indirilmiş şarkı yok")
+                if (songs.isNotEmpty()) println("TOAST: " + com.ozgen.navicloud.i18n.I18n.strings.playerOfflineNoDownloads)
                 return@launch
             }
             val target = songs.getOrNull(startIndex)

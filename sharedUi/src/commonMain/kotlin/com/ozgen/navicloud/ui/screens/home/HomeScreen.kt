@@ -34,6 +34,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.ozgen.navicloud.core.model.HomeSection
+import com.ozgen.navicloud.i18n.Strings
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.width
@@ -73,16 +75,17 @@ class HomeViewModel(
     }
 }
 
-private fun greeting(): String = when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
-    in 5..11 -> "Günaydın"
-    in 12..17 -> "İyi günler"
-    else -> "İyi akşamlar"
+private fun greeting(s: Strings): String = when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
+    in 5..11 -> s.homeGreetingMorning
+    in 12..17 -> s.homeGreetingAfternoon
+    else -> s.homeGreetingEvening
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(navController: NavController, vm: HomeViewModel = containerViewModel { HomeViewModel(it.music) }) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val strings = LocalStrings.current
 
     when {
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -91,7 +94,7 @@ fun HomeScreen(navController: NavController, vm: HomeViewModel = containerViewMo
         state.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(state.error!!, color = MaterialTheme.colorScheme.error)
-                TextButton(onClick = { vm.refresh() }) { Text("Tekrar dene") }
+                TextButton(onClick = { vm.refresh() }) { Text(strings.commonRetry) }
             }
         }
         else -> NaviRefreshBox(
@@ -111,14 +114,14 @@ fun HomeScreen(navController: NavController, vm: HomeViewModel = containerViewMo
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        greeting(),
+                        greeting(strings),
                         style = MaterialTheme.typography.headlineMedium,
                         modifier = Modifier.weight(1f),
                     )
                     IconButton(onClick = { navController.navigate("servers") }) {
                         Icon(
                             Icons.Rounded.Dns,
-                            contentDescription = "Sunucular",
+                            contentDescription = strings.homeServers,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -170,13 +173,13 @@ fun HomeScreen(navController: NavController, vm: HomeViewModel = containerViewMo
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                     ) {
                         Text(
-                            section.type.title,
+                            strings.homeSectionTitle(section.type),
                             style = MaterialTheme.typography.titleLarge,
                             modifier = Modifier.weight(1f),
                         )
                         Icon(
                             Icons.Rounded.ChevronRight,
-                            contentDescription = "Tümünü gör",
+                            contentDescription = strings.homeSeeAll,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }

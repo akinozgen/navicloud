@@ -183,7 +183,7 @@ fun MiniPlayerWindow(player: PlayerController, model: MiniWindowModel, onExpand:
                         IconButton(onClick = { alwaysOnTop = !alwaysOnTop }, modifier = Modifier.size(30.dp)) {
                             Icon(
                                 Icons.Rounded.PushPin,
-                                contentDescription = "Her zaman üstte",
+                                contentDescription = com.ozgen.navicloud.i18n.I18n.strings.miniAlwaysOnTop,
                                 tint = if (alwaysOnTop) accent else Color(0x99FFFFFF),
                                 modifier = Modifier.size(17.dp),
                             )
@@ -191,7 +191,7 @@ fun MiniPlayerWindow(player: PlayerController, model: MiniWindowModel, onExpand:
                         IconButton(onClick = { model.switchVariant(MiniVariant.VINYL) }, modifier = Modifier.size(30.dp)) {
                             Icon(
                                 Icons.Rounded.Album,
-                                contentDescription = "Plak görünümü",
+                                contentDescription = com.ozgen.navicloud.i18n.I18n.strings.miniVinylView,
                                 tint = Color(0x99FFFFFF),
                                 modifier = Modifier.size(17.dp),
                             )
@@ -199,7 +199,7 @@ fun MiniPlayerWindow(player: PlayerController, model: MiniWindowModel, onExpand:
                         IconButton(onClick = onExpand, modifier = Modifier.size(30.dp)) {
                             Icon(
                                 Icons.Rounded.OpenInFull,
-                                contentDescription = "Büyüt",
+                                contentDescription = com.ozgen.navicloud.i18n.I18n.strings.miniExpand,
                                 tint = Color(0x99FFFFFF),
                                 modifier = Modifier.size(15.dp),
                             )
@@ -234,13 +234,13 @@ fun MiniPlayerWindow(player: PlayerController, model: MiniWindowModel, onExpand:
                     ) {
                         IconButton(onClick = { player.toggleShuffle() }, modifier = Modifier.size(34.dp)) {
                             Icon(
-                                Icons.Rounded.Shuffle, "Karıştır",
+                                Icons.Rounded.Shuffle, com.ozgen.navicloud.i18n.I18n.strings.commonShuffle,
                                 tint = if (ps.shuffle) accent else Color(0xB3FFFFFF),
                                 modifier = Modifier.size(18.dp),
                             )
                         }
                         IconButton(onClick = { player.skipPrevious() }, modifier = Modifier.size(38.dp)) {
-                            Icon(Icons.Rounded.SkipPrevious, "Önceki", tint = Color.White, modifier = Modifier.size(26.dp))
+                            Icon(Icons.Rounded.SkipPrevious, com.ozgen.navicloud.i18n.I18n.strings.commonPrevious, tint = Color.White, modifier = Modifier.size(26.dp))
                         }
                         FilledIconButton(
                             onClick = { player.togglePlayPause() },
@@ -252,17 +252,17 @@ fun MiniPlayerWindow(player: PlayerController, model: MiniWindowModel, onExpand:
                         ) {
                             Icon(
                                 if (ps.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                if (ps.isPlaying) "Duraklat" else "Çal",
+                                if (ps.isPlaying) com.ozgen.navicloud.i18n.I18n.strings.commonPause else com.ozgen.navicloud.i18n.I18n.strings.commonPlay,
                                 modifier = Modifier.size(24.dp),
                             )
                         }
                         IconButton(onClick = { player.skipNext() }, modifier = Modifier.size(38.dp)) {
-                            Icon(Icons.Rounded.SkipNext, "Sonraki", tint = Color.White, modifier = Modifier.size(26.dp))
+                            Icon(Icons.Rounded.SkipNext, com.ozgen.navicloud.i18n.I18n.strings.commonNext, tint = Color.White, modifier = Modifier.size(26.dp))
                         }
                         IconButton(onClick = { player.cycleRepeat() }, modifier = Modifier.size(34.dp)) {
                             Icon(
                                 if (ps.repeat == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                                "Tekrar",
+                                com.ozgen.navicloud.i18n.I18n.strings.commonRepeat,
                                 tint = if (ps.repeat != RepeatMode.OFF) accent else Color(0xB3FFFFFF),
                                 modifier = Modifier.size(18.dp),
                             )

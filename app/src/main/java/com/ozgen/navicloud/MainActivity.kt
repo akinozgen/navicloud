@@ -56,6 +56,7 @@ class MainActivity : ComponentActivity() {
                     audioEffects = audioEffects,
                     queueSync = queueSync,
                     remoteControl = remoteControl,
+                    language = settingsRepository.language,
                 )
             }
             CompositionLocalProvider(

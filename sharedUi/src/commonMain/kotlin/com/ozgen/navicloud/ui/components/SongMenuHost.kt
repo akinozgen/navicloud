@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ozgen.navicloud.ui.containerViewModel
+import com.ozgen.navicloud.ui.i18n.LocalStrings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -87,19 +88,20 @@ fun SongMenuHost(
 ) {
     val vm: SongMenuViewModel = containerViewModel { SongMenuViewModel(it.player, it.downloads, it.music) }
     val toast = rememberToaster()
+    val strings = LocalStrings.current
     val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
     var playlistPickerSong by remember { mutableStateOf<Song?>(null) }
     var infoSong by remember { mutableStateOf<Song?>(null) }
 
-    val actions = remember(navController) {
+    val actions = remember(navController, strings) {
         SongMenuActions(
             playNext = { song ->
                 vm.player.playNext(listOf(song))
-                toast("Sıradakine eklendi")
+                toast(strings.songMenuToastPlayNext)
             },
             addToQueue = { song ->
                 vm.player.addToQueue(listOf(song))
-                toast("Kuyruğa eklendi")
+                toast(strings.songMenuToastAddedToQueue)
             },
             addToPlaylist = { song ->
                 vm.loadPlaylists()
@@ -116,7 +118,7 @@ fun SongMenuHost(
             },
             download = { song ->
                 vm.download(song)
-                toast("İndirme kuyruğa alındı")
+                toast(strings.commonDownloadQueued)
             },
             removeDownload = { songId -> vm.removeDownload(songId) },
             setStarred = { song, starred -> vm.setStarred(song, starred) },
@@ -135,7 +137,7 @@ fun SongMenuHost(
         val playlists by vm.playlists.collectAsStateWithLifecycle()
         AlertDialog(
             onDismissRequest = { playlistPickerSong = null },
-            title = { Text("Çalma listesine ekle") },
+            title = { Text(strings.songMenuAddToPlaylist) },
             text = {
                 Column(
                     Modifier
@@ -144,7 +146,7 @@ fun SongMenuHost(
                         .verticalScroll(rememberScrollState()),
                 ) {
                     if (playlists.isEmpty()) {
-                        Text("Çalma listeleri yükleniyor…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(strings.songMenuPlaylistsLoading, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     playlists.forEach { pl ->
                         Text(
@@ -154,7 +156,7 @@ fun SongMenuHost(
                                 .fillMaxWidth()
                                 .clickable {
                                     vm.addToPlaylist(pl.id, pickerSong) { ok ->
-                                        toast(if (ok) "\"${pl.name}\" listesine eklendi" else "Eklenemedi")
+                                        toast(if (ok) strings.songMenuToastAddedToPlaylist(pl.name) else strings.songMenuToastAddFailed)
                                     }
                                     playlistPickerSong = null
                                 }
@@ -164,7 +166,7 @@ fun SongMenuHost(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { playlistPickerSong = null }) { Text("Vazgeç") }
+                TextButton(onClick = { playlistPickerSong = null }) { Text(strings.commonCancel) }
             },
         )
     }

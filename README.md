@@ -5,15 +5,19 @@
 <h1 align="center">NaviCloud</h1>
 
 <p align="center">
-  <b>Kendi müziğin, her cihazda.</b><br/>
-  Navidrome / Subsonic için modern, hızlı ve şık bir müzik istemcisi — <b>Android</b> ve <b>Windows</b>.
+  <b>Your own music, on every device.</b><br/>
+  A modern, fast and polished music client for Navidrome / Subsonic — <b>Android</b> and <b>Windows</b>.
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Android%20%7C%20Windows-7C4DFF?style=flat-square" alt="platform"/>
   <img src="https://img.shields.io/badge/Kotlin-Multiplatform-8E5BFF?style=flat-square&logo=kotlin&logoColor=white" alt="kotlin"/>
   <img src="https://img.shields.io/badge/Compose-Multiplatform-6366F1?style=flat-square" alt="compose"/>
-  <img src="https://img.shields.io/badge/sürüm-1.0.0-5B34E0?style=flat-square" alt="version"/>
+  <img src="https://img.shields.io/badge/version-1.3.0-5B34E0?style=flat-square" alt="version"/>
+</p>
+
+<p align="center">
+  <b>English</b> · <a href="README-tr.md">Türkçe</a>
 </p>
 
 ---
@@ -28,82 +32,91 @@
   <img src="docs/screenshots/menu.png" width="215"/>
 </p>
 
-<p align="center"><sub>Ana sayfa · Şu an çalıyor · Ekolayzer & ses efektleri · Oynatıcı menüsü</sub></p>
+<p align="center"><sub>Home · Now playing · Equalizer &amp; audio effects · Player menu</sub></p>
 
 ---
 
-## Neler var
+## Features
 
-### 🎧 Çalma
-- Kesintisiz (gapless) oynatma, kuyruk yönetimi, sürükle-bırak sıralama
-- **Ekolayzer** (5 tür preset) + **ses efektleri**: bas güçlendirme, genişlik, ortam (reverb), ses kazancı
-- **Uyku zamanlayıcı**: süreli (10/20/30/60/90 dk) veya "parça/kuyruk bitince dur"
-- Senkronize şarkı sözleri, favoriler ve scrobble
-- Parça teknik bilgisi (codec / bitrate / örnekleme / kaynak → çıkış)
+### 🎧 Playback
+- Gapless playback, queue management, drag-and-drop reordering
+- **Equalizer** (5 preset types) + **audio effects**: bass boost, stereo width, ambience (reverb), gain
+- **Sleep timer**: timed (10/20/30/60/90 min) or "stop at end of track/queue"
+- Synced lyrics, favorites and scrobbling
+- Track technical info (codec / bitrate / sample rate / source → output)
 
-### 📥 Çevrimdışı & önbellek
-- Şarkı indirme + **offline mod** (yalnızca indirilenlerden çalar)
-- Akıllı önbellek: metadata (Room), görsel (Coil), akış (LRU) — indirmelerden ayrı depo
-- Sıradakini önden yükleme, Wi-Fi-öncelikli veri kullanımı
+### 📡 Remote control (LAN)
+- **Spotify Connect–style** remote: pick a device and control it, or hand playback off between devices
+- Fully **symmetric** — every client can control and be controlled
+- **mDNS** device discovery on the local network, **PIN** or shared-password pairing, "forget device"
+- Self-hosted and **LAN-only**: nothing leaves your network
 
-### 🖥️ Masaüstü (Windows)
-- **libmpv** ses motoru (gömülü), tablet düzeni + yan sidebar
-- **Windows medya tuşları + kontrol merkezi/flyout** entegrasyonu (SMTC): kapak, başlık, sanatçı, kontroller
-- Sistem tepsisi + "kapatınca tepsiye küçült"
-- Her zaman üstte **mini oynatıcı** (dalga formu seek bar)
+### 📥 Offline &amp; cache
+- Song downloads + **offline mode** (plays only from downloads)
+- Smart caching: metadata (Room), artwork (Coil), stream (LRU) — separate from downloads
+- Prefetch of the next track, Wi-Fi-first data usage
 
-### 🎨 Tasarım
-- Spotify/YT Music kalitesinde koyu tema; kapaktan türeyen renk paleti
-- Tek yüzeyli morph'lu oynatıcı (mini ↔ tam), ambient spektrum
+### 🖥️ Desktop (Windows)
+- **libmpv** audio engine (embedded), tablet layout + side sidebar
+- **Windows media keys + control center / flyout** integration (SMTC): artwork, title, artist, controls
+- System tray + "minimize to tray on close"
+- Always-on-top **mini player** (waveform seek bar)
+
+### 🎨 Design
+- Spotify / YT Music–grade dark theme; palette derived from the cover art
+- Single-surface morphing player (mini ↔ full), ambient spectrum
+
+### 🌐 Languages
+- **English** and **Turkish** (follows the system locale, switchable in Settings)
 
 ---
 
-## Mimari
+## Architecture
 
-Kotlin Multiplatform + Compose Multiplatform ile tek kod tabanı:
+A single codebase with Kotlin Multiplatform + Compose Multiplatform:
 
-| Modül | İçerik |
-|-------|--------|
-| `:shared` | Model, ağ (Subsonic/OpenSubsonic), repository, kuyruk çekirdeği, ses sözleşmesi |
-| `:sharedUi` | Tüm ekranlar/bileşenler (Compose MP) — Android + masaüstü ortak |
+| Module | Contents |
+|--------|----------|
+| `:shared` | Model, networking (Subsonic/OpenSubsonic), repository, queue core, audio contract, i18n catalog |
+| `:sharedUi` | All screens/components (Compose MP) — shared by Android + desktop |
 | `:app` | Android: Media3/ExoPlayer, Hilt, Room, `android.media.audiofx` |
-| `:desktop` | Windows: libmpv (JNA), sistem tepsisi, mini oynatıcı, SMTC |
-| `desktop/smtc-helper` | Rust (windows-rs) — SMTC native yardımcısı |
+| `:desktop` | Windows: libmpv (JNA), system tray, mini player, SMTC |
+| `desktop/smtc-helper` | Rust (windows-rs) — native SMTC helper |
 
-Ses/EQ davranışı platformdan bağımsız tek sözleşmede tanımlı (preset/band/aralıklar), iki motor da (audiofx ↔ mpv) aynı değerleri uygular.
+Audio/EQ behavior is defined once in a platform-independent contract (presets/bands/ranges); both engines (audiofx ↔ mpv) apply the same values.
 
 ---
 
-## Sürümler & CI
+## Releases &amp; CI
 
-- Her `vX.Y.Z` tag push'unda GitHub Actions **Android APK** + **Windows kurulumunu** derleyip Release'e yükler.
-- Feature branch'lerde push/PR'da hızlı derleme kontrolü (`CI`) çalışır.
-- En güncel yapıları [Releases](../../releases) sayfasından indirin.
+- Every `vX.Y.Z` tag push makes GitHub Actions build the **Android APK** + **Windows installer** and upload them to the Release.
+- A fast compile check (`CI`) runs on pushes/PRs to feature branches.
+- Download the latest builds from the [Releases](../../releases) page.
 
 ```bash
-# yeni sürüm yayınla
-git tag v1.0.1 && git push origin v1.0.1
+# publish a new version
+git tag v1.3.1 && git push origin v1.3.1
 ```
 
-> Not: Android APK şu an debug anahtarıyla imzalanır (adb ile kurulabilir). Mağaza dağıtımı için kendi keystore'unuzu CI secret'ı olarak ekleyin.
+> Note: the Android APK is currently signed with a debug key (installable via adb). For store distribution, add your own keystore as a CI secret.
 
 ---
 
-## Yerel derleme
+## Local build
 
 ```bash
 # Android (JDK 17)
 ./gradlew :app:assembleRelease
 
-# Masaüstü dağıtımı (JDK 21 — jpackage)
+# Desktop distribution (JDK 21 — jpackage)
 ./gradlew :desktop:createDistributable
-# libmpv-2.dll'i desktop/packaging/windows-x64/ altına koyun (shinchiro/zhongfly derlemesi)
+# Put libmpv-2.dll under desktop/packaging/windows-x64/ (shinchiro/zhongfly build)
 ```
 
 ---
 
-## Lisans
+## License
 
-Açık kaynak bileşenlerin tam listesi ve lisansları uygulama içinde **Ayarlar → Hakkında → Açık kaynak lisansları** altında. Öne çıkanlar: Compose Multiplatform, Coil, OkHttp, Media3, libmpv (LGPL), FFmpeg (LGPL), windows-rs.
+The full list of open-source components and their licenses is inside the app under **Settings → About → Open source licenses**. Highlights: Compose Multiplatform, Coil, OkHttp, Media3, libmpv (LGPL), FFmpeg (LGPL), windows-rs.
 
-<p align="center"><sub>❤️ ile, açık kaynakla mümkün oldu.</sub></p>
+<p align="center"><sub>Made with ❤️, powered by open source.</sub></p>
