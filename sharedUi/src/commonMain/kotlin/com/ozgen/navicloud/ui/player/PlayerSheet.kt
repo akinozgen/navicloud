@@ -1290,13 +1290,21 @@ private fun QueuePanel(
                         // StartToEnd (sol→sağ) = sıradakine kopya ekle, EndToStart
                         // (sağ→sol) = kuyruktan kaldır. Frozen closure yalnızca
                         // değişmez UID'yi yakalar.
+                        // confirmValueChange TEK sürüklemede birden çok kez tetiklenebilir
+                        // (false dönüşü + sürükleme devamı yeni settle denemesi üretir) —
+                        // kopya eklemeyi zaman eşiğiyle teke indir.
+                        val lastPlayNextAt = remember(uid) { androidx.compose.runtime.mutableStateOf(0L) }
                         val dismissState = rememberSwipeToDismissBoxState(
                             positionalThreshold = { totalDistance -> totalDistance * 0.4f },
                             confirmValueChange = { value ->
                                 when (value) {
                                     SwipeToDismissBoxValue.StartToEnd -> {
                                         // Kopya, çalanın hemen arkasına; satır yerinde kalır
-                                        player.playNext(listOf(queueItem.song))
+                                        val now = System.currentTimeMillis()
+                                        if (now - lastPlayNextAt.value > 800) {
+                                            lastPlayNextAt.value = now
+                                            player.playNext(listOf(queueItem.song))
+                                        }
                                         false
                                     }
                                     SwipeToDismissBoxValue.EndToStart -> {

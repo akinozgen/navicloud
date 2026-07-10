@@ -24,14 +24,26 @@ interface LibMpv : Library {
     fun mpv_error_string(error: Int): String
 }
 
+/** libmpv Linux'ta LC_NUMERIC=C bekler; JVM'in devraldığı locale (ör. tr_TR) mpv_create'i reddeder. */
+private interface LibC : Library {
+    fun setlocale(category: Int, locale: String): String?
+}
+
 class MpvEngine {
     private val lib: LibMpv
     private val ctx: Pointer
 
     init {
         resolveDllDir()?.let { System.setProperty("jna.library.path", it) }
+        // Linux: libmpv, JVM'in devraldığı locale non-C ise mpv_create'i reddediyor. Sadece LC_NUMERIC
+        // (glibc = 1) sıfırla — kullanıcı locale'inin başka etkilerine dokunmuyoruz.
+        if (System.getProperty("os.name").orEmpty().lowercase().contains("linux")) {
+            runCatching { Native.load("c", LibC::class.java).setlocale(1, "C") }
+        }
+        // Windows: libmpv-2.dll / mpv-2.dll · Linux: libmpv.so.2 / libmpv.so.1 (soname → "mpv")
         lib = runCatching { Native.load("libmpv-2", LibMpv::class.java) }
             .recoverCatching { Native.load("mpv-2", LibMpv::class.java) }
+            .recoverCatching { Native.load("mpv", LibMpv::class.java) }
             .getOrThrow()
         ctx = lib.mpv_create() ?: error("mpv_create başarısız")
         opt("vid", "no")
@@ -39,6 +51,10 @@ class MpvEngine {
         opt("terminal", "no")
         opt("gapless-audio", "yes")
         opt("cache", "yes")
+        // Ses sunucusunda (PipeWire/PulseAudio) "mpv" değil uygulama adı görünsün
+        opt("audio-client-name", "NaviCloud")
+        // Akış adı şablonu (vars "<başlık> - mpv") — sadece parça başlığı kalsın
+        opt("title", "\${media-title}")
         val r = lib.mpv_initialize(ctx)
         check(r == 0) { "mpv_initialize: ${lib.mpv_error_string(r)}" }
     }
@@ -47,14 +63,18 @@ class MpvEngine {
         lib.mpv_set_option_string(ctx, name, value)
     }
 
-    /** libmpv-2.dll'i bilinen yerlerde arar (çalışma dizini, libs/, desktop/libs/). */
+    /**
+     * libmpv'yi bilinen yerlerde arar (çalışma dizini, libs/, desktop/libs/, jpackage resources).
+     * Linux'ta gömülü kopya beklenmez — sistem paketi (mpv-libs) `libmpv.so.2` sağlar; JNA
+     * `jna.library.path` boşsa doğrudan `/usr/lib64` gibi standart yollardan yükler.
+     */
     private fun resolveDllDir(): String? {
         val cwd = File(System.getProperty("user.dir"))
-        // jpackage dağıtımında DLL app/resources dizinine gömülür
         val packaged = System.getProperty("compose.application.resources.dir")?.let { File(it) }
         val candidates = listOf(packaged, cwd, File(cwd, "libs"), File(cwd, "desktop/libs"), cwd.parentFile?.let { File(it, "desktop/libs") })
+        val names = listOf("libmpv-2.dll", "mpv-2.dll", "libmpv.so.2", "libmpv.so.1", "libmpv.so")
         return candidates.filterNotNull().firstOrNull { dir ->
-            File(dir, "libmpv-2.dll").exists() || File(dir, "mpv-2.dll").exists()
+            names.any { File(dir, it).exists() }
         }?.absolutePath
     }
 
@@ -63,6 +83,11 @@ class MpvEngine {
     fun play(url: String) {
         command("loadfile", url)
         setPaused(false)
+    }
+
+    /** Ses sunucusundaki akış başlığı (vars: "<url> - mpv") — parça bilgisiyle ezilir. */
+    fun setMediaTitle(title: String) {
+        lib.mpv_set_property_string(ctx, "force-media-title", title)
     }
 
     fun setPaused(paused: Boolean) {

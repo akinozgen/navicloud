@@ -1,7 +1,8 @@
 name: Release
 
-# vX.Y.Z tag'i push'landığında Android APK + Windows kurulumu derlenir,
+# vX.Y.Z tag'i push'landığında Android APK + Windows kurulumu + Linux rpm/deb derlenir,
 # GitHub Release açılıp artifact'lar yüklenir.
+# Not: Linux paketleri sistem libmpv'sine bağımlıdır (Fedora: mpv-libs, Debian/Ubuntu: libmpv2).
 on:
   push:
     tags:
@@ -77,8 +78,33 @@ jobs:
           name: windows-installer
           path: NaviCloud-*-Setup.exe
 
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: rpm araçları kur (dpkg/fakeroot runner'da hazır)
+        run: sudo apt-get update && sudo apt-get install -y rpm
+      - name: RPM + DEB derle (jpackage)
+        run: |
+          java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain \
+            :desktop:packageRpm :desktop:packageDeb --no-daemon --stacktrace
+      - name: Adlandır
+        run: |
+          cp desktop/build/compose/binaries/main/rpm/navicloud-*.rpm "NaviCloud-${{ github.ref_name }}.x86_64.rpm"
+          cp desktop/build/compose/binaries/main/deb/navicloud*.deb "NaviCloud-${{ github.ref_name }}.amd64.deb"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            NaviCloud-*.rpm
+            NaviCloud-*.deb
+
   release:
-    needs: [android, windows]
+    needs: [android, windows, linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

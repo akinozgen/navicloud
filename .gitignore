@@ -17,3 +17,8 @@ shared/build/
 sharedUi/build/
 desktop/packaging/
 desktop/installer/*.exe
+# Linux port
+desktop/libs/*.so*
+desktop/installer/*.rpm
+desktop/installer/*.deb
+.kotlin/

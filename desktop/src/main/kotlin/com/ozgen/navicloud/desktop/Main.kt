@@ -91,7 +91,11 @@ fun main() {
     // backend'i saydam pencerede çizilmeyen bölgeyi opak siyah bırakıyordu.
     // OpenGL backend per-pixel alpha'yı doğru temizliyor. renderApi global
     // olduğu için pencere yaratılmadan önce, en başta set edilmeli.
-    System.setProperty("skiko.renderApi", "OPENGL")
+    // Linux'ta skiko default backend (OpenGL/Vulkan) zaten uygun; zorlarsak bazı
+    // sürücülerde ilk frame boş çizilip ham AWT arka planı (beyaz) kalıyor.
+    if (System.getProperty("os.name").orEmpty().startsWith("Windows")) {
+        System.setProperty("skiko.renderApi", "OPENGL")
+    }
     runApp()
 }
 
@@ -255,31 +259,67 @@ private fun runApp() = application {
         windowVisible = false
     }
 
-    // Sistem tepsisi: pencere gizliyken de çalmayı yönetmek için. Sol tık
-    // pencereyi getirir, sağ tık menüyü açar.
-    Tray(
-        icon = NaviCloudIconPainter,
-        tooltip = playerState.currentTrack?.let { "${it.song.artist} — ${it.song.title}" } ?: "NaviCloud",
-        onAction = { showWindow() },
-        menu = {
-            Item("Göster", onClick = { showWindow() })
-            Item("Mini oynatıcı", onClick = { openMini() })
-            Separator()
-            Item(
-                if (playerState.isPlaying) "Duraklat" else "Çal",
-                enabled = playerState.currentTrack != null,
-                onClick = { player.togglePlayPause() },
+    fun quitApp() {
+        deps.queueSync.flushBlocking(1500)
+        deps.rcManager.stop() // mDNS goodbye — diğer cihazların listesinden düş
+        exitApplication()
+    }
+
+    // Linux: AWT tepsisi KDE/GNOME'da işlevsiz (XEmbed) — D-Bus StatusNotifierItem dene.
+    // Callback'ler dbus thread'inden gelir; Compose state'ine AWT EDT üzerinden dokun.
+    val linuxTray = remember {
+        fun ui(block: () -> Unit): () -> Unit = { javax.swing.SwingUtilities.invokeLater(block) }
+        LinuxTray(
+            onShow = ui { showWindow() },
+            onMini = ui { openMini() },
+            onPlayPause = { deps.container.player.togglePlayPause() },
+            onPrev = { deps.container.player.skipPrevious() },
+            onNext = { deps.container.player.skipNext() },
+            onQuit = ui { quitApp() },
+        ).takeIf { it.start() }
+    }
+    // Linux medya tuşları + KDE/GNOME medya denetçisi (SMTC'nin muadili).
+    // UI gibi ACTIVE player'ı sürer; ses de ana ses slider'ıyla aynı yoldan (RC'de uzak cihaz).
+    remember {
+        fun ui(block: () -> Unit): () -> Unit = { javax.swing.SwingUtilities.invokeLater(block) }
+        MprisController(
+            player = deps.container.player,
+            onRaise = ui { showWindow() },
+            onQuit = ui { quitApp() },
+            getVolume = { deps.volume.volume },
+            setVolume = { deps.volume.volume = it },
+        ).apply { start() }
+    }
+    if (linuxTray != null) {
+        LaunchedEffect(playerState.currentTrack, playerState.isPlaying) {
+            linuxTray.update(
+                tooltip = playerState.currentTrack?.let { "${it.song.artist} — ${it.song.title}" } ?: "",
+                playLabel = if (playerState.isPlaying) "Duraklat" else "Çal",
+                hasTrack = playerState.currentTrack != null,
             )
-            Item("Önceki", enabled = playerState.currentTrack != null, onClick = { player.skipPrevious() })
-            Item("Sonraki", enabled = playerState.currentTrack != null, onClick = { player.skipNext() })
-            Separator()
-            Item("Çıkış", onClick = {
-                deps.queueSync.flushBlocking(1500)
-                deps.rcManager.stop() // mDNS goodbye — diğer cihazların listesinden düş
-                exitApplication()
-            })
-        },
-    )
+        }
+    } else {
+        // AWT tepsisi (Windows + SNI'siz Linux): sol tık pencereyi getirir, sağ tık menüyü açar.
+        Tray(
+            icon = NaviCloudIconPainter,
+            tooltip = playerState.currentTrack?.let { "${it.song.artist} — ${it.song.title}" } ?: "NaviCloud",
+            onAction = { showWindow() },
+            menu = {
+                Item("Göster", onClick = { showWindow() })
+                Item("Mini oynatıcı", onClick = { openMini() })
+                Separator()
+                Item(
+                    if (playerState.isPlaying) "Duraklat" else "Çal",
+                    enabled = playerState.currentTrack != null,
+                    onClick = { player.togglePlayPause() },
+                )
+                Item("Önceki", enabled = playerState.currentTrack != null, onClick = { player.skipPrevious() })
+                Item("Sonraki", enabled = playerState.currentTrack != null, onClick = { player.skipNext() })
+                Separator()
+                Item("Çıkış", onClick = { quitApp() })
+            },
+        )
+    }
 
     Window(
         onCloseRequest = {
