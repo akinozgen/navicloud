@@ -212,6 +212,8 @@ private fun runApp() = application {
                 queueSync = queueSync,
                 remoteControl = rcManager,
                 language = DesktopPrefs.languageFlow,
+                // Ses/EQ efektleri: mpv af zinciri (lokal motora uygulanır)
+                audioEffects = DesktopAudioEffects(engine, json),
             ),
             // Ses slider'ı: hedef Remote iken UZAK cihazın sesini sürer (VOLUME cmd), değilse lokal mpv (RC-3)
             volume = object : com.ozgen.navicloud.ui.VolumeController {

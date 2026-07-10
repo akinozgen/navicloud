@@ -19,6 +19,9 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.ui.platform.LocalUriHandler
+import com.ozgen.navicloud.AppInfo
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Language
@@ -26,6 +29,7 @@ import androidx.compose.material.icons.rounded.Minimize
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.DownloadForOffline
+import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -80,6 +84,8 @@ object DesktopPrefs {
         val volume: Int = 100,
         val closeToTray: Boolean = true,
         val internetLyrics: Boolean = true,
+        // "Sadece Wi-Fi'de indir": metered (ölçülü) bağlantıda indirmeyi bekletir.
+        val downloadWifiOnly: Boolean = false,
         // Mini oynatıcı: son pencere konumu (AWT ekran px) + görünüm varyantı.
         // null konum = henüz taşınmadı → varsayılan (sağ-alt) konuma çık.
         val miniX: Int? = null,
@@ -147,6 +153,15 @@ object DesktopPrefs {
         set(value) {
             internetLyricsFlow.value = value
             save(load().copy(internetLyrics = value))
+        }
+
+    val downloadWifiOnlyFlow: MutableStateFlow<Boolean> = MutableStateFlow(load().downloadWifiOnly)
+
+    var downloadWifiOnly: Boolean
+        get() = downloadWifiOnlyFlow.value
+        set(value) {
+            downloadWifiOnlyFlow.value = value
+            save(load().copy(downloadWifiOnly = value))
         }
 
     /** Mini oynatıcının son konumu (AWT ekran px); hiç taşınmadıysa null. */
@@ -346,17 +361,36 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                 }
             },
         )
+        var dlWifiOnly by remember { mutableStateOf(DesktopPrefs.downloadWifiOnly) }
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Wifi, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = s.settingsDownloadWifiOnly,
+            subtitle = s.settingsDownloadWifiOnlyDesc,
+            onClick = {
+                dlWifiOnly = !dlWifiOnly
+                DesktopPrefs.downloadWifiOnly = dlWifiOnly
+            },
+            trailing = {
+                Switch(checked = dlWifiOnly, onCheckedChange = {
+                    dlWifiOnly = it
+                    DesktopPrefs.downloadWifiOnly = it
+                })
+            },
+        )
         activeDl?.let { dl ->
             Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 Text(
-                    s.downloadInProgress(dl.title) + if (dl.queued > 1) s.downloadQueuedSuffix(dl.queued - 1) else "",
+                    if (dl.waitingForWifi) s.downloadWaitingForWifi(dl.title)
+                    else s.downloadInProgress(dl.title) + if (dl.queued > 1) s.downloadQueuedSuffix(dl.queued - 1) else "",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                LinearProgressIndicator(
-                    progress = { dl.progress },
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                )
+                if (!dl.waitingForWifi) {
+                    LinearProgressIndicator(
+                        progress = { dl.progress },
+                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                    )
+                }
             }
         }
 
@@ -467,6 +501,13 @@ fun DesktopSettingsScreen(navController: NavHostController) {
         }
 
         SectionHeader(s.settingsAboutSection)
+        val uriHandler = LocalUriHandler.current
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "${AppInfo.NAME} ${AppInfo.VERSION}",
+            subtitle = "${AppInfo.LICENSE} · ${s.settingsSourceCode}",
+            onClick = { runCatching { uriHandler.openUri(AppInfo.REPO_URL) } },
+        )
         SettingRow(
             icon = { Icon(Icons.Rounded.Description, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             title = s.licensesTitle,

@@ -290,6 +290,7 @@ interface Strings {
     val settingsRemoteControlDesc: String
     val settingsAboutSection: String
     val settingsLicensesDesc: String
+    val settingsSourceCode: String
     val settingsStreamQualityDialogNote: String
     val settingsCacheLimitDialogTitle: String
     val settingsCacheLimitDialogNote: String
@@ -570,6 +571,7 @@ object TrStrings : Strings {
     override val settingsRemoteControlDesc = "Tüm cihazlarına aynı parolayı gir; birbirine tek dokunuşla bağlanır. Boş bırakırsan bağlanırken kod sorulur."
     override val settingsAboutSection = "Hakkında"
     override val settingsLicensesDesc = "Kullanılan kütüphaneler ve lisansları"
+    override val settingsSourceCode = "Kaynak kodu (GitHub)"
     override val settingsStreamQualityDialogNote = "Orijinal dışındaki seçenekler veri kullanımını azaltır."
     override val settingsCacheLimitDialogTitle = "Akış önbelleği sınırı"
     override val settingsCacheLimitDialogNote = "Dinlediklerin geçici olarak saklanır; yer gerektiğinde en eskiler silinir. İndirilenler bundan etkilenmez."
@@ -871,6 +873,7 @@ object EnStrings : Strings {
     override val settingsRemoteControlDesc = "Enter the same password on all your devices; they connect to each other with one tap. Leave it blank and you'll be asked for a code when connecting."
     override val settingsAboutSection = "About"
     override val settingsLicensesDesc = "Libraries used and their licenses"
+    override val settingsSourceCode = "Source code (GitHub)"
     override val settingsStreamQualityDialogNote = "Options other than Original reduce data usage."
     override val settingsCacheLimitDialogTitle = "Streaming cache limit"
     override val settingsCacheLimitDialogNote = "What you listen to is stored temporarily; the oldest is removed when space is needed. Downloads are not affected."

@@ -19,6 +19,9 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.ui.platform.LocalUriHandler
+import com.ozgen.navicloud.AppInfo
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -469,6 +472,13 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
 
         // ---- HAKKINDA ----
         SectionHeader(strings.settingsAboutSection)
+        val uriHandler = LocalUriHandler.current
+        SettingRow(
+            icon = { Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = "${AppInfo.NAME} ${AppInfo.VERSION}",
+            subtitle = "${AppInfo.LICENSE} · ${strings.settingsSourceCode}",
+            onClick = { runCatching { uriHandler.openUri(AppInfo.REPO_URL) } },
+        )
         SettingRow(
             icon = { Icon(Icons.Rounded.Description, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             title = strings.licensesTitle,

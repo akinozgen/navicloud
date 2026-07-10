@@ -98,6 +98,14 @@ class MpvEngine {
         command("seek", seconds.toString(), "absolute")
     }
 
+    /**
+     * Ses filtresi zincirini ayarlar (mpv 'af' özelliği, libavfilter köprüsü).
+     * Boş string zinciri temizler. Canlı uygulanır ve loadfile'lar arası korunur.
+     */
+    fun setAudioFilters(af: String) {
+        lib.mpv_set_property_string(ctx, "af", af)
+    }
+
     private fun prop(name: String): String? {
         val p = lib.mpv_get_property_string(ctx, name) ?: return null
         val s = p.getString(0)

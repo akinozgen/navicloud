@@ -117,6 +117,10 @@ git tag v1.3.1 && git push origin v1.3.1
 
 ## License
 
-The full list of open-source components and their licenses is inside the app under **Settings → About → Open source licenses**. Highlights: Compose Multiplatform, Coil, OkHttp, Media3, libmpv (LGPL), FFmpeg (LGPL), windows-rs.
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
+NaviCloud is licensed under the **GNU General Public License v3.0** — see [LICENSE](LICENSE). The desktop build bundles GPL builds of libmpv + FFmpeg, so the whole project is GPLv3.
+
+The full list of open-source components is inside the app under **Settings → About → Open source licenses**. Highlights: Compose Multiplatform, Coil, OkHttp, Media3 (Apache-2.0); libmpv, FFmpeg (GPL-2.0+); windows-rs (MIT/Apache-2.0).
 
 <p align="center"><sub>Made with ❤️, powered by open source.</sub></p>

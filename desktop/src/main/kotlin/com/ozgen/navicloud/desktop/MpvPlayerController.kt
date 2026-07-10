@@ -1,5 +1,7 @@
 package com.ozgen.navicloud.desktop
 
+import com.ozgen.navicloud.audio.SleepTimerPreset
+import com.ozgen.navicloud.audio.SleepTimerState
 import com.ozgen.navicloud.core.model.Song
 import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.data.StreamQuality
@@ -9,8 +11,10 @@ import com.ozgen.navicloud.playback.PlayerUiState
 import com.ozgen.navicloud.playback.QueueCore
 import com.ozgen.navicloud.playback.QueueTrack
 import com.ozgen.navicloud.playback.RepeatMode
+import com.ozgen.navicloud.playback.shouldSubmitScrobble
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,6 +76,57 @@ class MpvPlayerController(
     private var playbackContext: PlaybackContext? = null
     private var fetchingContinuation = false
 
+    // --- Uyku zamanlayıcı (Android Media3PlayerController ile birebir eş sözleşme) ---
+    private val _sleepTimer = MutableStateFlow(SleepTimerState())
+    override val sleepTimer: StateFlow<SleepTimerState> = _sleepTimer
+    private var sleepJob: Job? = null
+
+    override fun startSleepTimer(preset: SleepTimerPreset) {
+        sleepJob?.cancel()
+        when (preset) {
+            is SleepTimerPreset.Duration -> {
+                val totalMs = preset.minutes * 60_000L
+                _sleepTimer.value = SleepTimerState(active = true, preset = preset, remainingMs = totalMs)
+                sleepJob = scope.launch {
+                    val end = System.currentTimeMillis() + totalMs
+                    while (true) {
+                        val remaining = end - System.currentTimeMillis()
+                        if (remaining <= 0) { fireSleepTimer(); break }
+                        _sleepTimer.value = SleepTimerState(active = true, preset = preset, remainingMs = remaining)
+                        delay(1000)
+                    }
+                }
+            }
+            // Bound presetler: parça/kuyruk bitişi poll döngüsü + advance()'te tetiklenir
+            SleepTimerPreset.EndOfTrack, SleepTimerPreset.EndOfQueue ->
+                _sleepTimer.value = SleepTimerState(active = true, preset = preset, remainingMs = null)
+        }
+    }
+
+    override fun cancelSleepTimer() {
+        sleepJob?.cancel()
+        sleepJob = null
+        _sleepTimer.value = SleepTimerState()
+    }
+
+    /** Tetiklendi: çalmayı duraklat, zamanlayıcıyı temizle. */
+    private fun fireSleepTimer() {
+        sleepJob?.cancel()
+        sleepJob = null
+        _sleepTimer.value = SleepTimerState()
+        engine.setPaused(true)
+        syncState()
+    }
+
+    /** Giden parça için Navidrome submit kuralı (Android paritesi: yarı/4dk ya da doğal bitiş). */
+    private fun submitScrobbleIfDue(naturalEnd: Boolean) {
+        val t = queue.getOrNull(index) ?: return
+        if (shouldSubmitScrobble(t.song.duration, positionMs, naturalEnd)) {
+            val id = t.song.id
+            scope.launch { runCatching { musicRepository.scrobble(id, submission = true) } }
+        }
+    }
+
     init {
         // Parça bitişi + durum senkronu: mpv idle'a düştüyse ve parça
         // gerçekten başlamıştı → sıradakine geç
@@ -81,10 +136,11 @@ class MpvPlayerController(
                 if (trackActive && idle && System.currentTimeMillis() - loadedAtMs > 3000) {
                     trackActive = false
                     // Doğal bitiş = scrobble submission (Navidrome kuralı)
-                    queue.getOrNull(index)?.let { t ->
-                        scope.launch { runCatching { musicRepository.scrobble(t.song.id, submission = true) } }
-                    }
-                    advance()
+                    submitScrobbleIfDue(naturalEnd = true)
+                    // "Parça bitince dur": doğal bitişte tetikle, ilerletme
+                    val st = _sleepTimer.value
+                    if (st.active && st.preset == SleepTimerPreset.EndOfTrack) fireSleepTimer()
+                    else advance()
                 }
                 if (!idle && engine.positionSec > 0.5) trackActive = true
                 syncState()
@@ -195,6 +251,9 @@ class MpvPlayerController(
             index + 1 < queue.size -> index + 1
             repeat == RepeatMode.ALL -> 0
             else -> {
+                // "Kuyruk bitince dur"
+                val st = _sleepTimer.value
+                if (st.active && st.preset == SleepTimerPreset.EndOfQueue) fireSleepTimer()
                 syncState()
                 return // kuyruk bitti
             }
@@ -276,20 +335,23 @@ class MpvPlayerController(
     }
 
     override fun seekTo(positionMs: Long) = engine.seekTo(positionMs / 1000.0)
-    override fun skipNext() { scope.launch { advance() } }
+    override fun skipNext() { scope.launch { submitScrobbleIfDue(naturalEnd = false); advance() } }
     override fun skipPrevious() {
         scope.launch {
-            if (positionMs > 3000 || index <= 0) engine.seekTo(0.0) else playAt(index - 1)
+            if (positionMs > 3000 || index <= 0) engine.seekTo(0.0)
+            else { submitScrobbleIfDue(naturalEnd = false); playAt(index - 1) }
         }
     }
 
-    override fun seekToQueueItem(index: Int) = playAt(index)
+    override fun seekToQueueItem(index: Int) {
+        scope.launch { submitScrobbleIfDue(naturalEnd = false); playAt(index) }
+    }
 
     private fun indexOfUid(uid: String): Int? =
         queue.indexOfFirst { it.uid == uid }.takeIf { it >= 0 }
 
     override fun seekToUid(uid: String) {
-        scope.launch { indexOfUid(uid)?.let { playAt(it) } }
+        scope.launch { indexOfUid(uid)?.let { submitScrobbleIfDue(naturalEnd = false); playAt(it) } }
     }
 
     override fun removeQueueItemByUid(uid: String) {
@@ -364,6 +426,7 @@ class MpvPlayerController(
     }
 
     private fun stopInternal() {
+        cancelSleepTimer()
         engine.command("stop")
         queue.clear()
         index = -1

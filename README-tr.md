@@ -117,6 +117,10 @@ git tag v1.3.1 && git push origin v1.3.1
 
 ## Lisans
 
-Açık kaynak bileşenlerin tam listesi ve lisansları uygulama içinde **Ayarlar → Hakkında → Açık kaynak lisansları** altında. Öne çıkanlar: Compose Multiplatform, Coil, OkHttp, Media3, libmpv (LGPL), FFmpeg (LGPL), windows-rs.
+[![Lisans: GPL v3](https://img.shields.io/badge/Lisans-GPLv3-blue.svg)](LICENSE)
+
+NaviCloud **GNU General Public License v3.0** ile lisanslıdır — bkz. [LICENSE](LICENSE). Masaüstü derlemesi libmpv + FFmpeg'in GPL derlemelerini paketlediği için tüm proje GPLv3'tür.
+
+Açık kaynak bileşenlerin tam listesi uygulama içinde **Ayarlar → Hakkında → Açık kaynak lisansları** altında. Öne çıkanlar: Compose Multiplatform, Coil, OkHttp, Media3 (Apache-2.0); libmpv, FFmpeg (GPL-2.0+); windows-rs (MIT/Apache-2.0).
 
 <p align="center"><sub>❤️ ile, açık kaynakla mümkün oldu.</sub></p>

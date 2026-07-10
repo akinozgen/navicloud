@@ -123,7 +123,21 @@ class DesktopDownloads(
         saveIndex()
     }
 
+    /**
+     * "Sadece Wi-Fi'de indir" açıkken metered ağda kuyruğu bekletir; Wi-Fi gelince
+     * (ya da ayar kapatılınca) kendiliğinden devam eder. Metered tespit edilemezse
+     * (fail-open) bloklamaz — bkz. [DesktopNetwork].
+     */
+    private suspend fun awaitAllowedNetwork(song: Song) {
+        fun blocked() = DesktopPrefs.downloadWifiOnly && DesktopNetwork.isMetered()
+        if (blocked()) {
+            _active.value = ActiveDownload(song.id, song.title, 0f, queuedCount, waitingForWifi = true)
+            while (blocked()) kotlinx.coroutines.delay(3000)
+        }
+    }
+
     private suspend fun download(song: Song) {
+        awaitAllowedNetwork(song)
         val server = servers.activeServer.first() ?: return
         val client = servers.clientFor(server)
         _active.value = ActiveDownload(song.id, song.title, 0f, queuedCount)

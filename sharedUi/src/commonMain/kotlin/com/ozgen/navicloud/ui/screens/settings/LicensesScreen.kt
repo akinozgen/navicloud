@@ -61,8 +61,10 @@ val androidLicenses: List<LicenseEntry> = listOf(
 
 /** Yalnız masaüstü (Windows). */
 val desktopLicenses: List<LicenseEntry> = listOf(
-    LicenseEntry("libmpv (mpv)", "LGPL-2.1 or later", "https://github.com/mpv-player/mpv"),
-    LicenseEntry("FFmpeg", "LGPL-2.1 or later", "https://ffmpeg.org"),
+    // Paketlenen derleme (zhongfly/mpv-winbuild) GPL ffmpeg gömülü → GPL, LGPL değil.
+    // NaviCloud da bu yüzden GPLv3. Kaynak: build betiği repo'da.
+    LicenseEntry("libmpv (mpv)", "GPL-2.0 or later", "https://github.com/mpv-player/mpv"),
+    LicenseEntry("FFmpeg", "GPL-2.0 or later", "https://ffmpeg.org"),
     LicenseEntry("Java Native Access (JNA)", "Apache-2.0 / LGPL-2.1", "https://github.com/java-native-access/jna"),
     LicenseEntry("windows-rs", "MIT / Apache-2.0", "https://github.com/microsoft/windows-rs"),
 )
