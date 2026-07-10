@@ -88,14 +88,14 @@ jobs:
           java-version: '21'
       - name: rpm araçları kur (dpkg/fakeroot runner'da hazır)
         run: sudo apt-get update && sudo apt-get install -y rpm
-      - name: RPM + DEB derle (jpackage)
-        run: |
-          java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain \
-            :desktop:packageRpm :desktop:packageDeb --no-daemon --stacktrace
+      - name: RPM + DEB derle (app-image + kendi spec/control'ümüz)
+        # jpackage'ın packageRpm/Deb'i değil: menü girdisi + libmpv bağımlılığı
+        # paket içeriği olarak girsin diye scripts/build-release-linux.sh kullanılır
+        run: NAVICLOUD_JDK="$JAVA_HOME" scripts/build-release-linux.sh all
       - name: Adlandır
         run: |
-          cp desktop/build/compose/binaries/main/rpm/navicloud-*.rpm "NaviCloud-${{ github.ref_name }}.x86_64.rpm"
-          cp desktop/build/compose/binaries/main/deb/navicloud*.deb "NaviCloud-${{ github.ref_name }}.amd64.deb"
+          cp dist/navicloud-*.rpm "NaviCloud-${{ github.ref_name }}.x86_64.rpm"
+          cp dist/navicloud_*.deb "NaviCloud-${{ github.ref_name }}.amd64.deb"
       - uses: actions/upload-artifact@v4
         with:
           name: linux-packages

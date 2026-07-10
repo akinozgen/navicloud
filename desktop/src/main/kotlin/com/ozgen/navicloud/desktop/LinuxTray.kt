@@ -256,6 +256,8 @@ class LinuxTray(
                 conn.disconnect()
                 throw e
             }
+        }.onFailure {
+            println("LinuxTray: SNI kaydı başarısız (AWT tepsisine düşülüyor): $it")
         }.isSuccess
     }
 

@@ -28,14 +28,16 @@ compose.desktop {
     application {
         mainClass = "com.ozgen.navicloud.desktop.MainKt"
         nativeDistributions {
-            // Windows dağıtımı NSIS ile createDistributable üzerinden yapılır (build-release.ps1);
-            // targetFormats yalnızca Linux packageRpm/packageDeb için gerekli.
-            targetFormats(
-                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Rpm,
-                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb,
-            )
+            // Dağıtım her platformda createDistributable (app-image) üzerinden:
+            // Windows → NSIS (build-release.ps1), Linux → kendi spec/control'ümüzle
+            // rpm+deb (scripts/build-release-linux.sh). jpackage'ın packageRpm/Deb'i
+            // kullanılmaz — menü girdisini %post scriptiyle kuruyordu ve dnf'nin
+            // SELinux-kısıtlı scriptlet bağlamında sessizce başarısız olabiliyordu.
+            // dbus-java SASL auth'u com.sun.security.auth.module.UnixSystem kullanır —
+            // jlink runtime'ına eklenmezse SNI tepsisi/MPRIS pakette sessizce devre dışı kalır
+            modules("jdk.security.auth")
             packageName = "NaviCloud"
-            packageVersion = "1.4.0"
+            packageVersion = "1.4.1"
             description = "Navidrome istemcisi"
             vendor = "ozgen"
             windows {
@@ -43,13 +45,6 @@ compose.desktop {
             }
             linux {
                 iconFile.set(project.file("icons/navicloud.png"))
-                // rpm/deb paket adı küçük harf ister; menü girdisi packageName'den gelir
-                packageName = "navicloud"
-                debMaintainer = "akin@isskontrol.com.tr"
-                menuGroup = "AudioVideo;Audio;Player"
-                appCategory = "Audio"
-                // Ses motoru sistem libmpv'sini kullanır (Fedora: mpv-libs, Debian/Ubuntu: libmpv2).
-                // jpackage harici paket bağımlılığı yazamıyor — README + çalışma anı hatasıyla yönetiliyor.
             }
         }
         // libmpv-2.dll dağıtıma gömülür (windows-x64 altı → app/resources)

@@ -22,3 +22,6 @@ desktop/libs/*.so*
 desktop/installer/*.rpm
 desktop/installer/*.deb
 .kotlin/
+
+# Linux paket çıktıları
+dist/

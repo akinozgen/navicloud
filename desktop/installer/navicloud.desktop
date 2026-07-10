@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=NaviCloud
+Comment=Navidrome istemcisi
+Exec=/opt/navicloud/bin/NaviCloud
+Icon=navicloud
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Player;

@@ -196,6 +196,8 @@ class MprisController(
                 conn.disconnect()
                 throw e
             }
+        }.onFailure {
+            println("MPRIS: servis başlatılamadı (medya tuşları/denetçi devre dışı): $it")
         }.isSuccess
         if (!ok) return false
 
