@@ -11,7 +11,7 @@
 # Araç yolları (override edilebilir env değişkenleri):
 #   JBR            Android/gradle derlemesi için JDK (vars: Android Studio jbr)
 #   NAVICLOUD_JDK  jpackage'lı JDK — masaüstü dağıtımı için (vars: ~/.navicloud-build)
-#   NAVICLOUD_NSIS makensis.exe yolu (vars: ~/.navicloud-build)
+#   NAVICLOUD_ISCC Inno Setup ISCC.exe yolu (vars: %LOCALAPPDATA%/Programs/Inno Setup 6)
 set -euo pipefail
 
 ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
@@ -31,11 +31,12 @@ if [ -z "$JDK" ]; then
   JDK="${JDK%/}"
 fi
 
-NSIS="${NAVICLOUD_NSIS:-}"
-if [ -z "$NSIS" ]; then
-  NSIS="$(first_glob "$HOME/.navicloud-build/nsis-*/Bin/makensis.exe")"
-  [ -z "$NSIS" ] && NSIS="$(first_glob "/c/Users/$USER/AppData/Local/Temp/claude/*/*/scratchpad/nsis-*/Bin/makensis.exe")"
-  [ -z "$NSIS" ] && command -v makensis >/dev/null 2>&1 && NSIS="$(command -v makensis)"
+ISCC="${NAVICLOUD_ISCC:-}"
+if [ -z "$ISCC" ]; then
+  ISCC="$(first_glob "$LOCALAPPDATA/Programs/Inno Setup 6/ISCC.exe" 2>/dev/null || true)"
+  [ -z "$ISCC" ] && ISCC="$(first_glob "/c/Program Files (x86)/Inno Setup 6/ISCC.exe")"
+  [ -z "$ISCC" ] && ISCC="$(first_glob "/c/Program Files/Inno Setup 6/ISCC.exe")"
+  [ -z "$ISCC" ] && command -v ISCC >/dev/null 2>&1 && ISCC="$(command -v ISCC)"
 fi
 
 gradlew() { local jh="$1"; shift; JAVA_HOME="$jh" "$jh/bin/java.exe" -cp gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain "$@" --console=plain; }
@@ -45,7 +46,7 @@ check() {
   echo "Desktop out : $DESKTOP_OUT"
   echo "JBR         : $JBR $( [ -x "$JBR/bin/java.exe" ] && echo OK || echo 'YOK!')"
   echo "jpackage JDK: ${JDK:-<bulunamadı>} $( [ -x "${JDK:-}/bin/jpackage.exe" ] && echo OK || echo 'YOK!')"
-  echo "makensis    : ${NSIS:-<bulunamadı>} $( [ -x "${NSIS:-x}" ] && echo OK || echo 'YOK!')"
+  echo "Inno ISCC   : ${ISCC:-<bulunamadı>} $( [ -x "${ISCC:-x}" ] && echo OK || echo 'YOK!')"
 }
 
 build_apk() {
@@ -57,12 +58,12 @@ build_apk() {
 }
 
 build_desktop() {
-  echo ">> Masaüstü dağıtımı (jpackage) + NSIS installer üretiliyor…"
+  echo ">> Masaüstü dağıtımı (jpackage) + Inno Setup installer üretiliyor…"
   [ -x "${JDK:-}/bin/jpackage.exe" ] || { echo "HATA: jpackage'lı JDK yok. NAVICLOUD_JDK ile yol ver."; exit 1; }
-  [ -x "${NSIS:-x}" ] || { echo "HATA: makensis yok. NAVICLOUD_NSIS ile yol ver."; exit 1; }
+  [ -x "${ISCC:-x}" ] || { echo "HATA: ISCC yok. NAVICLOUD_ISCC ile yol ver."; exit 1; }
   gradlew "$JDK" :desktop:createDistributable
   local appdir; appdir="$(cygpath -w "$ROOT/desktop/build/compose/binaries/main/app/NaviCloud")"
-  ( cd desktop/installer && "$NSIS" -DAPPDIR="$appdir" navicloud.nsi )
+  ( cd desktop/installer && "$ISCC" "/DAppDir=$appdir" navicloud.iss )
   cp "desktop/installer/NaviCloud-Setup.exe" "$DESKTOP_OUT/NaviCloud-Setup.exe"
   echo ">> $DESKTOP_OUT/NaviCloud-Setup.exe"
 }
