@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.DownloadForOffline
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -89,6 +90,12 @@ fun CollectionActionRow(
     modifier: Modifier = Modifier,
     /** This collection is the active playback context and playing → show pause. */
     isPlaying: Boolean = false,
+    /** Playlist: overflow'a "Yeniden adlandır" ekler (albüm ekranı geçmez → değişmez). */
+    onRename: (() -> Unit)? = null,
+    /** Playlist: overflow'a kırmızı "Listeyi sil" ekler. */
+    onDelete: (() -> Unit)? = null,
+    /** Boş koleksiyonda çalma/indirme kapalı; overflow (sil/adlandır) AKTİF kalır. */
+    playbackEnabled: Boolean = true,
 ) {
     val strings = LocalStrings.current
     var menuOpen by remember { mutableStateOf(false) }
@@ -110,18 +117,28 @@ fun CollectionActionRow(
                 DropdownMenuItem(
                     text = { Text(strings.collectionShufflePlay) },
                     leadingIcon = { Icon(Icons.Rounded.Shuffle, null) },
+                    enabled = playbackEnabled,
                     onClick = { menuOpen = false; onShuffle() },
                 )
                 DropdownMenuItem(
                     text = { Text(strings.commonPlayNext) },
                     leadingIcon = { Icon(Icons.Rounded.PlaylistPlay, null) },
+                    enabled = playbackEnabled,
                     onClick = { menuOpen = false; onPlayNext() },
                 )
                 DropdownMenuItem(
                     text = { Text(strings.commonAddToQueue) },
                     leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
+                    enabled = playbackEnabled,
                     onClick = { menuOpen = false; onAddToQueue() },
                 )
+                if (onRename != null) {
+                    DropdownMenuItem(
+                        text = { Text(strings.playlistRename) },
+                        leadingIcon = { Icon(Icons.Rounded.Edit, null) },
+                        onClick = { menuOpen = false; onRename() },
+                    )
+                }
                 if (downloadState != DownloadState.NONE) {
                     DropdownMenuItem(
                         text = { Text(strings.collectionRemoveDownloads) },
@@ -129,11 +146,20 @@ fun CollectionActionRow(
                         onClick = { menuOpen = false; onRemoveDownload() },
                     )
                 }
+                if (onDelete != null) {
+                    // Tehlike bölgesi: en altta, error renginde
+                    DropdownMenuItem(
+                        text = { Text(strings.playlistDelete, color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                        onClick = { menuOpen = false; onDelete() },
+                    )
+                }
             }
         }
 
         FilledIconButton(
             onClick = onPlay,
+            enabled = playbackEnabled,
             modifier = Modifier.size(64.dp),
             colors = IconButtonDefaults.filledIconButtonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -157,7 +183,7 @@ fun CollectionActionRow(
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }
-            DownloadState.NONE -> IconButton(onClick = onDownload) {
+            DownloadState.NONE -> IconButton(onClick = onDownload, enabled = playbackEnabled) {
                 Icon(
                     Icons.Rounded.DownloadForOffline,
                     contentDescription = strings.commonDownload,

@@ -13,10 +13,14 @@ import com.ozgen.navicloud.core.network.dto.AlbumDto
 import com.ozgen.navicloud.core.network.dto.ArtistDto
 import com.ozgen.navicloud.core.network.dto.PlaylistDto
 import com.ozgen.navicloud.core.network.dto.SongDto
+import com.ozgen.navicloud.core.network.SubsonicException
 import com.ozgen.navicloud.core.network.unwrap
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -67,13 +71,24 @@ private fun ArtistDto.toModel() = Artist(
     starred = starred != null,
 )
 
-private fun PlaylistDto.toModel() = Playlist(
+private fun PlaylistDto.toModel(currentUser: String?) = Playlist(
     id = id,
     name = name,
     comment = comment,
     songCount = songCount,
     duration = duration,
     coverArt = coverArt,
+    owner = owner,
+    isPublic = isPublic,
+    readonly = readonly,
+    changed = changed,
+    // Senaryo A: readonly birincil sinyal; yoksa owner fallback; o da yoksa
+    // varsayılan true (Senaryo B: ilk mutasyondaki error 50 oturum katmanında yakalanır)
+    editable = when {
+        readonly != null -> !readonly
+        owner != null && currentUser != null -> owner.equals(currentUser, ignoreCase = true)
+        else -> true
+    },
 )
 
 @Serializable
@@ -95,6 +110,12 @@ private fun String?.realImageUrlOrNull(): String? =
     this?.takeIf { it.isNotBlank() && !it.contains(LASTFM_PLACEHOLDER_HASH) }
 @Serializable
 data class PlaylistDetail(val playlist: Playlist, val songs: List<Song>)
+
+/** Sunucu error 50: liste bu kullanıcı için yazılamaz (smart liste / sahibi değil). */
+class PlaylistReadOnlyException(val playlistId: String) : Exception("Playlist salt okunur: $playlistId")
+
+/** Yerel görünüm sunucudan sapmış (index doğrulaması tutmadı) — force-refresh gerekir. */
+class PlaylistStaleException(val playlistId: String) : Exception("Playlist bayat: $playlistId")
 
 /** Sunucudan çekilen uzak kuyruk durumu (cihazlar arası devam için). */
 data class RemotePlayQueue(
@@ -124,6 +145,17 @@ class MusicRepository @Inject constructor(
     private val lrcLib = com.ozgen.navicloud.core.network.LrcLibClient(okHttp, json)
 
     private suspend fun api() = servers.activeClient().api
+
+    /** Oturum içi: error 50 yemiş playlist id'leri — UI kalıcı olarak salt-okunura düşer. */
+    private val playlistReadOnlyIds = MutableStateFlow<Set<String>>(emptySet())
+
+    // Reaktivite sinyalleri: cache invalidation VM'lerin bellek-içi listelerini
+    // uyandırmaz — mutasyon sonrası sürüm artar, açık ekranlar dinleyip tazelenir.
+    private val _playlistsVersion = MutableStateFlow(0)
+    val playlistsVersion: StateFlow<Int> = _playlistsVersion
+
+    private val _starredVersion = MutableStateFlow(0)
+    val starredVersion: StateFlow<Int> = _starredVersion
 
     private suspend fun serverPrefix(): String =
         "${servers.activeServer.first()?.id ?: 0}:"
@@ -231,17 +263,27 @@ class MusicRepository @Inject constructor(
             }
         }.getOrElse { emptyList() }
 
-    suspend fun playlists(force: Boolean = false): List<Playlist> =
-        cached("playlists", TTL_LISTS, force) {
-            api().getPlaylists().unwrap().playlists?.playlist.orEmpty().map { it.toModel() }
-        }
+    private suspend fun currentUser(): String? = servers.activeServer.first()?.username
 
-    suspend fun playlist(id: String, force: Boolean = false): PlaylistDetail =
-        cached("playlist:$id", TTL_LISTS, force) {
+    /** Oturum içi error-50 hafızası cache SONRASI uygulanır (cache'te bayat editable kalmasın). */
+    private fun Playlist.withSessionReadOnly(): Playlist =
+        if (editable && id in playlistReadOnlyIds.value) copy(editable = false) else this
+
+    suspend fun playlists(force: Boolean = false): List<Playlist> {
+        val user = currentUser()
+        return cached("playlists", TTL_LISTS, force) {
+            api().getPlaylists().unwrap().playlists?.playlist.orEmpty().map { it.toModel(user) }
+        }.map { it.withSessionReadOnly() }
+    }
+
+    suspend fun playlist(id: String, force: Boolean = false): PlaylistDetail {
+        val user = currentUser()
+        return cached("playlist:$id", TTL_LISTS, force) {
             val dto = api().getPlaylist(id).unwrap().playlist
                 ?: throw IllegalStateException("Çalma listesi bulunamadı")
-            PlaylistDetail(dto.toModel(), dto.entry.map { it.toModel() })
-        }
+            PlaylistDetail(dto.toModel(user), dto.entry.map { it.toModel() })
+        }.let { it.copy(playlist = it.playlist.withSessionReadOnly()) }
+    }
 
     suspend fun search(query: String): SearchResult =
         cached("search:$query", TTL_SEARCH) {
@@ -280,6 +322,7 @@ class MusicRepository @Inject constructor(
         invalidate("starred", "home")
         albumId?.let { invalidate("album:$it") }
         artistId?.let { invalidate("artist:$it") }
+        _starredVersion.update { it + 1 }
     }
 
     suspend fun scrobble(songId: String, submission: Boolean) {
@@ -307,9 +350,96 @@ class MusicRepository @Inject constructor(
         )
     }
 
-    suspend fun addToPlaylist(playlistId: String, songId: String) {
-        api().updatePlaylist(playlistId, songIdToAdd = songId).unwrap()
-        invalidate("playlist:$playlistId", "playlists")
+    // --- Playlist mutasyonları ---
+    // Ortak sarmalayıcı: error 50 (yetki/salt-okunur) → oturum içi hafıza + tipli hata;
+    // başarıda ilgili cache anahtarları düşer.
+
+    private suspend fun <T> mutatePlaylist(id: String, block: suspend () -> T): T {
+        val result = try {
+            block()
+        } catch (e: SubsonicException) {
+            if (e.code == 50) {
+                playlistReadOnlyIds.update { it + id }
+                throw PlaylistReadOnlyException(id)
+            }
+            throw e
+        }
+        invalidate("playlist:$id", "playlists")
+        _playlistsVersion.update { it + 1 }
+        return result
+    }
+
+    suspend fun addToPlaylist(playlistId: String, songIds: List<String>) {
+        if (songIds.isEmpty()) return
+        mutatePlaylist(playlistId) {
+            api().updatePlaylist(playlistId, songIdsToAdd = songIds).unwrap()
+        }
+    }
+
+    suspend fun renamePlaylist(id: String, name: String) {
+        mutatePlaylist(id) { api().updatePlaylist(id, name = name.trim()).unwrap() }
+    }
+
+    /**
+     * Index tabanlı çıkarma (duplicate güvenli). Sunucudaki GÜNCEL sıraya karşı korunmak
+     * için önce cache'siz taze getPlaylist ile [expectedSongId] doğrulanır; tutmuyorsa
+     * [PlaylistStaleException] — çağıran force-refresh yapmalı.
+     */
+    suspend fun removeFromPlaylist(id: String, index: Int, expectedSongId: String) {
+        mutatePlaylist(id) {
+            val fresh = api().getPlaylist(id).unwrap().playlist
+                ?: throw PlaylistStaleException(id)
+            if (fresh.entry.getOrNull(index)?.id != expectedSongId) throw PlaylistStaleException(id)
+            api().updatePlaylist(id, songIndexesToRemove = listOf(index)).unwrap()
+        }
+    }
+
+    /** Reorder = tam değiştirme. BOŞ liste bazı Navidrome sürümlerinde listeyi siler — guard ZORUNLU. */
+    suspend fun reorderPlaylist(id: String, songIds: List<String>) {
+        require(songIds.isNotEmpty()) { "Boş reorder listesi — sunucuda wipe riski" }
+        mutatePlaylist(id) { api().replacePlaylist(id, songIds).unwrap() }
+    }
+
+    suspend fun deletePlaylist(id: String) {
+        mutatePlaylist(id) { api().deletePlaylist(id).unwrap() }
+    }
+
+    /** Yeni çalma listesi oluşturur (opsiyonel başlangıç şarkılarıyla); oluşan listeyi döner. */
+    suspend fun createPlaylist(name: String, songIds: List<String> = emptyList()): Playlist? {
+        val r = api().createPlaylist(name, songIds.ifEmpty { null }).unwrap()
+        invalidate("playlists")
+        _playlistsVersion.update { it + 1 }
+        return r.playlist?.toModel(currentUser())
+    }
+
+    /**
+     * Playlist için "Öneriler" (YTM tarzı): seed sanatçılardan benzer şarkı toplar.
+     * Katman 1 = getSimilarSongs2 (Last.fm agent gerektirir); seed başına boş dönerse
+     * Katman 2 = search3 ile aynı sanatçının listede olmayan parçaları. Tümü sessiz
+     * fail — hiçbir aday yoksa boş liste döner, UI bölümü hiç göstermez.
+     */
+    suspend fun playlistSuggestions(
+        seedArtists: List<Pair<String, String?>>, // (artistId, artistName)
+        excludeIds: Set<String>,
+        limit: Int = 10,
+    ): List<Song> {
+        val candidates = LinkedHashMap<String, Song>()
+        for ((artistId, artistName) in seedArtists) {
+            val similar = similarSongs(artistId, 15)
+            val pool = similar.ifEmpty {
+                // Fallback: sanatçının kütüphanedeki diğer parçaları
+                artistName?.let { name ->
+                    runCatching {
+                        api().search3(name, artistCount = 0, albumCount = 0, songCount = 20)
+                            .unwrap().searchResult3?.song.orEmpty()
+                            .map { it.toModel() }
+                            .filter { it.artistId == artistId }
+                    }.getOrDefault(emptyList())
+                } ?: emptyList()
+            }
+            pool.forEach { s -> if (s.id !in excludeIds) candidates.putIfAbsent(s.id, s) }
+        }
+        return candidates.values.shuffled().take(limit)
     }
 
     suspend fun similarSongs(artistId: String, count: Int = 25): List<Song> =

@@ -75,6 +75,10 @@ fun SongItem(
     highlighted: Boolean = false,
     inQueue: Boolean = false,
     queueUid: String? = null,
+    /** Playlist bağlamı: menüye "Listeden çıkar" ekler (kuyruktaki inQueue/queueUid aynası).
+     *  Çıkarma index'e bağlı olduğundan callback'i EKRAN sağlar — global aksiyon değil. */
+    inPlaylist: Boolean = false,
+    onRemoveFromPlaylist: (() -> Unit)? = null,
     /** null = off; true/false = show equalizer bars (animating / frozen). */
     playingBars: Boolean? = null,
     barsTint: Color? = null,
@@ -156,6 +160,8 @@ fun SongItem(
                     onDismiss = { menuOpen = false },
                     inQueue = inQueue,
                     queueUid = queueUid,
+                    inPlaylist = inPlaylist,
+                    onRemoveFromPlaylist = onRemoveFromPlaylist,
                 )
             }
         }
@@ -170,9 +176,11 @@ fun SongContextMenu(
     onDismiss: () -> Unit,
     inQueue: Boolean = false,
     queueUid: String? = null,
+    inPlaylist: Boolean = false,
+    onRemoveFromPlaylist: (() -> Unit)? = null,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        SongContextMenuItems(song, onDismiss, inQueue, queueUid)
+        SongContextMenuItems(song, onDismiss, inQueue, queueUid, inPlaylist, onRemoveFromPlaylist)
     }
 }
 
@@ -186,6 +194,8 @@ fun SongContextMenuItems(
     onDismiss: () -> Unit,
     inQueue: Boolean = false,
     queueUid: String? = null,
+    inPlaylist: Boolean = false,
+    onRemoveFromPlaylist: (() -> Unit)? = null,
 ) {
     val actions = LocalSongMenu.current ?: return
     val strings = LocalStrings.current
@@ -226,6 +236,13 @@ fun SongContextMenuItems(
                 text = { Text(strings.songMenuRemoveFromQueue) },
                 leadingIcon = { Icon(Icons.Rounded.RemoveCircleOutline, null) },
                 onClick = { onDismiss(); actions.removeFromQueue(queueUid) },
+            )
+        }
+        if (inPlaylist && onRemoveFromPlaylist != null) {
+            DropdownMenuItem(
+                text = { Text(strings.songMenuRemoveFromPlaylist) },
+                leadingIcon = { Icon(Icons.Rounded.RemoveCircleOutline, null) },
+                onClick = { onDismiss(); onRemoveFromPlaylist() },
             )
         }
         if (actions.isDownloaded(song.id)) {

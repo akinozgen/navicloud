@@ -119,6 +119,11 @@ data class PlaylistDto(
     val songCount: Int = 0,
     val duration: Int = 0,
     val coverArt: String? = null,
+    val owner: String? = null,
+    @SerialName("public") val isPublic: Boolean? = null,
+    /** OpenSubsonic: Navidrome smart listede true, sahibi değilsen true; false'ta gelmeyebilir. */
+    val readonly: Boolean? = null,
+    val changed: String? = null,
     val entry: List<SongDto> = emptyList(),
 )
 

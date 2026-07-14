@@ -87,8 +87,32 @@ interface SubsonicApi {
     @GET("updatePlaylist")
     suspend fun updatePlaylist(
         @Query("playlistId") playlistId: String,
-        @Query("songIdToAdd") songIdToAdd: String? = null,
+        @Query("name") name: String? = null,
+        @Query("comment") comment: String? = null,
+        @Query("public") public: Boolean? = null,
+        @Query("songIdToAdd") songIdsToAdd: List<String>? = null,
+        // 0-tabanlı; sunucu çağrı anındaki snapshot sırasına göre yorumlar
+        @Query("songIndexToRemove") songIndexesToRemove: List<Int>? = null,
     ): SubsonicEnvelope
+
+    @GET("createPlaylist")
+    suspend fun createPlaylist(
+        @Query("name") name: String,
+        @Query("songId") songIds: List<String>? = null,
+    ): SubsonicEnvelope
+
+    // Reorder = tam değiştirme: Subsonic'te move yok; playlistId + TAM sıralı songId listesi
+    // listeyi komple değiştirir. BOŞ liste bazı sürümlerde wipe — guard repo'da. POST form:
+    // uzun listeler URL limitine sığmaz (Navidrome formPost uzantısı; savePlayQueue emsali).
+    @FormUrlEncoded
+    @POST("createPlaylist")
+    suspend fun replacePlaylist(
+        @Field("playlistId") playlistId: String,
+        @Field("songId") songIds: List<String>,
+    ): SubsonicEnvelope
+
+    @GET("deletePlaylist")
+    suspend fun deletePlaylist(@Query("id") id: String): SubsonicEnvelope
 
     @GET("startScan")
     suspend fun startScan(@Query("fullScan") fullScan: Boolean = false): SubsonicEnvelope

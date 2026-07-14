@@ -20,8 +20,11 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ArrowDropDown
@@ -44,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -72,13 +76,17 @@ import com.ozgen.navicloud.ui.components.AlbumCard
 import com.ozgen.navicloud.ui.components.Artwork
 import com.ozgen.navicloud.ui.components.NaviChip
 import com.ozgen.navicloud.ui.components.PillSearchField
+import com.ozgen.navicloud.ui.components.PlaylistNameDialog
 import com.ozgen.navicloud.ui.components.SongItem
+import com.ozgen.navicloud.ui.rememberToaster
+import androidx.compose.ui.draw.clip
 import com.ozgen.navicloud.ui.i18n.LocalStrings
 import com.ozgen.navicloud.i18n.I18n
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -143,6 +151,19 @@ class LibraryViewModel(
 
     init {
         selectTab(LibraryTab.PLAYLISTS)
+        // Reaktivite: playlist/favori mutasyonu (şarkı menüsü, detay ekranı, silme...)
+        // görünür sekmeyi kendiliğinden tazeler — VM sekme geçişlerinde yaşadığı için
+        // yalnız cache invalidation yetmiyordu. Diğer sekmeler selectTab'da zaten yenilenir.
+        viewModelScope.launch {
+            repo.playlistsVersion.drop(1).collect {
+                if (_state.value.tab == LibraryTab.PLAYLISTS) load(force = false)
+            }
+        }
+        viewModelScope.launch {
+            repo.starredVersion.drop(1).collect {
+                if (_state.value.tab == LibraryTab.FAVORITES) load(force = false)
+            }
+        }
     }
 
     fun selectTab(tab: LibraryTab) {
@@ -161,6 +182,15 @@ class LibraryViewModel(
 
     /** Pull-to-refresh: TTL'i atla. Sekme geçişleri cache'ten döner. */
     fun refresh() = load(force = true)
+
+    /** Boş çalma listesi oluşturur; başarıda liste tazelenir ve yeni liste döner (detaya gitmek için). */
+    fun createPlaylist(name: String, onCreated: (com.ozgen.navicloud.core.model.Playlist?) -> Unit) {
+        viewModelScope.launch {
+            val p = runCatching { repo.createPlaylist(name) }.getOrNull()
+            if (p != null) load(force = false) // createPlaylist cache'i düşürdü; taze liste gelir
+            onCreated(p)
+        }
+    }
 
     private fun load(force: Boolean) {
         val tab = _state.value.tab
@@ -358,7 +388,45 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
                     val items = remember(state.playlists, q) { state.playlists.filter { q.isEmpty() || it.name.contains(q, ignoreCase = true) } }
                     val listState = rememberLazyListState()
                     SyncFabExpansion(listState, fabExpanded)
+                    var newPlaylistDialog by remember { mutableStateOf(false) }
+                    val offline by vm.offlineMode.collectAsStateWithLifecycle()
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
+                        // Sabit ilk satır: yeni liste oluştur (arama filtresinden bağımsız;
+                        // liste boşken de CTA görevi görür). Offline'da devre dışı.
+                        item(key = "new-playlist", contentType = "new-playlist") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(enabled = !offline) { newPlaylistDialog = true }
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Box(
+                                    Modifier
+                                        .size(56.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(
+                                            if (offline) MaterialTheme.colorScheme.surfaceContainerHigh
+                                            else MaterialTheme.colorScheme.primaryContainer
+                                        ),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Add,
+                                        contentDescription = null,
+                                        tint = if (offline) MaterialTheme.colorScheme.onSurfaceVariant
+                                        else MaterialTheme.colorScheme.onPrimaryContainer,
+                                    )
+                                }
+                                Text(
+                                    strings.songMenuNewPlaylist,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = if (offline) MaterialTheme.colorScheme.onSurfaceVariant
+                                    else MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        }
                         items(items.size, key = { items[it].id }, contentType = { "playlist" }) { i ->
                             val pl = items[i]
                             Row(
@@ -380,6 +448,21 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
                                 }
                             }
                         }
+                    }
+                    if (newPlaylistDialog) {
+                        val toast = rememberToaster()
+                        PlaylistNameDialog(
+                            title = strings.songMenuNewPlaylist,
+                            confirmLabel = strings.commonCreate,
+                            onDismiss = { newPlaylistDialog = false },
+                            onConfirm = { name ->
+                                newPlaylistDialog = false
+                                vm.createPlaylist(name) { p ->
+                                    if (p != null) navController.navigate("playlist/${p.id}")
+                                    else toast(strings.playlistToastEditFailed)
+                                }
+                            },
+                        )
                     }
                 }
                 LibraryTab.ALBUMS -> {

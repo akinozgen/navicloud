@@ -11,6 +11,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -62,7 +63,15 @@ class SongMenuViewModel(
 
     fun addToPlaylist(playlistId: String, song: Song, onDone: (Boolean) -> Unit) {
         viewModelScope.launch {
-            val ok = runCatching { repo.addToPlaylist(playlistId, song.id) }.isSuccess
+            val ok = runCatching { repo.addToPlaylist(playlistId, listOf(song.id)) }.isSuccess
+            onDone(ok)
+        }
+    }
+
+    fun createPlaylistAndAdd(name: String, song: Song, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val ok = runCatching { repo.createPlaylist(name.trim(), listOf(song.id)) }.isSuccess
+            if (ok) loadPlaylists()
             onDone(ok)
         }
     }
@@ -91,6 +100,7 @@ fun SongMenuHost(
     val strings = LocalStrings.current
     val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
     var playlistPickerSong by remember { mutableStateOf<Song?>(null) }
+    var newPlaylistFor by remember { mutableStateOf<Song?>(null) }
     var infoSong by remember { mutableStateOf<Song?>(null) }
 
     val actions = remember(navController, strings) {
@@ -145,9 +155,19 @@ fun SongMenuHost(
                         .heightIn(max = 400.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    if (playlists.isEmpty()) {
-                        Text(strings.songMenuPlaylistsLoading, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    // Yeni liste oluştur — her zaman en üstte (liste boşken de ulaşılır)
+                    Text(
+                        "+ ${strings.songMenuNewPlaylist}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                newPlaylistFor = pickerSong
+                                playlistPickerSong = null
+                            }
+                            .padding(vertical = 12.dp),
+                    )
                     playlists.forEach { pl ->
                         Text(
                             pl.name,
@@ -167,6 +187,21 @@ fun SongMenuHost(
             },
             confirmButton = {
                 TextButton(onClick = { playlistPickerSong = null }) { Text(strings.commonCancel) }
+            },
+        )
+    }
+
+    val createSong = newPlaylistFor
+    if (createSong != null) {
+        PlaylistNameDialog(
+            title = strings.songMenuNewPlaylist,
+            confirmLabel = strings.commonCreate,
+            onDismiss = { newPlaylistFor = null },
+            onConfirm = { n ->
+                vm.createPlaylistAndAdd(n, createSong) { ok ->
+                    toast(if (ok) strings.songMenuToastAddedToPlaylist(n) else strings.songMenuToastAddFailed)
+                }
+                newPlaylistFor = null
             },
         )
     }

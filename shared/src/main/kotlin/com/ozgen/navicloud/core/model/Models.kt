@@ -65,6 +65,16 @@ data class Playlist(
     val songCount: Int,
     val duration: Int,
     val coverArt: String?,
+    val owner: String? = null,
+    val isPublic: Boolean? = null,
+    val readonly: Boolean? = null,
+    val changed: String? = null,
+    /**
+     * UI'daki TÜM düzenleme yüzeyleri bundan akar. Sunucu sinyalinden türetilir
+     * (readonly → owner → varsayılan true); oturum içi error-50 hafızası
+     * MusicRepository'de cache SONRASI katman olarak uygulanır.
+     */
+    val editable: Boolean = true,
 )
 
 @Serializable

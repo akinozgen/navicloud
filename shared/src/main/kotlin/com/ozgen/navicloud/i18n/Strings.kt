@@ -58,6 +58,7 @@ interface Strings {
     val commonRefresh: String
     val commonSettings: String
     val commonAdd: String
+    val commonCreate: String
     val commonDownload: String
     val commonOptions: String
     val commonPlayNext: String
@@ -197,6 +198,21 @@ interface Strings {
     // --- Şarkı öğesi / menüsü ---
     val songItemMenu: String
     val songMenuAddToPlaylist: String
+    val songMenuNewPlaylist: String
+    val playlistNameHint: String
+    val songMenuRemoveFromPlaylist: String
+    val playlistToastRemoved: String
+    val playlistToastEditFailed: String
+    val playlistRename: String
+    val playlistDelete: String
+    val playlistDeleteConfirmTitle: String
+    fun playlistDeleteConfirmBody(name: String): String
+    val playlistToastDeleted: String
+    val playlistReadOnlyBadge: String
+    val playlistToastReadOnly: String
+    val playlistEmptyHint: String
+    val playlistSuggestions: String
+    val playlistSuggestionAdded: String
     val songMenuGoToArtist: String
     val songMenuRemoveFromQueue: String
     val songMenuRemoveDownload: String
@@ -355,6 +371,7 @@ object TrStrings : Strings {
     override val commonRefresh = "Yenile"
     override val commonSettings = "Ayarlar"
     override val commonAdd = "Ekle"
+    override val commonCreate = "Oluştur"
     override val commonDownload = "İndir"
     override val commonOptions = "Seçenekler"
     override val commonPlayNext = "Sıradakine ekle"
@@ -483,6 +500,21 @@ object TrStrings : Strings {
 
     override val songItemMenu = "Şarkı menüsü"
     override val songMenuAddToPlaylist = "Çalma listesine ekle"
+    override val songMenuNewPlaylist = "Yeni çalma listesi"
+    override val playlistNameHint = "Liste adı"
+    override val songMenuRemoveFromPlaylist = "Listeden çıkar"
+    override val playlistToastRemoved = "Şarkı listeden çıkarıldı"
+    override val playlistToastEditFailed = "Liste güncellenemedi"
+    override val playlistRename = "Yeniden adlandır"
+    override val playlistDelete = "Listeyi sil"
+    override val playlistDeleteConfirmTitle = "Liste silinsin mi?"
+    override fun playlistDeleteConfirmBody(name: String) = "\"$name\" kalıcı olarak silinecek."
+    override val playlistToastDeleted = "Liste silindi"
+    override val playlistReadOnlyBadge = "Salt okunur"
+    override val playlistToastReadOnly = "Bu liste sunucuda salt okunur (akıllı liste)"
+    override val playlistEmptyHint = "Bu liste boş. Şarkı menüsünden \"Çalma listesine ekle\" ile doldurun."
+    override val playlistSuggestions = "Öneriler"
+    override val playlistSuggestionAdded = "Listeye eklendi"
     override val songMenuGoToArtist = "Sanatçıya git"
     override val songMenuRemoveFromQueue = "Kuyruktan kaldır"
     override val songMenuRemoveDownload = "İndirileni kaldır"
@@ -657,6 +689,7 @@ object EnStrings : Strings {
     override val commonRefresh = "Refresh"
     override val commonSettings = "Settings"
     override val commonAdd = "Add"
+    override val commonCreate = "Create"
     override val commonDownload = "Download"
     override val commonOptions = "Options"
     override val commonPlayNext = "Play next"
@@ -785,6 +818,21 @@ object EnStrings : Strings {
 
     override val songItemMenu = "Song menu"
     override val songMenuAddToPlaylist = "Add to playlist"
+    override val songMenuNewPlaylist = "New playlist"
+    override val playlistNameHint = "Playlist name"
+    override val songMenuRemoveFromPlaylist = "Remove from playlist"
+    override val playlistToastRemoved = "Removed from playlist"
+    override val playlistToastEditFailed = "Couldn't update playlist"
+    override val playlistRename = "Rename"
+    override val playlistDelete = "Delete playlist"
+    override val playlistDeleteConfirmTitle = "Delete playlist?"
+    override fun playlistDeleteConfirmBody(name: String) = "\"$name\" will be permanently deleted."
+    override val playlistToastDeleted = "Playlist deleted"
+    override val playlistReadOnlyBadge = "Read-only"
+    override val playlistToastReadOnly = "This playlist is read-only on the server (smart playlist)"
+    override val playlistEmptyHint = "This playlist is empty. Add songs via \"Add to playlist\" in the song menu."
+    override val playlistSuggestions = "Suggestions"
+    override val playlistSuggestionAdded = "Added to playlist"
     override val songMenuGoToArtist = "Go to artist"
     override val songMenuRemoveFromQueue = "Remove from queue"
     override val songMenuRemoveDownload = "Remove download"
