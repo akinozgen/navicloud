@@ -310,6 +310,7 @@ class RemoteControlManager(
             scope = scope,
             artworkResolver = artworkResolver,
             onClosed = { onRemoteClosed(peer.deviceId) },
+            onKicked = { kickedDeviceId = peer.deviceId },
         )
         remote = rpc
 
@@ -356,7 +357,18 @@ class RemoteControlManager(
      * (artan backoff), olmazsa Local'e düş. Kullanıcının bilerek controlLocal'i teardownRemote ile
      * remote'u null'lar → buradaki kontrol `remote == null` ise reconnect denemez (kasıtlı ayrılma).
      */
+    // Alıcı "kumandayı al" ile bu cihazı düşürdüyse (Bye) burada işaretlenir → onRemoteClosed
+    // bunu ağ blibi sanıp reconnect ETMEZ, Local'e düşer. Elle yeniden bağlanma serbest (pencere yok).
+    @Volatile private var kickedDeviceId: String? = null
+
     private fun onRemoteClosed(deviceId: String) {
+        if (kickedDeviceId == deviceId) {
+            kickedDeviceId = null
+            scope.launch {
+                switchMutex.withLock { if (isStillTarget(deviceId)) teardownRemote() } // → Local/IDLE, reconnect YOK
+            }
+            return
+        }
         scope.launch { reconnectOrFallback(deviceId) }
     }
 

@@ -28,6 +28,8 @@ class RemotePlayerController(
     private val scope: CoroutineScope,
     private val artworkResolver: suspend (Song) -> String?,
     private val onClosed: () -> Unit = {},
+    /** Alıcı bilerek düşürdü (Bye) → manager otomatik reconnect ETMESİN. onClosed'dan ÖNCE çağrılır. */
+    private val onKicked: () -> Unit = {},
 ) : PlayerController {
 
     private val _state = MutableStateFlow(PlayerUiState())
@@ -81,6 +83,7 @@ class RemotePlayerController(
                             _currentContext.value = snap.context
                         }
                         is Reject -> _rejected.value = msg.reason
+                        is Bye -> { onKicked(); connection.close() } // alıcı düşürdü → reconnect YOK
                         else -> Unit // Welcome/SessionInfo/Pong: lastRxMs güncellemesi yeterli (liveness)
                     }
                 }

@@ -132,3 +132,10 @@ data object Pong : RcMessage
 /** Sunucuya bağlı controller sayısı — çoklu kumanda göstergesi için (bir alıcıyı N controller sürebilir). */
 @Serializable
 data class SessionInfo(val controllers: Int) : RcMessage
+
+/**
+ * Alıcı bu controller'ı BİLEREK düşürdü ("kumandayı al"). Controller bunu alınca kopmayı
+ * ağ blibi sanıp OTOMATİK reconnect YAPMAZ — Local'e düşer. Kullanıcı isterse elle yeniden bağlanır.
+ */
+@Serializable
+data object Bye : RcMessage

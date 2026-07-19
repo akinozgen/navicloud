@@ -52,6 +52,7 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.material.icons.rounded.CastConnected
+import androidx.compose.material.icons.rounded.SettingsRemote
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Favorite
@@ -707,18 +708,37 @@ private fun FullPlayerContent(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            // Uzaktan kumanda — cihaz seçici (remoteControl sağlandıysa; Remote iken accent)
+            // Uzaktan kumanda — cihaz seçici + durum göstergesi (banner yerine ikon+badge).
+            // İki ayrı durum, iki ayrı ikon: BEN başkasını sürüyorum (CastConnected/primary)
+            // vs BENİ başkası sürüyor (SettingsRemote/tertiary). Badge = "canlı" vurgusu.
+            // Basınca cihaz menüsü açılır — "kumandayı al"/disconnect orada.
             val rc = com.ozgen.navicloud.ui.LocalAppContainer.current.remoteControl
             if (rc != null) {
                 val rcTarget by rc.target.collectAsStateWithLifecycle()
+                val controlledBy by rc.controlledBy.collectAsStateWithLifecycle()
                 var showDevicePicker by remember { mutableStateOf(false) }
                 val isRemote = rcTarget is com.ozgen.navicloud.remote.ControlTarget.Remote
+                val isControlled = controlledBy > 0
+                val rcIcon = when {
+                    isRemote -> Icons.Rounded.CastConnected
+                    isControlled -> Icons.Rounded.SettingsRemote
+                    else -> Icons.Rounded.Cast
+                }
+                val rcTint = when {
+                    isRemote -> MaterialTheme.colorScheme.primary
+                    isControlled -> MaterialTheme.colorScheme.tertiary
+                    else -> Color.White
+                }
                 IconButton(onClick = { showDevicePicker = true }) {
-                    Icon(
-                        if (isRemote) Icons.Rounded.CastConnected else Icons.Rounded.Cast,
-                        contentDescription = strings.playerSelectDevice,
-                        tint = if (isRemote) MaterialTheme.colorScheme.primary else Color.White,
-                    )
+                    androidx.compose.material3.BadgedBox(
+                        badge = {
+                            if (isRemote || isControlled) {
+                                androidx.compose.material3.Badge(containerColor = rcTint)
+                            }
+                        },
+                    ) {
+                        Icon(rcIcon, contentDescription = strings.playerSelectDevice, tint = rcTint)
+                    }
                 }
                 if (showDevicePicker) {
                     com.ozgen.navicloud.ui.components.DevicePickerSheet(onDismiss = { showDevicePicker = false })

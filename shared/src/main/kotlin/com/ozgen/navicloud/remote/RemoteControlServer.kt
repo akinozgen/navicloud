@@ -62,9 +62,19 @@ class RemoteControlServer(
     @Volatile private var failCount = 0
     @Volatile private var cooldownUntil = 0L
 
-    /** "Kumandayı al" (RC-3): tüm bağlı controller'ları düşürür — onlar Local'e döner. */
+    /**
+     * "Kumandayı al" (RC-3): tüm bağlı controller'ları düşürür — onlar Local'e döner.
+     * Kapatmadan ÖNCE [Bye] gönderir ki controller kopmayı ağ blibi sanıp otomatik reconnect
+     * yapmasın (aksi halde kontrol anında geri sıçrar). Kısa gecikme = Bye kapanıştan önce ulaşsın.
+     */
     fun kickControllers() {
-        controllers.forEach { runCatching { it.close() } }
+        controllers.toList().forEach { c ->
+            scope.launch {
+                runCatching { c.send(Bye) }
+                kotlinx.coroutines.delay(120)
+                runCatching { c.close() }
+            }
+        }
     }
 
     val boundPort: Int get() = server.boundPort

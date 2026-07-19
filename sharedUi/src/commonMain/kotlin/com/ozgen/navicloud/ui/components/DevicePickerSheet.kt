@@ -15,6 +15,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Computer
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.LinkOff
+import androidx.compose.material.icons.rounded.SettingsRemote
 import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -55,6 +56,7 @@ fun DevicePickerSheet(onDismiss: () -> Unit) {
     val devices by rc.devices.collectAsStateWithLifecycle()
     val target by rc.target.collectAsStateWithLifecycle()
     val connState by rc.connState.collectAsStateWithLifecycle()
+    val controlledBy by rc.controlledBy.collectAsStateWithLifecycle()
     val selfName by rc.selfName.collectAsStateWithLifecycle()
     val pairedIds by rc.pairedIds.collectAsStateWithLifecycle()
     var editingName by remember { mutableStateOf(false) }
@@ -67,6 +69,19 @@ fun DevicePickerSheet(onDismiss: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
             )
+
+            // Bu cihaz BAŞKASINCA kumanda ediliyorsa: kumandayı geri al (controller'ları düşürür).
+            // Banner kaldırıldı; bu aksiyon artık burada.
+            if (controlledBy > 0) {
+                DeviceRow(
+                    icon = Icons.Rounded.SettingsRemote,
+                    name = strings.rootTakeControl,
+                    subtitle = strings.rootControlledRemotely,
+                    selected = false,
+                    enabled = true,
+                    onClick = { rc.takeControl(); onDismiss() },
+                )
+            }
 
             // Bu cihaz
             DeviceRow(

@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CastConnected
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Search
@@ -311,33 +310,33 @@ private fun MainShell(vm: AppViewModel, server: Server, platformSettings: @Compo
                     }
                 }
 
-                // Cihazlar arası bantlar (her düzende üstte): kumanda göstergeleri + "kaldığın yerden devam".
+                // "Kaldığın yerden devam" bandı (üstte). Uzaktan kumanda DURUMU artık banner
+                // değil — player cast ikonu + badge'inde; kick/disconnect cihaz menüsünde.
                 Column(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .statusBarsPadding()
                         .fillMaxWidth(),
                 ) {
-                    RemoteControlBanners()
                     ResumeSyncBanner()
                 }
+                // Uzaktan kumanda dialog/toast'ları (banner DEĞİL): alıcı PIN gösterimi,
+                // controller PIN/parola girişi, bağlantı-koptu bildirimi.
+                RemoteControlDialogs()
             }
         }
     }
 }
 
 /**
- * Uzaktan kumanda bantları (RC-3): hedef Remote ise "X kumanda ediliyor · Bu cihaza dön";
- * bu cihaz BAŞKASINCA kumanda ediliyorsa "uzaktan kumanda ediliyor · Kumandayı al".
- * Bağlantı koptuğunda (FAILED) toast — hedef zaten otomatik Local'e düşmüştür.
+ * Uzaktan kumanda dialog/toast'ları (banner DEĞİL — kumanda durumu artık player cast ikonu +
+ * badge'inde; kick/disconnect cihaz menüsünde). Burada yalnız: alıcı PIN gösterimi, controller
+ * PIN/parola giriş dialoğu, bağlantı-koptu (FAILED) toast'ı.
  */
 @Composable
-private fun RemoteControlBanners() {
+private fun RemoteControlDialogs() {
     val rc = LocalAppContainer.current.remoteControl ?: return
     val s = LocalStrings.current
-    val target by rc.target.collectAsStateWithLifecycle()
-    val peerName by rc.currentPeerName.collectAsStateWithLifecycle()
-    val controlledBy by rc.controlledBy.collectAsStateWithLifecycle()
     val connState by rc.connState.collectAsStateWithLifecycle()
 
     val toast = rememberToaster()
@@ -348,20 +347,6 @@ private fun RemoteControlBanners() {
             wasConnected = false
             toast(s.commonConnectionLost)
         }
-    }
-
-    val t = target
-    when {
-        t is com.ozgen.navicloud.remote.ControlTarget.Remote -> RcBannerRow(
-            text = s.rootControllingRemote(peerName ?: s.rootRemoteDeviceFallback),
-            actionLabel = s.rootSwitchToThisDevice,
-            onAction = { rc.controlLocal() },
-        )
-        controlledBy > 0 -> RcBannerRow(
-            text = s.rootControlledRemotely,
-            actionLabel = s.rootTakeControl,
-            onAction = { rc.takeControl() },
-        )
     }
 
     // RC-5 alıcı: biri eşleşmek istiyorsa PIN'i göster
@@ -419,33 +404,6 @@ private fun RemoteControlBanners() {
             },
             dismissButton = { TextButton(onClick = { prompt.cancel() }) { Text(s.commonCancel) } },
         )
-    }
-}
-
-@Composable
-private fun RcBannerRow(text: String, actionLabel: String, onAction: () -> Unit) {
-    Card(
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp).fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-    ) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = 16.dp, top = 4.dp, bottom = 4.dp, end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                Icons.Rounded.CastConnected, contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp),
-            )
-            Text(
-                text,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = onAction) { Text(actionLabel) }
-        }
     }
 }
 
