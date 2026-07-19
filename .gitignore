@@ -25,3 +25,6 @@ desktop/installer/*.deb
 
 # Linux paket çıktıları
 dist/
+
+# yerel geliştirme aracı ayar klasörü (sürüm kontrolü dışı)
+.claude/
