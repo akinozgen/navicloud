@@ -76,6 +76,15 @@ interface Strings {
     val homeGreetingEvening: String
     val homeServers: String
     val homeSeeAll: String
+    val homeMixTitle: String
+    fun homeMixSubtitle(count: Int): String
+    val homeMixBadge: String
+    val homeMixPlaylistComment: String
+    val homeRadioSection: String
+    val homeRadioChip: String
+    val homeSimilarSection: String
+    val homeRediscoverSection: String
+    fun homeArtistRadioLabel(name: String): String
 
     // --- Albüm ---
     val albumLoadError: String
@@ -388,6 +397,15 @@ object TrStrings : Strings {
     override val homeGreetingEvening = "İyi akşamlar"
     override val homeServers = "Sunucular"
     override val homeSeeAll = "Tümünü gör"
+    override val homeMixTitle = "Günün Mix'i"
+    override fun homeMixSubtitle(count: Int) = "Dinlediklerinden $count şarkı"
+    override val homeMixBadge = "Liste: NaviCloud Mix · her gün yenilenir"
+    override val homeMixPlaylistComment = "NaviCloud tarafından her gün yenilenir"
+    override val homeRadioSection = "Sanatçı radyosu"
+    override val homeRadioChip = "RADYO"
+    override val homeSimilarSection = "Sevdiklerine benzer"
+    override val homeRediscoverSection = "Yeniden keşfet"
+    override fun homeArtistRadioLabel(name: String) = "$name Radyosu"
 
     override val albumLoadError = "Albüm yüklenemedi"
     override val albumType = "Albüm"
@@ -706,6 +724,15 @@ object EnStrings : Strings {
     override val homeGreetingEvening = "Good evening"
     override val homeServers = "Servers"
     override val homeSeeAll = "See all"
+    override val homeMixTitle = "Today's Mix"
+    override fun homeMixSubtitle(count: Int) = "$count songs from your listening"
+    override val homeMixBadge = "Playlist: NaviCloud Mix · refreshed daily"
+    override val homeMixPlaylistComment = "Refreshed daily by NaviCloud"
+    override val homeRadioSection = "Artist radio"
+    override val homeRadioChip = "RADIO"
+    override val homeSimilarSection = "More like your favorites"
+    override val homeRediscoverSection = "Rediscover"
+    override fun homeArtistRadioLabel(name: String) = "$name Radio"
 
     override val albumLoadError = "Couldn't load album"
     override val albumType = "Album"

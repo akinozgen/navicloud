@@ -106,6 +106,9 @@ data class ArtistDetail(
 // Last.fm's well-known star placeholder — Navidrome serves it when no agent is configured
 private const val LASTFM_PLACEHOLDER_HASH = "2a96cbd8b46e442fc41c2b86b821562f"
 
+/** Materyalize günlük mix'in playlist adı — MARKA SABİTİ, i18n DEĞİL (dil değişince ikinci liste doğmasın). */
+const val NAVICLOUD_MIX_NAME = "NaviCloud Mix"
+
 private fun String?.realImageUrlOrNull(): String? =
     this?.takeIf { it.isNotBlank() && !it.contains(LASTFM_PLACEHOLDER_HASH) }
 @Serializable
@@ -319,7 +322,7 @@ class MusicRepository @Inject constructor(
         if (starred) api().star(songId, albumId, artistId).unwrap()
         else api().unstar(songId, albumId, artistId).unwrap()
         // Favori değişikliği görünen listeleri etkiler — ilgili cache'ler düşer
-        invalidate("starred", "home")
+        invalidate("starred", "home", "foryou:rediscover")
         albumId?.let { invalidate("album:$it") }
         artistId?.let { invalidate("artist:$it") }
         _starredVersion.update { it + 1 }
@@ -440,6 +443,154 @@ class MusicRepository @Inject constructor(
             pool.forEach { s -> if (s.id !in excludeIds) candidates.putIfAbsent(s.id, s) }
         }
         return candidates.values.shuffled().take(limit)
+    }
+
+    // --- For You ana sayfa rafları (docs/home/PLAN.md) ---
+    // Kompozisyon burada, saf harman ForYouMixer'da. Hepsi sessiz fail → boş raf gizlenir.
+
+    /** Seed sanatçılar: frequent %60 + starred %40, ≤8, dedup. (artistId, ad) çiftleri. */
+    private suspend fun forYouSeeds(): List<Pair<String, String?>> {
+        val frequent = runCatching { albumList(HomeSectionType.FREQUENT, size = 30) }
+            .getOrDefault(emptyList())
+        val starredAll = runCatching { starred() }.getOrNull()
+        val freqArtists = frequent.mapNotNull { a -> a.artistId?.let { it to a.artist } }
+            .distinctBy { it.first }
+        val starArtists = buildList {
+            starredAll?.artists?.forEach { add(it.id to it.name) }
+            starredAll?.songs?.forEach { s -> s.artistId?.let { add(it to s.artist) } }
+        }.distinctBy { it.first }
+        val seeds = LinkedHashMap<String, String?>()
+        freqArtists.take(5).forEach { seeds.putIfAbsent(it.first, it.second) }
+        starArtists.shuffled().forEach { if (seeds.size < 8) seeds.putIfAbsent(it.first, it.second) }
+        freqArtists.drop(5).forEach { if (seeds.size < 8) seeds.putIfAbsent(it.first, it.second) }
+        return seeds.map { it.key to it.value }
+    }
+
+    /**
+     * Günün Mix'i (50). Tazelik TTL değil TAKVİM GÜNÜ: cache'teki DailyMix.day bugünden
+     * farklıysa zorla yeniden üretilir — materyalize kadansıyla aynı karar, tek yerden.
+     */
+    suspend fun naviCloudMix(force: Boolean = false): List<Song> {
+        val build: suspend () -> DailyMix = {
+            val seeds = forYouSeeds()
+            val pools = coroutineScope {
+                seeds.map { (id, _) -> async { similarSongs(id, 25) } }.map { it.await() }
+            }
+            DailyMix(ForYouMixer.todayStamp(), ForYouMixer.blend(pools, perArtistCap = 3, target = 50))
+        }
+        val cachedMix = runCatching { cached("foryou:mix", TTL_STABLE * 2, force) { build() } }
+            .getOrElse { return emptyList() }
+        if (cachedMix.day == ForYouMixer.todayStamp()) return cachedMix.songs
+        // Gün değişti: zorla tazele; ağ yoksa cached() bayata düşer → eski mix (sessiz)
+        return runCatching { cached("foryou:mix", TTL_STABLE * 2, force = true) { build() }.songs }
+            .getOrDefault(cachedMix.songs)
+    }
+
+    /** "Sevdiklerine benzer": seed'lerin benzer sanatçıları (Navidrome zaten kütüphaneyle kesişik döner). */
+    suspend fun similarArtistShelf(force: Boolean = false): List<Artist> =
+        runCatching {
+            cached("foryou:similar", TTL_STABLE, force) {
+                val seeds = forYouSeeds()
+                val seedIds = seeds.map { it.first }.toSet()
+                coroutineScope {
+                    seeds.map { (id, _) ->
+                        async {
+                            runCatching {
+                                api().getArtistInfo2(id).unwrap().artistInfo2?.similarArtist.orEmpty()
+                                    .map { it.toModel() }
+                            }.getOrDefault(emptyList())
+                        }
+                    }.flatMap { it.await() }
+                }.distinctBy { it.id }.filter { it.id !in seedIds }.take(12)
+            }
+        }.getOrDefault(emptyList())
+
+    /** Radyo kartları: en sık dinlenen sanatçılar (Last.fm gerektirmez; görsel = baskın albüm kapağı). */
+    suspend fun radioArtists(force: Boolean = false): List<Artist> =
+        runCatching {
+            cached("foryou:radio", TTL_STABLE, force) {
+                albumList(HomeSectionType.FREQUENT, size = 30)
+                    .mapNotNull { a -> a.artistId?.let { Triple(it, a.artist, a.coverArt) } }
+                    .distinctBy { it.first }
+                    .take(8)
+                    .map { (id, name, cover) ->
+                        Artist(id = id, name = name, coverArt = cover, artistImageUrl = null, albumCount = 0, starred = false)
+                    }
+            }
+        }.getOrDefault(emptyList())
+
+    /** "Yeniden keşfet": favori albümlerden son çalınanlarda OLMAYANLAR. */
+    suspend fun rediscoverAlbums(force: Boolean = false): List<Album> =
+        runCatching {
+            cached("foryou:rediscover", TTL_LISTS, force) {
+                val recentIds = albumList(HomeSectionType.RECENT, size = 20).map { it.id }.toSet()
+                starred().albums.filter { it.id !in recentIds }.take(20)
+            }
+        }.getOrDefault(emptyList())
+
+    /** Sanatçı radyosu kuyruğu: topSongs önde, benzerlerle dokunmuş ~20 parça. Cache'siz (radyo taze olsun). */
+    suspend fun artistRadio(artistId: String, artistName: String): List<Song> {
+        val top = runCatching { topSongs(artistName) }.getOrDefault(emptyList())
+        val similar = similarSongs(artistId, 25)
+        return ForYouMixer.interleave(top.take(8), similar, limit = 20)
+    }
+
+    /**
+     * Günlük materyalize: "NaviCloud Mix" playlist'ini bul-ya-da-oluştur, günde ≤1 tazele.
+     * İki katman guard: lokal gün damgası (fast-path, ağa çıkmaz) + sunucu `changed`
+     * tarihi (otoriter — ikinci cihaz aynı gün SKIP). Boş mix'te ASLA yazmaz (wipe koruması).
+     */
+    suspend fun materializeNaviCloudMix(): MixResult {
+        return runCatching {
+            if (offline.offlineMode.first()) return MixResult.SKIPPED_OFFLINE
+            val today = ForYouMixer.todayStamp()
+            val stateKey = serverPrefix() + "foryou:mixstate"
+            val prev = cache.get(stateKey)
+                ?.let { runCatching { json.decodeFromString<MixState>(it.json) }.getOrNull() }
+            if (prev?.attemptDay == today) return MixResult.SKIPPED_TODAY
+
+            val user = currentUser()
+            val lists = api().getPlaylists().unwrap().playlists?.playlist.orEmpty()
+            val existing = lists.firstOrNull {
+                it.name == NAVICLOUD_MIX_NAME &&
+                    (it.owner == null || user == null || it.owner.equals(user, ignoreCase = true))
+            }
+            // Sunucu otoriter: bugün başka cihaz yazdıysa dokunma (changed ISO — gün önekiyle karşılaştır)
+            if (existing?.changed?.take(10) == today) {
+                saveMixState(stateKey, MixState(existing.id, today))
+                return MixResult.SKIPPED_TODAY
+            }
+
+            val mix = naviCloudMix()
+            if (mix.isEmpty()) return MixResult.SKIPPED_EMPTY
+
+            val id = existing?.id
+                ?: api().createPlaylist(NAVICLOUD_MIX_NAME, null).unwrap().playlist?.id
+                ?: api().getPlaylists().unwrap().playlists?.playlist.orEmpty()
+                    .firstOrNull { it.name == NAVICLOUD_MIX_NAME }?.id
+                ?: return MixResult.FAILED
+            api().replacePlaylist(id, mix.map { it.id }).unwrap()
+            // Günlük ezilme davranışını kullanıcıya playlist üzerinde de anlat
+            runCatching {
+                api().updatePlaylist(id, comment = com.ozgen.navicloud.i18n.I18n.strings.homeMixPlaylistComment)
+            }
+            invalidate("playlists", "playlist:$id")
+            _playlistsVersion.update { it + 1 }
+            saveMixState(stateKey, MixState(id, today))
+            MixResult.WRITTEN
+        }.getOrElse { MixResult.FAILED }
+    }
+
+    /** Mix hero rozetinin navigasyonu için: materyalize edilmiş playlist'in id'si (yoksa null). */
+    suspend fun naviCloudMixPlaylistId(): String? =
+        cache.get(serverPrefix() + "foryou:mixstate")
+            ?.let { runCatching { json.decodeFromString<MixState>(it.json) }.getOrNull() }
+            ?.playlistId
+
+    private suspend fun saveMixState(key: String, state: MixState) {
+        runCatching {
+            cache.put(CachedEntry(key, json.encodeToString(MixState.serializer(), state), System.currentTimeMillis()))
+        }
     }
 
     suspend fun similarSongs(artistId: String, count: Int = 25): List<Song> =
