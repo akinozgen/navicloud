@@ -1,5 +1,6 @@
 package com.ozgen.navicloud.ui.screens.artist
 
+import coil3.request.crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -159,8 +160,17 @@ fun ArtistScreen(navController: NavController, artistId: String, vm: ArtistViewM
                                     .firstOrNull()
                             }
                             if (detail.imageUrl != null) {
+                                // SABİT cache anahtarı (artistId) — proxy URL'i auth salt yüzünden
+                                // her açılışta değişiyordu, bu yüzden foto her sefer yeniden çekiliyordu.
+                                val artImgKey = com.ozgen.navicloud.ui.components.LocalArtResolver.current
+                                    .artistImageCacheKey(detail.artist.id)
                                 coil3.compose.AsyncImage(
-                                    model = detail.imageUrl,
+                                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                        .data(detail.imageUrl)
+                                        .diskCacheKey(artImgKey)
+                                        .memoryCacheKey(artImgKey)
+                                        .crossfade(true)
+                                        .build(),
                                     contentDescription = null,
                                     contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize(),

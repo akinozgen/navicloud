@@ -34,6 +34,12 @@ class ArtResolver(
     fun url(coverArt: String?, sizePx: Int?): String? = coverArt?.let { urlFor(it, sizePx) }
     fun cacheKey(coverArt: String?, sizePx: Int? = null): String? =
         coverArt?.let { "art:$serverId:$it:${sizePx ?: "full"}" }
+
+    /**
+     * Sanatçı foto'su (Last.fm/Navidrome proxy) için SABİT cache anahtarı. URL değil artistId'ye
+     * bağlanır — proxy URL'i auth salt'ı yüzünden her açılışta değişir, URL'yle cache tutmazdı.
+     */
+    fun artistImageCacheKey(artistId: String): String = "artistimg:$serverId:$artistId"
 }
 
 val LocalArtResolver = staticCompositionLocalOf { ArtResolver(0L) { _, _ -> null } }
