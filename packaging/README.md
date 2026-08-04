@@ -1,50 +1,51 @@
-# NaviCloud — Linux paketleme
+# NaviCloud — Linux packaging
 
-Masaüstü (Compose/JVM + libmpv) için Linux dağıtım paketleri. Hepsi
-`:desktop:createDistributable` çıktısını (gömülü JRE'li app-image) temel alır ve
-ses için **sistem libmpv**'sine bağlanır (libmpv+ffmpeg ağacı gömülmez).
+Linux distribution packages for the desktop build (Compose/JVM + libmpv). They all
+build on the `:desktop:createDistributable` output (an app-image with a bundled JRE)
+and link against the **system libmpv** for audio (the libmpv+ffmpeg tree is not bundled)
+— except the Flatpak, which builds its own libmpv.
 
-## Üretim
+## Building
 
-Tümü `scripts/build-release-linux.sh` ile (WSL/Linux, jpackage'lı JDK 21 gerekir):
+Everything via `scripts/build-release-linux.sh` (WSL/Linux, needs a JDK 21 with jpackage):
 
 ```bash
-scripts/build-release-linux.sh            # hepsi: rpm + deb + tarball + AppImage
-scripts/build-release-linux.sh deb        # sadece .deb
-scripts/build-release-linux.sh rpm        # sadece .rpm
-scripts/build-release-linux.sh tar        # sadece tarball (AUR/generic)
-scripts/build-release-linux.sh appimage   # sadece .AppImage
-scripts/build-release-linux.sh --check    # araç yollarını doğrula
+scripts/build-release-linux.sh            # all: rpm + deb + tarball + AppImage
+scripts/build-release-linux.sh deb        # .deb only
+scripts/build-release-linux.sh rpm        # .rpm only
+scripts/build-release-linux.sh tar        # tarball only (AUR/generic)
+scripts/build-release-linux.sh appimage   # .AppImage only
+scripts/build-release-linux.sh --check    # verify tool paths
 ```
 
-Çıktılar `dist/` (ve varsa Masaüstü) altına: `navicloud_<sürüm>_amd64.deb`,
-`navicloud-<sürüm>-1.x86_64.rpm`, `NaviCloud-<sürüm>-linux-x86_64.tar.gz`,
-`NaviCloud-<sürüm>-x86_64.AppImage`.
+Outputs go to `dist/` (and the Desktop if present): `navicloud_<ver>_amd64.deb`,
+`navicloud-<ver>-1.x86_64.rpm`, `NaviCloud-<ver>-linux-x86_64.tar.gz`,
+`NaviCloud-<ver>-x86_64.AppImage`.
 
-| Paket | Nasıl | Bağımlılık |
+| Package | For | Dependency |
 |---|---|---|
 | **.deb** | Debian/Ubuntu | `libmpv2 \| libmpv1` |
-| **.rpm** | Fedora/openSUSE | libmpv (dağıtım paketi) |
-| **AppImage** | Dağıtım-bağımsız tek dosya | sistem libmpv + FUSE |
-| **tarball** | Generic; `/opt`'a aç ya da AUR | sistem libmpv |
+| **.rpm** | Fedora/openSUSE | libmpv (distro package) |
+| **AppImage** | Distro-agnostic single file | system libmpv + FUSE |
+| **tarball** | Generic; extract to `/opt` or use for AUR | system libmpv |
 
 ## Arch (AUR)
 
-`packaging/aur/PKGBUILD` — release tarball'ını `/opt/navicloud`'a kuran `navicloud-bin`.
+`packaging/aur/PKGBUILD` — `navicloud-bin`, installs the release tarball to `/opt/navicloud`.
 
 ```bash
 cd packaging/aur
-makepkg -si            # derle + kur
+makepkg -si            # build + install
 makepkg --printsrcinfo > .SRCINFO
 ```
 
-**Yeni sürümde:** `pkgver`i güncelle, `sha256sums`i tarball özetiyle sabitle
-(`updpkgsums`), `.SRCINFO`yu yenile, AUR'a push et.
+**On a new version:** bump `pkgver`, pin `sha256sums` to the tarball digest
+(`updpkgsums`), regenerate `.SRCINFO`, then push to AUR.
 
-### Docker ile doğrulama (Arch yoksa)
+### Verify with Docker (no Arch host)
 
 ```bash
-# yerel tarball'a karşı makepkg (release yayınlanmadan)
+# makepkg against the local tarball (before the release is published)
 docker run --rm -v "$PWD/dist:/build" archlinux bash -c '
   pacman -Sy --noconfirm --needed base-devel
   useradd -m b && cp /build/PKGBUILD-test /home/b/PKGBUILD
@@ -56,12 +57,12 @@ docker run --rm -v "$PWD/dist:/build" archlinux bash -c '
 
 ## Flatpak
 
-`packaging/flatpak/io.github.akinozgen.NaviCloud.yml` — **derleme doğrulandı**
-(WSL/Ubuntu 24.04 + flatpak-builder: derlenir, kurulur, açılır, libmpv yüklenir).
-libmpv Flatpak runtime'ında olmadığından kaynaktan derlenir:
-**libplacebo v7.360.1 → libass 0.17.5 → mpv 0.41.0** (yalnız `libmpv.so`). ffmpeg
-`org.freedesktop.Platform.ffmpeg-full` extension'ından gelir. Uygulama + gömülü JRE
-release tarball'ından `/app`'e kurulur (deb/rpm/AppImage ile aynı app-image).
+`packaging/flatpak/io.github.akinozgen.NaviCloud.yml` — **build-verified**
+(WSL/Ubuntu 24.04 + flatpak-builder: builds, installs, launches, loads libmpv).
+Since libmpv is not in the Flatpak runtime, it is built from source:
+**libplacebo v7.360.1 → libass 0.17.5 → mpv 0.41.0** (`libmpv.so` only). ffmpeg comes
+from the `org.freedesktop.Platform.ffmpeg-full` extension. The app + bundled JRE are
+installed to `/app` from the release tarball (same app-image as deb/rpm/AppImage).
 
 ```bash
 flatpak install --user -y flathub org.freedesktop.{Platform,Sdk}//24.08 \
@@ -71,12 +72,21 @@ flatpak-builder --user --install --force-clean --disable-rofiles-fuse \
 flatpak run io.github.akinozgen.NaviCloud
 ```
 
-Manifest notları (tuzaklar):
-- freedesktop-sdk meson `lib64` kullanır → libplacebo/mpv `-Dlibdir=lib` ile zorlanır,
-  yoksa mpv `libplacebo.pc`'yi bulamaz (PKG_CONFIG_PATH yalnız `/app/lib` bakar).
-- JVM/AWT (Skiko) **X11 ister** → `--socket=x11` (fallback-x11, wayland varken X11'i vermez).
-- MPRIS/tepsi için `--own-name` grant'leri; gerçek bir masaüstü D-Bus session'ı gerektirir.
-- WSLg altında Skiko OpenGL context açılamaz (WSLg GL kısıtı — ham app-image de aynı);
-  gerçek GPU/Mesa'lı Linux masaüstünde render eder.
-- Flathub'a submit için ek: `.metainfo.xml` (AppStream) + ekran görüntüsü + app-id sahiplik
-  doğrulaması (github.com/akinozgen). Yerel derleme bunları istemez.
+Single-file bundle (the `.flatpak` shipped on the release):
+
+```bash
+flatpak-builder --user --force-clean --disable-rofiles-fuse --repo=repo \
+  build-dir packaging/flatpak/io.github.akinozgen.NaviCloud.yml
+flatpak build-bundle --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
+  repo NaviCloud-<ver>.flatpak io.github.akinozgen.NaviCloud
+```
+
+Manifest notes (gotchas):
+- freedesktop-sdk meson uses `lib64` → force libplacebo/mpv with `-Dlibdir=lib`,
+  otherwise mpv can't find `libplacebo.pc` (PKG_CONFIG_PATH only looks at `/app/lib`).
+- JVM/AWT (Skiko) **needs X11** → `--socket=x11` (not fallback-x11, which hides X11 when Wayland is present).
+- MPRIS/tray need `--own-name` grants; they require a real desktop D-Bus session.
+- Under WSLg the Skiko OpenGL context fails to init (a WSLg GL limitation — the raw
+  app-image fails the same way); it renders on a real GPU/Mesa Linux desktop.
+- For a Flathub submission you'd also need `.metainfo.xml` (AppStream) + screenshots +
+  app-id ownership verification (github.com/akinozgen). A local build needs none of these.
