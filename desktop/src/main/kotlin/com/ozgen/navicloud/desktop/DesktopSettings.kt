@@ -96,8 +96,8 @@ object DesktopPrefs {
         val deviceName: String? = null,
         // Sabit uzaktan kumanda parolası (RC-7). null/boş → PIN modu.
         val remoteSecret: String? = null,
-        // Uygulama dili (SYSTEM/TURKISH/ENGLISH).
-        val language: String = com.ozgen.navicloud.i18n.AppLanguage.SYSTEM.name,
+        // Uygulama dili (SYSTEM/TURKISH/ENGLISH). Varsayılan İngilizce.
+        val language: String = com.ozgen.navicloud.i18n.AppLanguage.ENGLISH.name,
     )
 
     private val file = File(System.getProperty("user.home"), ".navicloud/settings.json")

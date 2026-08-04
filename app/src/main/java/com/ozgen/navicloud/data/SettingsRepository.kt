@@ -113,7 +113,7 @@ class SettingsRepository @Inject constructor(
         }
     }
 
-    /** Uygulama dili (SYSTEM/TURKISH/ENGLISH); varsayılan sistem locale'i. */
+    /** Uygulama dili (SYSTEM/TURKISH/ENGLISH); varsayılan İngilizce. */
     val language: Flow<com.ozgen.navicloud.i18n.AppLanguage> =
         dataStore.data.map { com.ozgen.navicloud.i18n.appLanguageOf(it[KEY_LANGUAGE]) }
 

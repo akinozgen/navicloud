@@ -23,8 +23,9 @@ fun stringsFor(language: AppLanguage): Strings = when (language.resolved()) {
     else -> EnStrings
 }
 
+// Kayıtlı tercih yoksa varsayılan İngilizce (SYSTEM değil) — uluslararası varsayılan.
 fun appLanguageOf(name: String?): AppLanguage =
-    runCatching { AppLanguage.valueOf(name ?: "") }.getOrDefault(AppLanguage.SYSTEM)
+    runCatching { AppLanguage.valueOf(name ?: "") }.getOrDefault(AppLanguage.ENGLISH)
 
 /**
  * Compose dışı (toast, tepsi menüsü, pencere) kod için dil erişim noktası.
@@ -32,7 +33,7 @@ fun appLanguageOf(name: String?): AppLanguage =
  */
 object I18n {
     @Volatile
-    var language: AppLanguage = AppLanguage.SYSTEM
+    var language: AppLanguage = AppLanguage.ENGLISH
     val strings: Strings get() = stringsFor(language)
 }
 

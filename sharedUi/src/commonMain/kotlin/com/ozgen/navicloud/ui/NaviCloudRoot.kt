@@ -45,6 +45,7 @@ import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -91,13 +92,17 @@ fun NaviCloudRoot(
         .collectAsStateWithLifecycle(remember { I18n.language })
     LaunchedEffect(language) { I18n.language = language }
     CompositionLocalProvider(LocalStrings provides stringsFor(language)) {
-        val appState by vm.appState.collectAsStateWithLifecycle()
-        when (val st = appState) {
-            AppState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+        // Uygulama zemini: her durumda (özellikle login) dark. Aksi halde masaüstünde
+        // Compose penceresinin beyaz varsayılan zemini sızıyordu (login'de Scaffold yok).
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            val appState by vm.appState.collectAsStateWithLifecycle()
+            when (val st = appState) {
+                AppState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                AppState.NeedsLogin -> LoginScreen()
+                is AppState.Ready -> key(st.server.id) { MainShell(vm, st.server, platformSettings) }
             }
-            AppState.NeedsLogin -> LoginScreen()
-            is AppState.Ready -> key(st.server.id) { MainShell(vm, st.server, platformSettings) }
         }
     }
 }
