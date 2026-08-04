@@ -1,0 +1,416 @@
+{
+  "commonBack": {},
+  "commonDelete": {},
+  "commonSave": {},
+  "commonCancel": {},
+  "commonClose": {},
+  "commonClear": {},
+  "commonRetry": {},
+  "commonPlay": {},
+  "commonPause": {},
+  "commonShuffle": {},
+  "commonNext": {},
+  "commonPrevious": {},
+  "commonRepeat": {},
+  "commonRefresh": {},
+  "commonSettings": {},
+  "commonAdd": {},
+  "commonCreate": {},
+  "commonDownload": {},
+  "commonOptions": {},
+  "commonPlayNext": {},
+  "commonAddToQueue": {},
+  "commonGoToAlbum": {},
+  "commonFavorite": {},
+  "commonDownloadQueued": {},
+  "commonConnectionLost": {},
+  "commonPassword": {},
+  "commonSongCount": {
+    "params": [
+      "count:Int"
+    ]
+  },
+  "homeGreetingMorning": {},
+  "homeGreetingAfternoon": {},
+  "homeGreetingEvening": {},
+  "homeServers": {},
+  "homeSeeAll": {},
+  "homeMixTitle": {},
+  "homeMixSubtitle": {
+    "params": [
+      "count:Int"
+    ]
+  },
+  "homeMixBadge": {},
+  "homeMixPlaylistComment": {},
+  "homeRadioSection": {},
+  "homeRadioChip": {},
+  "homeSimilarSection": {},
+  "homeRediscoverSection": {},
+  "homeArtistRadioLabel": {
+    "params": [
+      "name:String"
+    ]
+  },
+  "albumLoadError": {},
+  "albumType": {},
+  "albumFooterSummary": {
+    "params": [
+      "count:Int",
+      "duration:String"
+    ]
+  },
+  "artistLoadError": {},
+  "artistAlbumCount": {
+    "params": [
+      "count:Int"
+    ]
+  },
+  "artistPopular": {},
+  "artistAlbums": {},
+  "artistSimilar": {},
+  "artistAbout": {},
+  "artistBioCollapse": {},
+  "artistBioExpand": {},
+  "libraryTabPlaylists": {},
+  "libraryTabAlbums": {},
+  "libraryTabArtists": {},
+  "libraryTabSongs": {},
+  "libraryTabFavorites": {},
+  "libraryTabDownloads": {},
+  "libraryCtxShuffleMix": {},
+  "libraryCtxAllSongs": {},
+  "libraryTitle": {},
+  "librarySearchHint": {},
+  "libraryPlaylistSubtitle": {
+    "params": [
+      "count:Int"
+    ]
+  },
+  "librarySortRecent": {},
+  "librarySortAlpha": {},
+  "libraryView": {},
+  "libraryAlbumSubtitle": {
+    "params": [
+      "artist:String"
+    ]
+  },
+  "libraryArtistSubtitle": {
+    "params": [
+      "count:Int"
+    ]
+  },
+  "libraryDownloadsGrouped": {},
+  "libraryDownloadsFlat": {},
+  "libraryToggleGrouping": {},
+  "libraryUnknownAlbum": {},
+  "libraryDownloadsEmpty": {},
+  "libraryShuffleAll": {},
+  "loginConnectionFailed": {},
+  "loginSubtitle": {},
+  "loginServerName": {},
+  "loginServerUrl": {},
+  "loginServerUrlHint": {},
+  "loginUsername": {},
+  "loginPassword": {},
+  "loginConnect": {},
+  "playlistLoadError": {},
+  "playlistHeaderSubtitle": {
+    "params": [
+      "count:Int"
+    ]
+  },
+  "searchAll": {},
+  "searchSongs": {},
+  "searchAlbums": {},
+  "searchArtists": {},
+  "searchHint": {},
+  "searchRecent": {},
+  "searchRemoveRecent": {},
+  "licensesLgplOrLater": {},
+  "licensesMpvNote": {},
+  "licensesFfmpegNote": {},
+  "licensesJnaNote": {},
+  "licensesWindowsRsNote": {},
+  "licensesTitle": {},
+  "licensesIntro": {},
+  "licensesOpen": {},
+  "playerNowPlaying": {},
+  "playerSelectDevice": {},
+  "playerMiniPlayer": {},
+  "playerSleepMinutesShort": {
+    "params": [
+      "minutes:Int"
+    ]
+  },
+  "playerSleepEndOfTrack": {},
+  "playerSleepEndOfQueue": {},
+  "playerSleepTimer": {},
+  "playerTrackInfo": {},
+  "playerLyrics": {},
+  "playerMute": {},
+  "playerUnmute": {},
+  "playerUpNext": {
+    "params": [
+      "title:String"
+    ]
+  },
+  "playerQueue": {},
+  "playerStop": {},
+  "playerPlayingFrom": {},
+  "playerAutoplay": {},
+  "playerAutoplayDesc": {},
+  "playerDragReorder": {},
+  "playerSoundEqualizer": {},
+  "playerSleepTimerOn": {},
+  "playerSleepRemaining": {},
+  "playerSleepEndOfTrackTitle": {},
+  "playerSleepWillStop": {},
+  "playerSleepEndOfQueueTitle": {},
+  "playerSleepCancel": {},
+  "playerSleepMinutes": {
+    "params": [
+      "m:Int"
+    ]
+  },
+  "playerLyricsLoading": {},
+  "playerLyricsEmpty": {},
+  "playerOfflineNoDownloads": {},
+  "devicePickerThisDevice": {},
+  "devicePickerEditName": {},
+  "devicePickerBusy": {},
+  "devicePickerPlayingHere": {},
+  "devicePickerConnecting": {},
+  "devicePickerAddedManually": {},
+  "devicePickerForgetDevice": {},
+  "devicePickerNoDevices": {},
+  "devicePickerConnectFailed": {},
+  "devicePickerAddByIp": {},
+  "devicePickerDeviceName": {},
+  "devicePickerAddByIpHint": {},
+  "devicePickerSelected": {},
+  "songItemMenu": {},
+  "songMenuAddToPlaylist": {},
+  "songMenuNewPlaylist": {},
+  "playlistNameHint": {},
+  "songMenuRemoveFromPlaylist": {},
+  "playlistToastRemoved": {},
+  "playlistToastEditFailed": {},
+  "playlistRename": {},
+  "playlistDelete": {},
+  "playlistDeleteConfirmTitle": {},
+  "playlistDeleteConfirmBody": {
+    "params": [
+      "name:String"
+    ]
+  },
+  "playlistToastDeleted": {},
+  "playlistReadOnlyBadge": {},
+  "playlistToastReadOnly": {},
+  "playlistEmptyHint": {},
+  "playlistSuggestions": {},
+  "playlistSuggestionAdded": {},
+  "songMenuGoToArtist": {},
+  "songMenuRemoveFromQueue": {},
+  "songMenuRemoveDownload": {},
+  "songMenuRemoveFavorite": {},
+  "songMenuAddFavorite": {},
+  "songMenuInfo": {},
+  "songMenuToastPlayNext": {},
+  "songMenuToastAddedToQueue": {},
+  "songMenuPlaylistsLoading": {},
+  "songMenuToastAddedToPlaylist": {
+    "params": [
+      "name:String"
+    ]
+  },
+  "songMenuToastAddFailed": {},
+  "trackInfoFormat": {},
+  "trackInfoBitRate": {},
+  "trackInfoSampleRate": {},
+  "trackInfoBitDepth": {},
+  "trackInfoChannels": {},
+  "trackInfoDuration": {},
+  "trackInfoSize": {},
+  "trackInfoStream": {},
+  "trackInfoStreamOriginal": {},
+  "trackInfoChannelMono": {},
+  "trackInfoChannelStereo": {},
+  "trackInfoChannelOther": {
+    "params": [
+      "n:Int"
+    ]
+  },
+  "collectionShufflePlay": {},
+  "collectionRemoveDownloads": {},
+  "collectionDownloaded": {},
+  "audioFxBassBoost": {},
+  "audioFxWidth": {},
+  "audioFxAmbience": {},
+  "audioFxNotSupported": {},
+  "audioFxLoudness": {},
+  "audioFxSheetTitle": {},
+  "audioFxThisDeviceOnly": {},
+  "audioFxEqualizer": {},
+  "rootTabHome": {},
+  "rootTabSearch": {},
+  "rootTabLibrary": {},
+  "rootRemoteDeviceFallback": {},
+  "rootControllingRemote": {
+    "params": [
+      "peerName:String"
+    ]
+  },
+  "rootSwitchToThisDevice": {},
+  "rootControlledRemotely": {},
+  "rootTakeControl": {},
+  "rootPairingCodeTitle": {},
+  "rootEnterCodeOnConnecting": {},
+  "rootPassword": {},
+  "rootPairing": {},
+  "rootEnterPasswordFor": {
+    "params": [
+      "peerName:String"
+    ]
+  },
+  "rootEnterCodeFrom": {
+    "params": [
+      "peerName:String"
+    ]
+  },
+  "rootConnect": {},
+  "rootPair": {},
+  "rootResumeTitle": {},
+  "rootResume": {},
+  "settingsTitle": {},
+  "settingsServersSection": {},
+  "settingsAddServer": {},
+  "settingsPlaybackSection": {},
+  "settingsStreamQuality": {},
+  "settingsOfflineMode": {},
+  "settingsOfflineModeDesc": {},
+  "settingsPrefetch": {},
+  "settingsPrefetchDesc": {},
+  "settingsPrefetchWifiOnly": {},
+  "settingsPrefetchWifiOnlyDesc": {},
+  "settingsInternetLyrics": {},
+  "settingsInternetLyricsDesc": {},
+  "settingsLibrarySection": {},
+  "settingsScanLibrary": {},
+  "settingsScanScanning": {
+    "params": [
+      "items:Long"
+    ]
+  },
+  "settingsScanDone": {
+    "params": [
+      "items:Long"
+    ]
+  },
+  "settingsScanIdleDesc": {},
+  "settingsScanFull": {},
+  "settingsCacheSection": {},
+  "settingsStreamCache": {},
+  "settingsImageCache": {},
+  "settingsImageCacheDesc": {
+    "params": [
+      "size:String"
+    ]
+  },
+  "settingsDownloadsSection": {},
+  "settingsDownloadWifiOnly": {},
+  "settingsDownloadWifiOnlyDesc": {},
+  "settingsDownloadDeleteAll": {},
+  "settingsRemoteControlSection": {},
+  "settingsRemoteControlDesc": {},
+  "settingsAboutSection": {},
+  "settingsLicensesDesc": {},
+  "settingsSourceCode": {},
+  "settingsStreamQualityDialogNote": {},
+  "settingsCacheLimitDialogTitle": {},
+  "settingsCacheLimitDialogNote": {},
+  "settingsClearDownloadsDialogTitle": {},
+  "settingsClearDownloadsBody": {
+    "params": [
+      "count:Int",
+      "size:String"
+    ]
+  },
+  "settingsAppSection": {},
+  "settingsLanguage": {},
+  "languageSystem": {},
+  "languageTurkish": {},
+  "languageEnglish": {},
+  "downloadInProgress": {
+    "params": [
+      "title:String"
+    ]
+  },
+  "downloadWaitingForWifi": {
+    "params": [
+      "title:String"
+    ]
+  },
+  "downloadQueuedSuffix": {
+    "params": [
+      "count:Int"
+    ]
+  },
+  "dsettingsAudioEngine": {},
+  "dsettingsAudioBackendDefault": {},
+  "dsettingsCloseToTrayTitle": {},
+  "dsettingsCloseToTraySubtitle": {},
+  "dsettingsLicensesSubtitle": {},
+  "trayShow": {},
+  "trayExit": {},
+  "miniAlwaysOnTop": {},
+  "miniVinylView": {},
+  "miniExpand": {},
+  "miniStandardView": {},
+  "deviceDefaultDesktopName": {},
+  "streamQualityLabel": {
+    "enum": "com.ozgen.navicloud.data.StreamQuality",
+    "param": "quality",
+    "cases": [
+      "RAW",
+      "HIGH",
+      "MEDIUM",
+      "LOW"
+    ]
+  },
+  "eqPresetLabel": {
+    "enum": "com.ozgen.navicloud.audio.EqPreset",
+    "param": "preset",
+    "cases": [
+      "FLAT",
+      "ROCK",
+      "POP",
+      "JAZZ",
+      "CLASSICAL"
+    ]
+  },
+  "reverbPresetLabel": {
+    "enum": "com.ozgen.navicloud.audio.ReverbPreset",
+    "param": "preset",
+    "cases": [
+      "SMALL_ROOM",
+      "MEDIUM_ROOM",
+      "LARGE_ROOM",
+      "MEDIUM_HALL",
+      "LARGE_HALL",
+      "PLATE"
+    ]
+  },
+  "homeSectionTitle": {
+    "enum": "com.ozgen.navicloud.core.model.HomeSectionType",
+    "param": "type",
+    "cases": [
+      "RECENT",
+      "NEWEST",
+      "FREQUENT",
+      "RANDOM",
+      "STARRED"
+    ]
+  },
+  "offlineContentUnavailable": {}
+}
