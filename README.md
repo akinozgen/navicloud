@@ -6,14 +6,14 @@
 
 <p align="center">
   <b>Your own music, on every device.</b><br/>
-  A modern, fast and polished music client for Navidrome / Subsonic — <b>Android</b> and <b>Windows</b>.
+  A modern, fast and polished music client for Navidrome / Subsonic — <b>Android</b>, <b>Windows</b> and <b>Linux</b>.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-Android%20%7C%20Windows-7C4DFF?style=flat-square" alt="platform"/>
+  <img src="https://img.shields.io/badge/platform-Android%20%7C%20Windows%20%7C%20Linux-7C4DFF?style=flat-square" alt="platform"/>
   <img src="https://img.shields.io/badge/Kotlin-Multiplatform-8E5BFF?style=flat-square&logo=kotlin&logoColor=white" alt="kotlin"/>
   <img src="https://img.shields.io/badge/Compose-Multiplatform-6366F1?style=flat-square" alt="compose"/>
-  <img src="https://img.shields.io/badge/version-1.3.0-5B34E0?style=flat-square" alt="version"/>
+  <img src="https://img.shields.io/github/v/release/akinozgen/navicloud?style=flat-square&color=5B34E0&label=release" alt="version"/>
 </p>
 
 <p align="center">
@@ -33,6 +33,77 @@
 </p>
 
 <p align="center"><sub>Home · Now playing · Equalizer &amp; audio effects · Player menu</sub></p>
+
+---
+
+## Install
+
+Grab the files from the [**latest release**](../../releases/latest), then follow your platform. Linux **`.deb` / `.rpm` / AppImage / tarball / AUR** need **libmpv** (the audio engine) — install your distro's `mpv` / `libmpv` package first. The **Flatpak** bundles its own libmpv, so skip that step there.
+
+<details open>
+<summary><b>Windows</b></summary>
+
+Download **`NaviCloud-*-Setup.exe`** and run it. User-level install — no admin needed.
+</details>
+
+<details>
+<summary><b>Android</b></summary>
+
+Download **`NaviCloud-*.apk`**, open it, and allow "install unknown apps" if prompted.
+</details>
+
+<details>
+<summary><b>Linux — Debian / Ubuntu (.deb)</b></summary>
+
+```bash
+sudo apt install ./NaviCloud-*.amd64.deb
+```
+</details>
+
+<details>
+<summary><b>Linux — Fedora / openSUSE (.rpm)</b></summary>
+
+```bash
+sudo dnf install ./NaviCloud-*.x86_64.rpm      # openSUSE: sudo zypper install ./NaviCloud-*.x86_64.rpm
+```
+</details>
+
+<details>
+<summary><b>Linux — AppImage (any distro)</b></summary>
+
+```bash
+sudo pacman -S mpv        # or: sudo apt install libmpv2  /  sudo dnf install mpv-libs
+chmod +x NaviCloud-*-x86_64.AppImage
+./NaviCloud-*-x86_64.AppImage
+```
+</details>
+
+<details>
+<summary><b>Linux — Arch (AUR)</b></summary>
+
+```bash
+yay -S navicloud-bin      # or: paru -S navicloud-bin
+```
+</details>
+
+<details>
+<summary><b>Linux — Flatpak</b></summary>
+
+```bash
+flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
+flatpak install --user ./NaviCloud-*.flatpak      # libmpv + runtime bundled/pulled automatically
+flatpak run io.github.akinozgen.NaviCloud
+```
+</details>
+
+<details>
+<summary><b>Linux — portable tarball</b></summary>
+
+```bash
+sudo tar -xzf NaviCloud-*-linux-x86_64.tar.gz -C /opt
+/opt/navicloud/bin/NaviCloud
+```
+</details>
 
 ---
 
@@ -56,8 +127,8 @@
 - Smart caching: metadata (Room), artwork (Coil), stream (LRU) — separate from downloads
 - Prefetch of the next track, Wi-Fi-first data usage
 
-### 🖥️ Desktop (Windows)
-- **libmpv** audio engine (embedded), tablet layout + side sidebar
+### 🖥️ Desktop (Windows &amp; Linux)
+- **libmpv** audio engine (embedded on Windows, system libmpv on Linux), tablet layout + side sidebar
 - **Windows media keys + control center / flyout** integration (SMTC): artwork, title, artist, controls
 - System tray + "minimize to tray on close"
 - Always-on-top **mini player** (waveform seek bar)
@@ -67,7 +138,7 @@
 - Single-surface morphing player (mini ↔ full), ambient spectrum
 
 ### 🌐 Languages
-- **English** and **Turkish** (follows the system locale, switchable in Settings)
+- **English** (default) and **Turkish** — switchable in Settings
 
 ---
 
@@ -89,9 +160,9 @@ Audio/EQ behavior is defined once in a platform-independent contract (presets/ba
 
 ## Releases &amp; CI
 
-- Every `vX.Y.Z` tag push makes GitHub Actions build the **Android APK** + **Windows installer** and upload them to the Release.
+- Every `vX.Y.Z` tag push makes GitHub Actions build the **Android APK** + **Windows installer** + **Linux packages** (`.deb`, `.rpm`, `.AppImage`, `.tar.gz`) and upload them to the Release.
 - A fast compile check (`CI`) runs on pushes/PRs to feature branches.
-- Download the latest builds from the [Releases](../../releases) page.
+- Download the latest builds from the [Releases](../../releases/latest) page. Linux packaging details (AUR, Flatpak) live in [`packaging/`](packaging/).
 
 ```bash
 # publish a new version

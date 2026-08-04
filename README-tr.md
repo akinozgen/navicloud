@@ -6,14 +6,14 @@
 
 <p align="center">
   <b>Kendi müziğin, her cihazda.</b><br/>
-  Navidrome / Subsonic için modern, hızlı ve şık bir müzik istemcisi — <b>Android</b> ve <b>Windows</b>.
+  Navidrome / Subsonic için modern, hızlı ve şık bir müzik istemcisi — <b>Android</b>, <b>Windows</b> ve <b>Linux</b>.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-Android%20%7C%20Windows-7C4DFF?style=flat-square" alt="platform"/>
+  <img src="https://img.shields.io/badge/platform-Android%20%7C%20Windows%20%7C%20Linux-7C4DFF?style=flat-square" alt="platform"/>
   <img src="https://img.shields.io/badge/Kotlin-Multiplatform-8E5BFF?style=flat-square&logo=kotlin&logoColor=white" alt="kotlin"/>
   <img src="https://img.shields.io/badge/Compose-Multiplatform-6366F1?style=flat-square" alt="compose"/>
-  <img src="https://img.shields.io/badge/sürüm-1.3.0-5B34E0?style=flat-square" alt="version"/>
+  <img src="https://img.shields.io/github/v/release/akinozgen/navicloud?style=flat-square&color=5B34E0&label=sürüm" alt="version"/>
 </p>
 
 <p align="center">
@@ -33,6 +33,77 @@
 </p>
 
 <p align="center"><sub>Ana sayfa · Şu an çalıyor · Ekolayzer & ses efektleri · Oynatıcı menüsü</sub></p>
+
+---
+
+## Kurulum
+
+Dosyaları [**son sürümden**](../../releases/latest) indirin, sonra platformunuza bakın. Linux **`.deb` / `.rpm` / AppImage / tarball / AUR** için **libmpv** (ses motoru) gerekir — önce dağıtımınızın `mpv` / `libmpv` paketini kurun. **Flatpak** kendi libmpv'sini taşıdığı için orada bu adımı atlayın.
+
+<details open>
+<summary><b>Windows</b></summary>
+
+**`NaviCloud-*-Setup.exe`**'yi indirip çalıştırın. Kullanıcı-düzeyi kurulum — yönetici gerekmez.
+</details>
+
+<details>
+<summary><b>Android</b></summary>
+
+**`NaviCloud-*.apk`**'yi indirin, açın, sorarsa "bilinmeyen uygulamalara izin ver" deyin.
+</details>
+
+<details>
+<summary><b>Linux — Debian / Ubuntu (.deb)</b></summary>
+
+```bash
+sudo apt install ./NaviCloud-*.amd64.deb
+```
+</details>
+
+<details>
+<summary><b>Linux — Fedora / openSUSE (.rpm)</b></summary>
+
+```bash
+sudo dnf install ./NaviCloud-*.x86_64.rpm      # openSUSE: sudo zypper install ./NaviCloud-*.x86_64.rpm
+```
+</details>
+
+<details>
+<summary><b>Linux — AppImage (her dağıtım)</b></summary>
+
+```bash
+sudo pacman -S mpv        # veya: sudo apt install libmpv2  /  sudo dnf install mpv-libs
+chmod +x NaviCloud-*-x86_64.AppImage
+./NaviCloud-*-x86_64.AppImage
+```
+</details>
+
+<details>
+<summary><b>Linux — Arch (AUR)</b></summary>
+
+```bash
+yay -S navicloud-bin      # veya: paru -S navicloud-bin
+```
+</details>
+
+<details>
+<summary><b>Linux — Flatpak</b></summary>
+
+```bash
+flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
+flatpak install --user ./NaviCloud-*.flatpak      # libmpv + runtime otomatik gelir
+flatpak run io.github.akinozgen.NaviCloud
+```
+</details>
+
+<details>
+<summary><b>Linux — taşınabilir tarball</b></summary>
+
+```bash
+sudo tar -xzf NaviCloud-*-linux-x86_64.tar.gz -C /opt
+/opt/navicloud/bin/NaviCloud
+```
+</details>
 
 ---
 
@@ -56,8 +127,8 @@
 - Akıllı önbellek: metadata (Room), görsel (Coil), akış (LRU) — indirmelerden ayrı depo
 - Sıradakini önden yükleme, Wi-Fi-öncelikli veri kullanımı
 
-### 🖥️ Masaüstü (Windows)
-- **libmpv** ses motoru (gömülü), tablet düzeni + yan sidebar
+### 🖥️ Masaüstü (Windows & Linux)
+- **libmpv** ses motoru (Windows'ta gömülü, Linux'ta sistem libmpv'si), tablet düzeni + yan sidebar
 - **Windows medya tuşları + kontrol merkezi/flyout** entegrasyonu (SMTC): kapak, başlık, sanatçı, kontroller
 - Sistem tepsisi + "kapatınca tepsiye küçült"
 - Her zaman üstte **mini oynatıcı** (dalga formu seek bar)
@@ -67,7 +138,7 @@
 - Tek yüzeyli morph'lu oynatıcı (mini ↔ tam), ambient spektrum
 
 ### 🌐 Diller
-- **İngilizce** ve **Türkçe** (sistem diline uyar, Ayarlar'dan değiştirilebilir)
+- **İngilizce** (varsayılan) ve **Türkçe** — Ayarlar'dan değiştirilebilir
 
 ---
 
@@ -89,9 +160,9 @@ Ses/EQ davranışı platformdan bağımsız tek sözleşmede tanımlı (preset/b
 
 ## Sürümler & CI
 
-- Her `vX.Y.Z` tag push'unda GitHub Actions **Android APK** + **Windows kurulumunu** derleyip Release'e yükler.
+- Her `vX.Y.Z` tag push'unda GitHub Actions **Android APK** + **Windows kurulumu** + **Linux paketlerini** (`.deb`, `.rpm`, `.AppImage`, `.tar.gz`) derleyip Release'e yükler.
 - Feature branch'lerde push/PR'da hızlı derleme kontrolü (`CI`) çalışır.
-- En güncel yapıları [Releases](../../releases) sayfasından indirin.
+- En güncel yapıları [Releases](../../releases/latest) sayfasından indirin. Linux paketleme ayrıntıları (AUR, Flatpak) [`packaging/`](packaging/) altında.
 
 ```bash
 # yeni sürüm yayınla
