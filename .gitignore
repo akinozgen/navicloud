@@ -28,3 +28,4 @@ dist/
 
 # yerel geliştirme aracı ayar klasörü (sürüm kontrolü dışı)
 .claude/
+.codex/

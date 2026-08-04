@@ -4,7 +4,7 @@
 ; Derleme: ISCC.exe /DAppDir=<app-image yolu> navicloud.iss
 
 #define AppName "NaviCloud"
-#define AppVersion "1.5.0"
+#define AppVersion "1.5.1"
 #define Company "ozgen"
 #ifndef AppDir
   #define AppDir "..\build\compose\binaries\main\app\NaviCloud"

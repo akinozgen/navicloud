@@ -1,0 +1,30 @@
+# Maintainer: Akın Özgen <akin@quartbilisim.net>
+# NaviCloud — Navidrome/Subsonic masaüstü müzik istemcisi (gömülü JRE).
+# GitHub release'indeki linux tarball'ını (app-image) /opt/navicloud'a kurar.
+#
+# NOT (maintainer): yeni sürümde `pkgver`i güncelle ve `sha256sums`i tarball'ın
+# gerçek özetiyle sabitle (`updpkgsums` ya da elle). 'SKIP' yalnız hızlı deneme içindir.
+pkgname=navicloud-bin
+pkgver=1.5.1
+pkgrel=1
+pkgdesc="Navidrome/Subsonic masaüstü müzik istemcisi (gömülü JRE, libmpv ses motoru)"
+arch=('x86_64')
+url="https://github.com/akinozgen/navicloud"
+license=('GPL-3.0-or-later')
+depends=('mpv')            # libmpv.so'yu sağlar
+provides=('navicloud')
+conflicts=('navicloud')
+options=('!strip')         # gömülü JRE'yi strip etme
+source=("NaviCloud-${pkgver}-linux-x86_64.tar.gz::${url}/releases/download/v${pkgver}/NaviCloud-${pkgver}-linux-x86_64.tar.gz")
+sha256sums=('7cccc68b5c30653f7e0e85c2ec571824ff3087e66cebf343e71e394f8c919776')
+
+package() {
+  install -d "${pkgdir}/opt/navicloud"
+  cp -a "${srcdir}/navicloud/." "${pkgdir}/opt/navicloud/"
+  install -Dm644 "${srcdir}/navicloud/navicloud.desktop" \
+    "${pkgdir}/usr/share/applications/navicloud.desktop"
+  install -Dm644 "${srcdir}/navicloud/navicloud.png" \
+    "${pkgdir}/usr/share/icons/hicolor/256x256/apps/navicloud.png"
+  install -d "${pkgdir}/usr/bin"
+  ln -s /opt/navicloud/bin/NaviCloud "${pkgdir}/usr/bin/navicloud"
+}

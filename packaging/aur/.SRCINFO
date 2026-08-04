@@ -1,0 +1,15 @@
+pkgbase = navicloud-bin
+	pkgdesc = Navidrome/Subsonic masaüstü müzik istemcisi (gömülü JRE, libmpv ses motoru)
+	pkgver = 1.5.1
+	pkgrel = 1
+	url = https://github.com/akinozgen/navicloud
+	arch = x86_64
+	license = GPL-3.0-or-later
+	depends = mpv
+	provides = navicloud
+	conflicts = navicloud
+	options = !strip
+	source = NaviCloud-1.5.1-linux-x86_64.tar.gz::https://github.com/akinozgen/navicloud/releases/download/v1.5.1/NaviCloud-1.5.1-linux-x86_64.tar.gz
+	sha256sums = 7cccc68b5c30653f7e0e85c2ec571824ff3087e66cebf343e71e394f8c919776
+
+pkgname = navicloud-bin
