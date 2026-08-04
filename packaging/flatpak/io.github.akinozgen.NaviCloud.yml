@@ -28,6 +28,8 @@ finish-args:
   - --own-name=org.mpris.MediaPlayer2.NaviCloud       # MPRIS medya denetimi (medya tuşları)
   - --own-name=org.mpris.MediaPlayer2.NaviCloud.*
   - --talk-name=org.kde.StatusNotifierWatcher         # sistem tepsisi (SNI) — DE destekliyorsa
+  - --filesystem=~/.navicloud:create                  # sunucu/ayar/indirme kalıcılığı (app ~/.navicloud'a yazar)
+  - --env=_JAVA_AWT_WM_NONREPARENTING=1               # reparent-etmeyen tiling WM'de (Niri/i3/dwm) siyah pencere düzeltmesi
 
 # Ekstra/patentli codec'ler için ffmpeg-full (temel codec'ler zaten Platform'da).
 add-extensions:
@@ -97,8 +99,8 @@ modules:
       - install -Dm644 io.github.akinozgen.NaviCloud.desktop /app/share/applications/io.github.akinozgen.NaviCloud.desktop
     sources:
       - type: archive
-        url: https://github.com/akinozgen/navicloud/releases/download/v1.5.2/NaviCloud-1.5.2-linux-x86_64.tar.gz
-        sha256: 2a8a68d607e3b1812845cd019c0b20e5e1b0401fe0589e1e6c9c91749dcf0382
+        url: https://github.com/akinozgen/navicloud/releases/download/v1.5.3/NaviCloud-1.5.3-linux-x86_64.tar.gz
+        sha256: 6d2edb14db4cbb2ba604475c7e17aca425f7ae8de79f1192c52aa62995863199
         # tarball içi navicloud/ klasörü strip edilir → bin/ lib/ navicloud.png köke gelir
         strip-components: 1
       - type: script
