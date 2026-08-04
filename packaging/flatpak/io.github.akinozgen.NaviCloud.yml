@@ -1,11 +1,16 @@
-# NaviCloud — Flatpak manifesti (BAŞLANGIÇ / WIP).
+# NaviCloud — Flatpak manifesti.
 #
-# Durum: app + JRE (release tarball'ından) /app'e kurulur. libmpv Flatpak
-# runtime'ında YOK; ses için bir libmpv sağlanmalı. En temiz yol: aşağıdaki
-# "libmpv" modülünü kaynaktan derlemek (ffmpeg runtime uzantısından gelir) ya
-# da io.mpv.Mpv gibi bir kaynağı referanslamak. Bu manifest flatpak-builder ile
-# derlenir; libmpv modülü dağıtım/runtime sürümüne göre ince ayar isteyebilir.
-# (deb/rpm/AppImage/AUR üretimi doğrulanmıştır; Flatpak henüz build-verify edilmedi.)
+# Strateji: uygulama + gömülü JRE, GitHub release tarball'ından /app'e kurulur
+# (deb/rpm/AppImage ile aynı app-image). libmpv Flatpak runtime'ında OLMADIĞI
+# için kaynaktan derlenir: libplacebo → libass → mpv (yalnız libmpv.so).
+# ffmpeg, org.freedesktop.Platform.ffmpeg-full extension'ından gelir (derleme yok).
+#
+# Zincir Celluloid (flathub) manifestine dayanır; libmpv 0.41.0 + libplacebo
+# v7.360.1 kanıtlı eşleşme — bozma. Yerel derleme:
+#   flatpak install --user -y flathub org.freedesktop.{Platform,Sdk}//24.08 \
+#     org.freedesktop.Platform.ffmpeg-full//24.08
+#   flatpak-builder --user --install --force-clean build-dir \
+#     packaging/flatpak/io.github.akinozgen.NaviCloud.yml
 app-id: io.github.akinozgen.NaviCloud
 runtime: org.freedesktop.Platform
 runtime-version: '24.08'
@@ -13,56 +18,94 @@ sdk: org.freedesktop.Sdk
 command: navicloud
 
 finish-args:
-  - --share=network                 # Navidrome sunucusuna erişim
-  - --share=ipc
+  - --share=network                 # Navidrome sunucusu + LAN uzaktan kumanda
+  - --share=ipc                     # X11 MIT-SHM (Skiko render performansı)
+  - --socket=x11                    # JVM/AWT (Skiko) X11 gerektirir — fallback-x11 wayland varken X11'i vermiyor
   - --socket=wayland
-  - --socket=fallback-x11
-  - --socket=pulseaudio             # ses çıkışı
-  - --device=dri                    # GPU (Compose/Skiko render)
+  - --socket=pulseaudio             # ses çıkışı (mpv ao_pulse)
+  - --device=dri                    # Compose/Skiko GPU render (gerçek GPU/Mesa; WSLg GL'i yetmez)
   - --talk-name=org.freedesktop.Notifications
-  # LAN uzaktan kumanda + mDNS için (opsiyonel):
-  # - --share=network zaten yeterli; mDNS için ek izin gerekebilir.
+  - --own-name=org.mpris.MediaPlayer2.NaviCloud       # MPRIS medya denetimi (medya tuşları)
+  - --own-name=org.mpris.MediaPlayer2.NaviCloud.*
+  - --talk-name=org.kde.StatusNotifierWatcher         # sistem tepsisi (SNI) — DE destekliyorsa
 
+# Ekstra/patentli codec'ler için ffmpeg-full (temel codec'ler zaten Platform'da).
 add-extensions:
   org.freedesktop.Platform.ffmpeg-full:
     directory: lib/ffmpeg
     version: '24.08'
-    add-ld-path: .
+    add-ld-path: '.'
+    no-autodownload: true
     autodelete: false
 
+cleanup:
+  - '/include'
+  - '/lib/pkgconfig'
+  - '*.a'
+  - '*.la'
+
 modules:
-  # libmpv — ffmpeg-full uzantısına karşı derlenir. (Sürüme göre meson opsiyonları
-  # ayarlanmalı; libplacebo vb. alt bağımlılıklar gerekebilir. Bu blok iskelet.)
-  - name: libmpv
+  # ffmpeg-full extension mount noktası
+  - name: ffmpeg-full-dir
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/lib/ffmpeg
+
+  - name: libplacebo
     buildsystem: meson
     config-opts:
-      - -Dlibmpv=true
-      - -Dcplugins=disabled
-      - -Dmanpage-build=disabled
+      - -Dlibdir=lib          # freedesktop-sdk meson varsayılanı lib64; PKG_CONFIG_PATH lib bekler
+      - -Ddemos=false
     sources:
       - type: git
-        url: https://github.com/mpv-player/mpv.git
-        tag: v0.38.0
-    # NOT: mpv'nin ffmpeg/libplacebo bağımlılıkları runtime/ffmpeg-full'dan
-    # çözülmezse ek modüller (libplacebo, shaderc) eklemek gerekebilir.
+        url: https://code.videolan.org/videolan/libplacebo.git
+        tag: v7.360.1
+        commit: cee9b076f2c63104ccfd497fa79c39a867293ec4
 
-  # NaviCloud uygulaması (release linux tarball'ı → /app)
+  - name: libass
+    buildsystem: autotools
+    config-opts:
+      - --disable-static
+    sources:
+      - type: archive
+        url: https://github.com/libass/libass/releases/download/0.17.5/libass-0.17.5.tar.xz
+        sha256: 2dca25c0e0c837ddf00b52011b3f82cac1e4ddd3ad018227806b0c2288864acc
+
+  - name: mpv
+    buildsystem: meson
+    config-opts:
+      - -Dlibdir=lib               # libmpv.so /app/lib'e (lib64 değil) → LD_LIBRARY_PATH bulur
+      - -Dlibmpv=true
+      - -Dcplayer=false            # sadece libmpv.so, CLI oynatıcı derleme
+      - -Dlua=disabled
+      - -Dalsa=disabled            # ses pulse'tan
+      - -Dmanpage-build=disabled
+      - -Dbuild-date=false
+    sources:
+      - type: archive
+        url: https://github.com/mpv-player/mpv/archive/refs/tags/v0.41.0.tar.gz
+        sha256: ee21092a5ee427353392360929dc64645c54479aefdb5babc5cfbb5fad626209
+
+  # NaviCloud app-image (gömülü JRE) — release tarball → /app/navicloud
   - name: navicloud
     buildsystem: simple
     build-commands:
       - mkdir -p /app/navicloud
-      - cp -a navicloud/. /app/navicloud/
+      - cp -a bin lib /app/navicloud/
       - install -Dm755 navicloud.wrapper /app/bin/navicloud
-      - install -Dm644 navicloud/navicloud.png /app/share/icons/hicolor/256x256/apps/io.github.akinozgen.NaviCloud.png
+      - install -Dm644 navicloud.png /app/share/icons/hicolor/256x256/apps/io.github.akinozgen.NaviCloud.png
       - install -Dm644 io.github.akinozgen.NaviCloud.desktop /app/share/applications/io.github.akinozgen.NaviCloud.desktop
     sources:
       - type: archive
         url: https://github.com/akinozgen/navicloud/releases/download/v1.5.1/NaviCloud-1.5.1-linux-x86_64.tar.gz
-        sha256: REPLACE_WITH_TARBALL_SHA256
+        sha256: 7cccc68b5c30653f7e0e85c2ec571824ff3087e66cebf343e71e394f8c919776
+        # tarball içi navicloud/ klasörü strip edilir → bin/ lib/ navicloud.png köke gelir
+        strip-components: 1
       - type: script
         dest-filename: navicloud.wrapper
         commands:
           - '#!/bin/sh'
+          - 'export LD_LIBRARY_PATH="/app/lib:${LD_LIBRARY_PATH}"'
           - 'exec /app/navicloud/bin/NaviCloud "$@"'
       - type: file
         path: io.github.akinozgen.NaviCloud.desktop

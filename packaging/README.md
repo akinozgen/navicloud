@@ -56,10 +56,27 @@ docker run --rm -v "$PWD/dist:/build" archlinux bash -c '
 
 ## Flatpak
 
-`packaging/flatpak/io.github.akinozgen.NaviCloud.yml` — **BAŞLANGIÇ/WIP**. app + JRE
-kurulur; libmpv Flatpak runtime'ında olmadığından bir libmpv modülü (kaynaktan) ya da
-BaseApp gerekir. Manifest'in başındaki nota bak. Derleme:
+`packaging/flatpak/io.github.akinozgen.NaviCloud.yml` — **derleme doğrulandı**
+(WSL/Ubuntu 24.04 + flatpak-builder: derlenir, kurulur, açılır, libmpv yüklenir).
+libmpv Flatpak runtime'ında olmadığından kaynaktan derlenir:
+**libplacebo v7.360.1 → libass 0.17.5 → mpv 0.41.0** (yalnız `libmpv.so`). ffmpeg
+`org.freedesktop.Platform.ffmpeg-full` extension'ından gelir. Uygulama + gömülü JRE
+release tarball'ından `/app`'e kurulur (deb/rpm/AppImage ile aynı app-image).
 
 ```bash
-flatpak-builder --user --install build-dir packaging/flatpak/io.github.akinozgen.NaviCloud.yml
+flatpak install --user -y flathub org.freedesktop.{Platform,Sdk}//24.08 \
+  org.freedesktop.Platform.ffmpeg-full//24.08
+flatpak-builder --user --install --force-clean --disable-rofiles-fuse \
+  build-dir packaging/flatpak/io.github.akinozgen.NaviCloud.yml
+flatpak run io.github.akinozgen.NaviCloud
 ```
+
+Manifest notları (tuzaklar):
+- freedesktop-sdk meson `lib64` kullanır → libplacebo/mpv `-Dlibdir=lib` ile zorlanır,
+  yoksa mpv `libplacebo.pc`'yi bulamaz (PKG_CONFIG_PATH yalnız `/app/lib` bakar).
+- JVM/AWT (Skiko) **X11 ister** → `--socket=x11` (fallback-x11, wayland varken X11'i vermez).
+- MPRIS/tepsi için `--own-name` grant'leri; gerçek bir masaüstü D-Bus session'ı gerektirir.
+- WSLg altında Skiko OpenGL context açılamaz (WSLg GL kısıtı — ham app-image de aynı);
+  gerçek GPU/Mesa'lı Linux masaüstünde render eder.
+- Flathub'a submit için ek: `.metainfo.xml` (AppStream) + ekran görüntüsü + app-id sahiplik
+  doğrulaması (github.com/akinozgen). Yerel derleme bunları istemez.
