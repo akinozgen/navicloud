@@ -98,12 +98,18 @@ jobs:
         run: |
           cp dist/navicloud-*.rpm "NaviCloud-${{ github.ref_name }}.x86_64.rpm"
           cp dist/navicloud_*.deb "NaviCloud-${{ github.ref_name }}.amd64.deb"
+          # tarball + AppImage: sürüm-adlı bırakılır (AUR PKGBUILD bu tam adı bekler;
+          # tag ref'iyle yeniden adlandırılmaz)
+          cp dist/NaviCloud-*-linux-x86_64.tar.gz .
+          cp dist/NaviCloud-*-x86_64.AppImage .
       - uses: actions/upload-artifact@v4
         with:
           name: linux-packages
           path: |
             NaviCloud-*.rpm
             NaviCloud-*.deb
+            NaviCloud-*-linux-x86_64.tar.gz
+            NaviCloud-*-x86_64.AppImage
 
   release:
     needs: [android, windows, linux]
