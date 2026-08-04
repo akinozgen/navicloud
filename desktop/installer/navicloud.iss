@@ -4,7 +4,7 @@
 ; Derleme: ISCC.exe /DAppDir=<app-image yolu> navicloud.iss
 
 #define AppName "NaviCloud"
-#define AppVersion "1.5.1"
+#define AppVersion "1.5.2"
 #define Company "ozgen"
 #ifndef AppDir
   #define AppDir "..\build\compose\binaries\main\app\NaviCloud"
@@ -32,8 +32,9 @@ CloseApplications=yes
 WizardStyle=modern
 
 [Languages]
-Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"
+; İngilizce birincil (varsayılan); Türkçe seçilebilir kalır
 Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"

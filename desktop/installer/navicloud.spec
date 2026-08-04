@@ -13,8 +13,8 @@
 Name:           navicloud
 Version:        %{ver}
 Release:        1
-Summary:        Navidrome müzik istemcisi
-License:        Proprietary
+Summary:        Navidrome/Subsonic music client
+License:        GPL-3.0-or-later
 URL:            https://github.com/akinozgen/navicloud
 Requires:       mpv-libs
 AutoReqProv:    no
@@ -22,8 +22,8 @@ AutoReqProv:    no
 %define __strip /bin/true
 
 %description
-NaviCloud — Navidrome/Subsonic sunucuları için masaüstü müzik istemcisi.
-Gömülü Java çalışma ortamıyla gelir; ses motoru olarak sistem libmpv'sini kullanır.
+NaviCloud — a desktop music client for Navidrome/Subsonic servers.
+Ships with a bundled Java runtime; uses the system libmpv as its audio engine.
 
 %install
 mkdir -p %{buildroot}/opt/navicloud

@@ -1,6 +1,7 @@
 [Desktop Entry]
 Name=NaviCloud
-Comment=Navidrome müzik istemcisi
+Comment=Navidrome music client
+Comment[tr]=Navidrome müzik istemcisi
 Exec=navicloud
 Icon=io.github.akinozgen.NaviCloud
 Terminal=false

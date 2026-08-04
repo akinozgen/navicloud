@@ -112,9 +112,9 @@ Maintainer: Akın Özgen <akin@quartbilisim.net>
 Depends: libmpv2 | libmpv1
 Section: sound
 Priority: optional
-Description: Navidrome müzik istemcisi
- NaviCloud — Navidrome/Subsonic sunucuları için masaüstü müzik istemcisi.
- Gömülü Java çalışma ortamıyla gelir; ses motoru olarak sistem libmpv'sini kullanır.
+Description: Navidrome/Subsonic music client
+ NaviCloud — a desktop music client for Navidrome/Subsonic servers.
+ Ships with a bundled Java runtime; uses the system libmpv as its audio engine.
 EOF
   local out="$stage/../navicloud_${VERSION}_amd64.deb"
   if command -v fakeroot >/dev/null; then
@@ -170,7 +170,8 @@ EOS
   cat > "$ad/navicloud.desktop" <<EOS
 [Desktop Entry]
 Name=NaviCloud
-Comment=Navidrome istemcisi
+Comment=Navidrome music client
+Comment[tr]=Navidrome müzik istemcisi
 Exec=NaviCloud
 Icon=navicloud
 Terminal=false

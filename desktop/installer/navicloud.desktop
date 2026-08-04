@@ -1,6 +1,7 @@
 [Desktop Entry]
 Name=NaviCloud
-Comment=Navidrome istemcisi
+Comment=Navidrome music client
+Comment[tr]=Navidrome müzik istemcisi
 Exec=/opt/navicloud/bin/NaviCloud
 Icon=navicloud
 Terminal=false
