@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bar widget sağlayıcı tanımı (4×1, TEK SATIR geniş bar). Dikey resize KAPALI
+     (yalnız horizontal) → hücre hep tek satır, üstte/altta boşluk oluşmaz.
+     updatePeriodMillis=0 → güncellemeyi WidgetUpdater sürer (playback olayları). -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="56dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="1"
+    android:maxResizeHeight="80dp"
+    android:updatePeriodMillis="0"
+    android:resizeMode="horizontal"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_bar_description"
+    android:previewLayout="@layout/widget_bar"
+    android:initialLayout="@layout/widget_bar_loading" />

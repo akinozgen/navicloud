@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget metinleri (Türkçe). app_name markadır → çevrilmez. -->
+    <string name="widget_bar_label">NaviCloud Oynatıcı</string>
+    <string name="widget_bar_description">Kapak ve kontrollü oynatma çubuğu</string>
+    <string name="widget_vinyl_label">NaviCloud Plak</string>
+    <string name="widget_vinyl_description">Kontrollü plak (albüm kapağı)</string>
+
+    <string name="widget_idle_title">NaviCloud</string>
+    <string name="widget_idle_cta">Çalmaya başla</string>
+    <string name="widget_offline">Çevrimdışı</string>
+
+    <string name="widget_cd_play_pause">Çal / duraklat</string>
+    <string name="widget_cd_next">Sonraki</string>
+    <string name="widget_cd_prev">Önceki</string>
+</resources>

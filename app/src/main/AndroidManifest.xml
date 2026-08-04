@@ -38,5 +38,30 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
+
+        <!-- Ana ekran müzik widget'ları (RemoteViews). Yeni izin YOK. -->
+        <receiver
+            android:name=".widget.BarWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_bar_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_bar_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.VinylWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_vinyl_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_vinyl_info" />
+        </receiver>
     </application>
 </manifest>

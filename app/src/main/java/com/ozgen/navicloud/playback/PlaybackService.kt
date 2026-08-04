@@ -35,6 +35,7 @@ class PlaybackService : MediaSessionService() {
     @Inject lateinit var audioEffects: com.ozgen.navicloud.data.AudioEffectsRepository
     @Inject lateinit var remoteControlServer: com.ozgen.navicloud.remote.RemoteControlServer
     @Inject lateinit var remoteControlManager: com.ozgen.navicloud.remote.RemoteControlManager
+    @Inject lateinit var widgetUpdater: com.ozgen.navicloud.widget.WidgetUpdater
 
     private var mediaSession: MediaSession? = null
     private var audioEffectsEngine: AudioEffectsEngine? = null
@@ -67,6 +68,8 @@ class PlaybackService : MediaSessionService() {
         audioEffectsEngine = AudioEffectsEngine(audioSessionId, audioEffects, scope).also { it.start() }
         player.addListener(scrobbleListener(player))
         player.addListener(prefetchListener(player))
+        // Ana ekran widget'ları: canlı player olaylarını dinle → widget'ları yeniden çiz
+        widgetUpdater.attach(player)
         // Notification tap opens the app with the player expanded
         val sessionIntent = android.content.Intent(this, com.ozgen.navicloud.MainActivity::class.java).apply {
             action = ACTION_OPEN_PLAYER
@@ -199,6 +202,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        widgetUpdater.detach() // canlı bağı kes + idle/soğuk durum push et
         runCatching { remoteControlManager.stop() } // mDNS goodbye + hedefi lokale döndür
         runCatching { remoteControlServer.stop() }
         scope.cancel()
