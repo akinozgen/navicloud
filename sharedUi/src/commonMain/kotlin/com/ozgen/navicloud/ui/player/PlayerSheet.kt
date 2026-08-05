@@ -368,7 +368,8 @@ fun PlayerSheet(
             val sideBySide = screenHdp < 640.dp || screenWdp >= 900.dp
             // 144 = üst başlık 56 + alttaki kuyruk ipucu 72 + nefes payı
             val fullArtW =
-                if (sideBySide) minOf(screenHdp - statusPad - 144.dp, 400.dp)
+                // Geniş pencerede (masaüstü ≥1100dp) kapak büyür → boş yanlar dolar
+                if (sideBySide) minOf(screenHdp - statusPad - 144.dp, if (screenWdp >= 1100.dp) 520.dp else 400.dp)
                 else minOf(screenWdp - 32.dp, screenHdp * 0.42f, 420.dp)
             val artFullX = if (sideBySide) 32.dp else (screenWdp - fullArtW) / 2
             val artFullY =
@@ -414,6 +415,7 @@ fun PlayerSheet(
                     statusPad = statusPad,
                     artSpace = fullArtW,
                     sideBySide = sideBySide,
+                    wide = screenWdp >= 1100.dp,
                     // fades in while expanding, fades out again as the queue rises
                     contentAlpha = ((progress - 0.35f) / 0.65f).coerceIn(0f, 1f) *
                         (1f - queueProgress).coerceIn(0f, 1f),
@@ -658,6 +660,8 @@ private fun FullPlayerContent(
     onOpenAudioFx: () -> Unit,
     /** Yatay/kısa ekran: kapak solda, kontroller sağda. */
     sideBySide: Boolean = false,
+    /** Çok geniş pencere (≥1100dp): kontroller de genişler, boş yan azalır. */
+    wide: Boolean = false,
 ) {
     val strings = LocalStrings.current
     val playerState by vm.player.state.collectAsStateWithLifecycle()
@@ -1049,7 +1053,7 @@ private fun FullPlayerContent(
                 ) {
                     Column(
                         Modifier
-                            .widthIn(max = 560.dp)
+                            .widthIn(max = if (wide) 720.dp else 560.dp)
                             .padding(horizontal = 24.dp),
                     ) { controls() }
                 }
