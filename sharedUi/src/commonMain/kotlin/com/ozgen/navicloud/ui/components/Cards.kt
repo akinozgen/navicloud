@@ -138,3 +138,15 @@ fun formatDuration(totalSeconds: Int): String {
     val s = totalSeconds % 60
     return "%d:%02d".format(m, s)
 }
+
+/** Uzun süre biçimi (playlist toplamı): "3 sa 12 dk" / "12 dk". */
+fun formatDurationLong(totalSeconds: Int, strings: com.ozgen.navicloud.i18n.Strings): String {
+    val totalMin = totalSeconds / 60
+    val h = totalMin / 60
+    val m = totalMin % 60
+    return when {
+        h > 0 && m > 0 -> strings.durationHm(h, m)
+        h > 0 -> strings.durationH(h)
+        else -> strings.durationM(m)
+    }
+}

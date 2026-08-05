@@ -306,5 +306,12 @@
   "gridDensityComfortable": "Comfortable",
   "gridDensityLarge": "Large",
   "hiDpiHintTitle": "Interface looks small?",
-  "hiDpiHintBody": "A high-resolution display was detected but the interface isn't scaled up. You can enlarge it in Settings → Appearance."
+  "hiDpiHintBody": "A high-resolution display was detected but the interface isn't scaled up. You can enlarge it in Settings → Appearance.",
+  "collectionSyncedToast": "Downloaded — to remove, use the ⋯ menu",
+  "collectionRemoveDownloadsConfirmTitle": "Remove downloads?",
+  "collectionRemoveDownloadsConfirmBody": "The downloaded songs will be removed from this device — you won't be able to play them offline.",
+  "collectionRemoveDownloadsConfirm": "Remove",
+  "durationHm": "{h} hr {m} min",
+  "durationH": "{h} hr",
+  "durationM": "{m} min"
 }

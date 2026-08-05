@@ -57,7 +57,9 @@ import com.ozgen.navicloud.playback.PlaybackContext
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.AmbientBackdrop
 import com.ozgen.navicloud.ui.components.CollectionActionRow
+import com.ozgen.navicloud.ui.components.CollectionOverflowMenu
 import com.ozgen.navicloud.ui.components.DownloadState
+import com.ozgen.navicloud.ui.components.formatDurationLong
 import com.ozgen.navicloud.ui.components.PlaylistCoverMosaic
 import com.ozgen.navicloud.ui.components.PlaylistNameDialog
 import com.ozgen.navicloud.ui.components.SongItem
@@ -378,6 +380,16 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                 }
             }
 
+            // İndirme durumu topBar ⋯ menüsü + aksiyon satırı tarafından paylaşılıyor → hoist
+            val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
+            val active by vm.activeDownload.collectAsStateWithLifecycle()
+            val songIds = rows.map { it.song.id }
+            val downloadState = when {
+                active != null && songIds.contains(active!!.songId) -> DownloadState.DOWNLOADING
+                songIds.isNotEmpty() && songIds.all { it in downloadedIds } -> DownloadState.DONE
+                else -> DownloadState.NONE
+            }
+
             val topBar: @Composable () -> Unit = {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
@@ -386,6 +398,16 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = strings.commonBack)
                         }
+                        Spacer(Modifier.weight(1f))
+                        CollectionOverflowMenu(
+                            onPlayNext = { vm.player.playNext(rows.map { it.song }) },
+                            onAddToQueue = { vm.player.addToQueue(rows.map { it.song }) },
+                            onRemoveDownload = { vm.removeDownloads() },
+                            downloadState = downloadState,
+                            onRename = if (canEdit) ({ renameDialog = true }) else null,
+                            onDelete = if (canEdit) ({ deleteConfirm = true }) else null,
+                            playbackEnabled = rows.isNotEmpty(),
+                        )
                     }
             }
             val headerBody: @Composable () -> Unit = {
@@ -397,6 +419,9 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                         Text(
                             buildString {
                                 append(strings.playlistHeaderSubtitle(rows.size))
+                                if (detail.playlist.duration > 0) {
+                                    append(" • "); append(formatDurationLong(detail.playlist.duration, strings))
+                                }
                                 if (!detail.playlist.editable) {
                                     append(" • "); append(strings.playlistReadOnlyBadge)
                                 }
@@ -433,14 +458,6 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                             )
                         }
                         Spacer(Modifier.height(16.dp))
-                        val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
-                        val active by vm.activeDownload.collectAsStateWithLifecycle()
-                        val songIds = rows.map { it.song.id }
-                        val downloadState = when {
-                            active != null && songIds.contains(active!!.songId) -> DownloadState.DOWNLOADING
-                            songIds.isNotEmpty() && songIds.all { it in downloadedIds } -> DownloadState.DONE
-                            else -> DownloadState.NONE
-                        }
                         val playerUi by vm.player.state.collectAsStateWithLifecycle()
                         val currentCtx by vm.player.currentContext.collectAsStateWithLifecycle()
                         val isThisPlaying =
@@ -455,17 +472,13 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                                 }
                             },
                             onShuffle = { vm.player.play(rows.map { it.song }.shuffled(), context = vm.playbackContext(), contextLabel = vm.contextLabel()) },
-                            onPlayNext = { vm.player.playNext(rows.map { it.song }) },
-                            onAddToQueue = { vm.player.addToQueue(rows.map { it.song }) },
                             onDownload = {
                                 if (vm.downloadAll()) {
                                     toast(strings.commonDownloadQueued)
                                 }
                             },
-                            onRemoveDownload = { vm.removeDownloads() },
+                            onDownloadedTap = { toast(strings.collectionSyncedToast) },
                             downloadState = downloadState,
-                            onRename = if (canEdit) ({ renameDialog = true }) else null,
-                            onDelete = if (canEdit) ({ deleteConfirm = true }) else null,
                             playbackEnabled = rows.isNotEmpty(),
                         )
                         Spacer(Modifier.height(8.dp))
