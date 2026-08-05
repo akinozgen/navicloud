@@ -49,12 +49,13 @@ val genI18n by tasks.registering {
     val keysF = i18nSrcDir.file("keys.json").asFile
     val enF = i18nSrcDir.file("en.json").asFile
     val trF = i18nSrcDir.file("tr.json").asFile
+    val deF = i18nSrcDir.file("de.json").asFile
     val outDir = i18nGenDir.get().asFile
     val strict = providers.gradleProperty("i18nStrict").isPresent
     val log = logger
-    inputs.files(keysF, enF, trF)
+    inputs.files(keysF, enF, trF, deF)
     outputs.dir(outDir)
-    doLast { generateI18n(keysF, enF, trF, outDir, strict, log) }
+    doLast { generateI18n(keysF, enF, trF, deF, outDir, strict, log) }
 }
 
 kotlin.sourceSets["main"].kotlin.srcDir(i18nGenDir)
@@ -97,12 +98,13 @@ fun i18nTemplate(t: String, params: Set<String>, key: String, errors: MutableLis
 }
 
 @Suppress("UNCHECKED_CAST")
-fun generateI18n(keysF: File, enF: File, trF: File, outDir: File, strict: Boolean, log: org.gradle.api.logging.Logger) {
+fun generateI18n(keysF: File, enF: File, trF: File, deF: File, outDir: File, strict: Boolean, log: org.gradle.api.logging.Logger) {
     val slurper = JsonSlurper()
     val keys = slurper.parse(keysF) as Map<String, Map<String, Any?>>
     val langs = linkedMapOf(
         "EnStrings" to (slurper.parse(enF) as Map<String, Any?>),
         "TrStrings" to (slurper.parse(trF) as Map<String, Any?>),
+        "DeStrings" to (slurper.parse(deF) as Map<String, Any?>),
     )
     val errors = mutableListOf<String>()
     val warnings = mutableListOf<String>()

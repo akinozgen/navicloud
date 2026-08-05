@@ -532,6 +532,7 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                 AppLanguage.SYSTEM -> s.languageSystem
                 AppLanguage.TURKISH -> s.languageTurkish
                 AppLanguage.ENGLISH -> s.languageEnglish
+                AppLanguage.GERMAN -> s.languageGerman
             },
             onClick = { languageDialog = true },
         )
@@ -694,6 +695,7 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                                     AppLanguage.SYSTEM -> s.languageSystem
                                     AppLanguage.TURKISH -> s.languageTurkish
                                     AppLanguage.ENGLISH -> s.languageEnglish
+                                    AppLanguage.GERMAN -> s.languageGerman
                                 },
                                 style = MaterialTheme.typography.bodyLarge,
                             )

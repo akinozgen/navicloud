@@ -466,6 +466,7 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                 AppLanguage.SYSTEM -> strings.languageSystem
                 AppLanguage.TURKISH -> strings.languageTurkish
                 AppLanguage.ENGLISH -> strings.languageEnglish
+                AppLanguage.GERMAN -> strings.languageGerman
             },
             onClick = { languageDialog = true },
         )
@@ -607,6 +608,7 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                                     AppLanguage.SYSTEM -> strings.languageSystem
                                     AppLanguage.TURKISH -> strings.languageTurkish
                                     AppLanguage.ENGLISH -> strings.languageEnglish
+                                    AppLanguage.GERMAN -> strings.languageGerman
                                 },
                                 style = MaterialTheme.typography.bodyLarge,
                             )

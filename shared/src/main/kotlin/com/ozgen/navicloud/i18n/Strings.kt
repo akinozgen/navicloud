@@ -7,19 +7,24 @@ import java.util.Locale
 // olarak üretir. Yeni metin = JSON düzenle. Burada yalnız dil seçimi mantığı kalır.
 
 /**
- * Uygulama dili. SYSTEM → JVM varsayılan locale'ine göre TR/EN çözülür.
- * Ayarlardan elle TURKISH/ENGLISH seçilebilir.
+ * Uygulama dili. SYSTEM → JVM varsayılan locale'ine göre TR/DE/EN çözülür.
+ * Ayarlardan elle TURKISH/ENGLISH/GERMAN seçilebilir.
  */
-enum class AppLanguage { SYSTEM, TURKISH, ENGLISH }
+enum class AppLanguage { SYSTEM, TURKISH, ENGLISH, GERMAN }
 
-/** SYSTEM'i somut dile indirger (Locale.getDefault().language == "tr" → TR, aksi EN). */
+/** SYSTEM'i somut dile indirger (locale dili tr→TR, de→GERMAN, aksi EN). */
 fun AppLanguage.resolved(): AppLanguage = when (this) {
-    AppLanguage.SYSTEM -> if (Locale.getDefault().language == "tr") AppLanguage.TURKISH else AppLanguage.ENGLISH
+    AppLanguage.SYSTEM -> when (Locale.getDefault().language) {
+        "tr" -> AppLanguage.TURKISH
+        "de" -> AppLanguage.GERMAN
+        else -> AppLanguage.ENGLISH
+    }
     else -> this
 }
 
 fun stringsFor(language: AppLanguage): Strings = when (language.resolved()) {
     AppLanguage.TURKISH -> TrStrings
+    AppLanguage.GERMAN -> DeStrings
     else -> EnStrings
 }
 

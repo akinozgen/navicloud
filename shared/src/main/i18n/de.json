@@ -306,5 +306,12 @@
   "gridDensityComfortable": "Komfortabel",
   "gridDensityLarge": "Groß",
   "hiDpiHintTitle": "Oberfläche sieht klein aus?",
-  "hiDpiHintBody": "Es wurde ein hochauflösendes Display erkannt, aber die Benutzeroberfläche ist nicht skaliert. Du kannst sie unter Einstellungen → Erscheinungsbild vergrößern."
+  "hiDpiHintBody": "Es wurde ein hochauflösendes Display erkannt, aber die Benutzeroberfläche ist nicht skaliert. Du kannst sie unter Einstellungen → Erscheinungsbild vergrößern.",
+  "collectionSyncedToast": "Heruntergeladen — zum Entfernen das ⋯-Menü verwenden",
+  "collectionRemoveDownloadsConfirmTitle": "Downloads entfernen?",
+  "collectionRemoveDownloadsConfirmBody": "Die heruntergeladenen Titel werden von diesem Gerät entfernt — du kannst sie dann offline nicht mehr abspielen.",
+  "collectionRemoveDownloadsConfirm": "Entfernen",
+  "durationHm": "{h} Std. {m} Min.",
+  "durationH": "{h} Std.",
+  "durationM": "{m} Min."
 }
