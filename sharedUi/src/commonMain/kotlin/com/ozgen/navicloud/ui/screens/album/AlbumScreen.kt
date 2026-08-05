@@ -53,6 +53,7 @@ import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.AmbientBackdrop
 import com.ozgen.navicloud.ui.components.Artwork
 import com.ozgen.navicloud.ui.components.CollectionActionRow
+import com.ozgen.navicloud.ui.components.CollectionOverflowMenu
 import com.ozgen.navicloud.ui.components.DownloadState
 import com.ozgen.navicloud.ui.components.SongItem
 import com.ozgen.navicloud.ui.components.formatDuration
@@ -151,6 +152,16 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
             val toast = com.ozgen.navicloud.ui.rememberToaster()
             // Başlık ve liste parçaları — telefonda dikey istif, geniş
             // ekranda solda başlık sütunu / sağda liste (playerdaki düzen)
+            // İndirme durumu topBar ⋯ menüsü + aksiyon satırı tarafından paylaşılıyor → hoist
+            val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
+            val active by vm.activeDownload.collectAsStateWithLifecycle()
+            val songIds = detail.songs.map { it.id }
+            val downloadState = when {
+                active != null && songIds.contains(active!!.songId) -> DownloadState.DOWNLOADING
+                songIds.isNotEmpty() && songIds.all { it in downloadedIds } -> DownloadState.DONE
+                else -> DownloadState.NONE
+            }
+
             val topBar: @Composable () -> Unit = {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
@@ -168,6 +179,13 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                        CollectionOverflowMenu(
+                            onPlayNext = { vm.player.playNext(detail.songs) },
+                            onAddToQueue = { vm.player.addToQueue(detail.songs) },
+                            onRemoveDownload = { vm.removeDownloads() },
+                            downloadState = downloadState,
+                            playbackEnabled = detail.songs.isNotEmpty(),
+                        )
                     }
             }
             val headerBody: @Composable () -> Unit = {
@@ -211,14 +229,6 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                             modifier = Modifier.padding(top = 4.dp),
                         )
                         Spacer(Modifier.height(16.dp))
-                        val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
-                        val active by vm.activeDownload.collectAsStateWithLifecycle()
-                        val songIds = detail.songs.map { it.id }
-                        val downloadState = when {
-                            active != null && songIds.contains(active!!.songId) -> DownloadState.DOWNLOADING
-                            songIds.isNotEmpty() && songIds.all { it in downloadedIds } -> DownloadState.DONE
-                            else -> DownloadState.NONE
-                        }
                         val playerUi by vm.player.state.collectAsStateWithLifecycle()
                         val currentCtx by vm.player.currentContext.collectAsStateWithLifecycle()
                         val isThisPlaying =
@@ -233,14 +243,11 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                                 }
                             },
                             onShuffle = { vm.player.play(detail.songs.shuffled(), context = vm.playbackContext(), contextLabel = vm.contextLabel()) },
-                            onPlayNext = { vm.player.playNext(detail.songs) },
-                            onAddToQueue = { vm.player.addToQueue(detail.songs) },
                             onDownload = {
                                 if (vm.downloadAll()) {
                                     toast(strings.commonDownloadQueued)
                                 }
                             },
-                            onRemoveDownload = { vm.removeDownloads() },
                             onDownloadedTap = { toast(strings.collectionSyncedToast) },
                             downloadState = downloadState,
                         )

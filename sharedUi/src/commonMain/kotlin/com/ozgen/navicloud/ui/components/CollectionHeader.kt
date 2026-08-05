@@ -82,26 +82,17 @@ enum class DownloadState { NONE, DOWNLOADING, DONE }
 fun CollectionActionRow(
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
-    onPlayNext: () -> Unit,
-    onAddToQueue: () -> Unit,
     onDownload: () -> Unit,
-    onRemoveDownload: () -> Unit,
     /** İndirilmiş+güncel durumda indirme ikonuna dokunuş: YIKICI DEĞİL (ipucu toast'u). */
     onDownloadedTap: () -> Unit = {},
     downloadState: DownloadState,
     modifier: Modifier = Modifier,
     /** This collection is the active playback context and playing → show pause. */
     isPlaying: Boolean = false,
-    /** Playlist: overflow'a "Yeniden adlandır" ekler (albüm ekranı geçmez → değişmez). */
-    onRename: (() -> Unit)? = null,
-    /** Playlist: overflow'a kırmızı "Listeyi sil" ekler. */
-    onDelete: (() -> Unit)? = null,
-    /** Boş koleksiyonda çalma/indirme kapalı; overflow (sil/adlandır) AKTİF kalır. */
+    /** Boş koleksiyonda çalma/indirme kapalı. */
     playbackEnabled: Boolean = true,
 ) {
     val strings = LocalStrings.current
-    var menuOpen by remember { mutableStateOf(false) }
-    var removeConfirm by remember { mutableStateOf(false) }
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -116,53 +107,6 @@ fun CollectionActionRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Box {
-            IconButton(onClick = { menuOpen = true }) {
-                Icon(
-                    Icons.Rounded.MoreVert,
-                    contentDescription = strings.commonOptions,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                // Shuffle artık sol buton — menüden çıkarıldı.
-                DropdownMenuItem(
-                    text = { Text(strings.commonPlayNext) },
-                    leadingIcon = { Icon(Icons.Rounded.PlaylistPlay, null) },
-                    enabled = playbackEnabled,
-                    onClick = { menuOpen = false; onPlayNext() },
-                )
-                DropdownMenuItem(
-                    text = { Text(strings.commonAddToQueue) },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
-                    enabled = playbackEnabled,
-                    onClick = { menuOpen = false; onAddToQueue() },
-                )
-                if (onRename != null) {
-                    DropdownMenuItem(
-                        text = { Text(strings.playlistRename) },
-                        leadingIcon = { Icon(Icons.Rounded.Edit, null) },
-                        onClick = { menuOpen = false; onRename() },
-                    )
-                }
-                if (downloadState != DownloadState.NONE) {
-                    DropdownMenuItem(
-                        text = { Text(strings.collectionRemoveDownloads) },
-                        leadingIcon = { Icon(Icons.Rounded.Delete, null) },
-                        onClick = { menuOpen = false; removeConfirm = true },
-                    )
-                }
-                if (onDelete != null) {
-                    // Tehlike bölgesi: en altta, error renginde
-                    DropdownMenuItem(
-                        text = { Text(strings.playlistDelete, color = MaterialTheme.colorScheme.error) },
-                        leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },
-                        onClick = { menuOpen = false; onDelete() },
-                    )
-                }
-            }
-        }
-
         FilledIconButton(
             onClick = onPlay,
             enabled = playbackEnabled,
@@ -198,8 +142,72 @@ fun CollectionActionRow(
             }
         }
     }
+}
 
-    // Silme yalnız buradan + onaylı (DONE ikonuna dokunuş artık YIKICI değil — footgun kapandı).
+/**
+ * Album/playlist ⋯ overflow menüsü (topBar'da). Sıradaki çal · Sıraya ekle +
+ * playlist'e özel Yeniden adlandır · İndirilenleri kaldır (onaylı) · Listeyi sil.
+ */
+@Composable
+fun CollectionOverflowMenu(
+    onPlayNext: () -> Unit,
+    onAddToQueue: () -> Unit,
+    onRemoveDownload: () -> Unit,
+    downloadState: DownloadState,
+    modifier: Modifier = Modifier,
+    onRename: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
+    playbackEnabled: Boolean = true,
+) {
+    val strings = LocalStrings.current
+    var menuOpen by remember { mutableStateOf(false) }
+    var removeConfirm by remember { mutableStateOf(false) }
+    Box(modifier) {
+        IconButton(onClick = { menuOpen = true }) {
+            Icon(
+                Icons.Rounded.MoreVert,
+                contentDescription = strings.commonOptions,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text(strings.commonPlayNext) },
+                leadingIcon = { Icon(Icons.Rounded.PlaylistPlay, null) },
+                enabled = playbackEnabled,
+                onClick = { menuOpen = false; onPlayNext() },
+            )
+            DropdownMenuItem(
+                text = { Text(strings.commonAddToQueue) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
+                enabled = playbackEnabled,
+                onClick = { menuOpen = false; onAddToQueue() },
+            )
+            if (onRename != null) {
+                DropdownMenuItem(
+                    text = { Text(strings.playlistRename) },
+                    leadingIcon = { Icon(Icons.Rounded.Edit, null) },
+                    onClick = { menuOpen = false; onRename() },
+                )
+            }
+            if (downloadState != DownloadState.NONE) {
+                DropdownMenuItem(
+                    text = { Text(strings.collectionRemoveDownloads) },
+                    leadingIcon = { Icon(Icons.Rounded.Delete, null) },
+                    onClick = { menuOpen = false; removeConfirm = true },
+                )
+            }
+            if (onDelete != null) {
+                // Tehlike bölgesi: en altta, error renginde
+                DropdownMenuItem(
+                    text = { Text(strings.playlistDelete, color = MaterialTheme.colorScheme.error) },
+                    leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                    onClick = { menuOpen = false; onDelete() },
+                )
+            }
+        }
+    }
+    // Silme onaylı (DONE ikonuna dokunuş artık YIKICI değil — footgun kapandı).
     if (removeConfirm) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { removeConfirm = false },
