@@ -32,6 +32,8 @@ import androidx.navigation.NavController
 import com.ozgen.navicloud.core.model.Album
 import com.ozgen.navicloud.core.model.HomeSectionType
 import com.ozgen.navicloud.data.MusicRepository
+import com.ozgen.navicloud.ui.components.CappedGridCells
+import com.ozgen.navicloud.ui.components.LocalCoverTarget
 import com.ozgen.navicloud.ui.components.OverlayAlbumCard
 import com.ozgen.navicloud.ui.containerViewModel
 import com.ozgen.navicloud.ui.i18n.LocalStrings
@@ -122,7 +124,7 @@ fun SectionScreen(
             Text(strings.homeSectionTitle(type), style = MaterialTheme.typography.headlineSmall)
         }
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 170.dp),
+            columns = CappedGridCells(LocalCoverTarget.current),
             state = gridState,
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),

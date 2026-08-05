@@ -74,6 +74,8 @@ import com.ozgen.navicloud.playback.PlaybackContext
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.AlbumCard
 import com.ozgen.navicloud.ui.components.Artwork
+import com.ozgen.navicloud.ui.components.CappedGridCells
+import com.ozgen.navicloud.ui.components.LocalCoverTarget
 import com.ozgen.navicloud.ui.components.NaviChip
 import com.ozgen.navicloud.ui.components.PillSearchField
 import com.ozgen.navicloud.ui.components.PlaylistNameDialog
@@ -495,8 +497,8 @@ fun LibraryScreen(navController: NavController, vm: LibraryViewModel = container
                             val gridState = rememberLazyGridState()
                             SyncFabExpansionGrid(gridState, fabExpanded)
                             LazyVerticalGrid(
-                                // Genişledikçe kolon eklenir (tablet/rail düzeni)
-                                columns = GridCells.Adaptive(minSize = 160.dp),
+                                // Hedef-boyutlu, cap'li kolon (4K'da 20 minik kolon olmasın)
+                                columns = CappedGridCells(LocalCoverTarget.current),
                                 state = gridState,
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(16.dp),

@@ -49,6 +49,8 @@ import com.ozgen.navicloud.playback.PlaybackContext
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.ArtistCard
 import com.ozgen.navicloud.ui.components.GhostCard
+import com.ozgen.navicloud.ui.components.LocalCoverTarget
+import com.ozgen.navicloud.ui.components.coverColumns
 import com.ozgen.navicloud.ui.components.MixHeroCard
 import com.ozgen.navicloud.ui.components.MixHeroStrip
 import com.ozgen.navicloud.ui.components.NaviRefreshBox
@@ -256,7 +258,9 @@ fun HomeScreen(
                 if (firstSection != null) {
                     item(key = "quick-grid", contentType = "grid") {
                         BoxWithConstraints(Modifier.padding(horizontal = 16.dp)) {
-                            val cols = (maxWidth / 220.dp).toInt().coerceIn(2, 4)
+                            // Kolon = genişlik/hedef (cap'li) → 4K'da 4 dev kapak yerine tutarlı boyut.
+                            // Telefonda (hedef 176) 2 döner: eski coerceIn(2,4) ile birebir.
+                            val cols = coverColumns(maxWidth, LocalCoverTarget.current)
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 firstSection.albums.take(cols * 3).chunked(cols).forEach { rowAlbums ->
                                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
