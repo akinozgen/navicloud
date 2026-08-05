@@ -28,10 +28,12 @@ import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import com.ozgen.navicloud.data.MusicRepository
+import com.ozgen.navicloud.data.AppearancePreferences
 import com.ozgen.navicloud.ui.AppContainer
 import com.ozgen.navicloud.ui.LocalAppContainer
 import com.ozgen.navicloud.ui.NaviCloudRoot
 import com.ozgen.navicloud.ui.theme.NaviCloudTheme
+import com.ozgen.navicloud.ui.theme.rememberAutoAccent
 import com.ozgen.navicloud.remote.rcServerId
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
@@ -246,6 +248,15 @@ private fun runApp() = application {
     val language by DesktopPrefs.languageFlow.collectAsState()
     val uiScale by DesktopPrefs.uiScaleFlow.collectAsState()
     val coverTarget by DesktopPrefs.coverTargetFlow.collectAsState()
+    val accentColor by DesktopPrefs.accentColorFlow.collectAsState()
+    val preferPitchBlack by DesktopPrefs.preferPitchBlackFlow.collectAsState()
+    val albumArtGlow by DesktopPrefs.albumArtGlowFlow.collectAsState()
+    val appearance = AppearancePreferences(accentColor, preferPitchBlack, albumArtGlow)
+    val autoAccent = rememberAutoAccent(
+        appearance = appearance,
+        artworkUrl = playerState.currentTrack?.artworkUrl,
+        cacheKey = playerState.currentTrack?.song?.coverArt,
+    )
     val strings = com.ozgen.navicloud.i18n.stringsFor(language)
     var windowVisible by remember { mutableStateOf(true) }
     var miniOpen by remember { mutableStateOf(false) }
@@ -378,7 +389,7 @@ private fun runApp() = application {
                     androidx.compose.ui.unit.Density(base0.density * uiScale, base0.fontScale),
                 com.ozgen.navicloud.ui.components.LocalCoverTarget provides coverTarget.dp,
             ) {
-                NaviCloudTheme {
+                NaviCloudTheme(appearance = appearance, autoAccent = autoAccent) {
                     NaviCloudRoot(
                         platformSettings = { nav -> DesktopSettingsScreen(nav) },
                     )
@@ -416,8 +427,20 @@ private fun runApp() = application {
     // Varyant modelde tutulur; değişince pencere aynı konumda swap olur.
     if (miniOpen) {
         when (miniModel.variant) {
-            MiniVariant.STANDARD -> MiniPlayerWindow(player, miniModel, onExpand = { showWindow() })
-            MiniVariant.VINYL -> MiniVinylWindow(player, miniModel, onExpand = { showWindow() })
+            MiniVariant.STANDARD -> MiniPlayerWindow(
+                player,
+                miniModel,
+                appearance,
+                autoAccent,
+                onExpand = { showWindow() },
+            )
+            MiniVariant.VINYL -> MiniVinylWindow(
+                player,
+                miniModel,
+                appearance,
+                autoAccent,
+                onExpand = { showWindow() },
+            )
         }
     }
 }

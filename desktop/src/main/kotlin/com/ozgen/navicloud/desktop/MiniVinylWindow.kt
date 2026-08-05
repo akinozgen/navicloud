@@ -1,6 +1,5 @@
 package com.ozgen.navicloud.desktop
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -49,7 +48,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.rememberWindowState
 import coil3.compose.AsyncImage
 import com.ozgen.navicloud.playback.PlayerController
-import com.ozgen.navicloud.ui.extractArtColors
+import com.ozgen.navicloud.data.AppearancePreferences
 import com.ozgen.navicloud.ui.theme.NaviCloudTheme
 
 // Plağın dönme hızı: tam tur / 9 sn (~40°/sn) — sakin, "yavaş dönen plak" hissi.
@@ -64,7 +63,13 @@ private const val DEGREES_PER_SEC = 40f
  * - Sağ üstte küçük ikon → standart mini oynatıcıya döner. Konum/persist Task 1 ile ortak.
  */
 @Composable
-fun MiniVinylWindow(player: PlayerController, model: MiniWindowModel, onExpand: () -> Unit) {
+fun MiniVinylWindow(
+    player: PlayerController,
+    model: MiniWindowModel,
+    appearance: AppearancePreferences,
+    autoAccent: Color?,
+    onExpand: () -> Unit,
+) {
     val state = rememberWindowState(
         size = MINI_VINYL_SIZE,
         position = initialMiniPosition(model, MINI_VINYL_SIZE),
@@ -85,20 +90,11 @@ fun MiniVinylWindow(player: PlayerController, model: MiniWindowModel, onExpand: 
         // Konum sürükleme bitiminde persist edilir; yıkımda win.x/y stale → onDispose'da okunmaz.
         LaunchedEffect(win) { MiniGeometry.place(win, model) }
 
-        NaviCloudTheme {
+        NaviCloudTheme(appearance = appearance, autoAccent = autoAccent) {
             val ps by player.state.collectAsState()
             val track = ps.currentTrack
 
-            // Kapaktan türeyen accent — label halkasına renk kimliği verir
-            var accentTarget by remember { mutableStateOf<Color?>(null) }
-            LaunchedEffect(track?.song?.coverArt) {
-                val url = track?.artworkUrl
-                accentTarget = if (url == null) null
-                else runCatching { extractArtColors(url, track.song.coverArt) }.getOrNull()?.second
-            }
-            val accent by animateColorAsState(
-                accentTarget ?: MaterialTheme.colorScheme.primary, tween(500), label = "vinylAccent",
-            )
+            val accent = MaterialTheme.colorScheme.primary
 
             // Tek uzun animasyon: frame saatiyle açıyı artır. Pause'da / pencere
             // gizliyken (minimize) coroutine biter → dönüş tamamen durur, açı korunur.
@@ -125,7 +121,7 @@ fun MiniVinylWindow(player: PlayerController, model: MiniWindowModel, onExpand: 
 
             Surface(
                 modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)),
-                color = Color(0xFF0E0E12),
+                color = MaterialTheme.colorScheme.surface,
             ) {
                 Box(
                     Modifier
@@ -135,7 +131,7 @@ fun MiniVinylWindow(player: PlayerController, model: MiniWindowModel, onExpand: 
                     contentAlignment = Alignment.Center,
                 ) {
                     // 1) Blur'lu kapak zemini — statik, kendi layer'ında (art değişince yenilenir)
-                    track?.artworkUrl?.let { url ->
+                    track?.artworkUrl?.takeIf { appearance.albumArtGlow }?.let { url ->
                         AsyncImage(
                             model = url,
                             contentDescription = null,
@@ -164,7 +160,7 @@ fun MiniVinylWindow(player: PlayerController, model: MiniWindowModel, onExpand: 
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             } else {
-                                Box(Modifier.fillMaxSize().background(Color(0xFF17171C)))
+                                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerHigh))
                             }
                         }
 

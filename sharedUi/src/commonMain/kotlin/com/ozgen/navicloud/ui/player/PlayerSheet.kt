@@ -179,6 +179,7 @@ fun PlayerSheet(
     /** Altındaki gezinme çubuğunun yüksekliği; rail'li geniş düzende 0. */
     bottomBarHeight: androidx.compose.ui.unit.Dp = 80.dp,
 ) {
+    val appearance = com.ozgen.navicloud.ui.theme.LocalAppearancePreferences.current
     val playerState by vm.player.state.collectAsStateWithLifecycle()
     val uiState by vm.state.collectAsStateWithLifecycle()
     val item = playerState.currentTrack ?: return
@@ -188,28 +189,30 @@ fun PlayerSheet(
     val navBarPad = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val statusPad = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
-    var dominantTarget by remember { mutableStateOf(Color(0xFF17171E)) }
-    var accentTarget by remember { mutableStateOf<Color?>(null) }
+    val fallbackSurface = MaterialTheme.colorScheme.surface
+    var dominantTarget by remember { mutableStateOf(fallbackSurface) }
     var showLyrics by remember { mutableStateOf(false) }
     var showSleepTimer by remember { mutableStateOf(false) }
     var showAudioFx by remember { mutableStateOf(false) }
 
     val artResolver = com.ozgen.navicloud.ui.components.LocalArtResolver.current
-    LaunchedEffect(item.song.id) {
+    LaunchedEffect(item.song.id, appearance.albumArtGlow, fallbackSurface) {
         vm.onSongChanged(
             item.song.id,
             item.song.starred,
         )
+        if (!appearance.albumArtGlow) {
+            dominantTarget = fallbackSurface
+            return@LaunchedEffect
+        }
         val artUri = item.artworkUrl
         if (artUri == null) {
-            dominantTarget = Color(0xFF17171E)
-            accentTarget = null
+            dominantTarget = fallbackSurface
             return@LaunchedEffect
         }
         val coverId = item.song.coverArt
-        paletteCache[coverId ?: artUri]?.let { (dom, acc) ->
+        paletteCache[coverId ?: artUri]?.let { (dom, _) ->
             dominantTarget = dom
-            accentTarget = acc
             return@LaunchedEffect
         }
         withContext(Dispatchers.IO) {
@@ -220,16 +223,11 @@ fun PlayerSheet(
             }.getOrNull() ?: return@withContext
             paletteCache[coverId ?: artUri] = colors
             dominantTarget = colors.first
-            accentTarget = colors.second
         }
     }
-    // İçerikten türeyen renkler; parça değişiminde yumuşak geçiş
+    // İçerikten türeyen glow rengi; seçili accent kontrol renklerinde app-wide kalır.
     val dominantColor by animateColorAsState(dominantTarget, tween(600), label = "dominant")
-    val accentColor by animateColorAsState(
-        accentTarget ?: MaterialTheme.colorScheme.primary,
-        tween(600),
-        label = "accent",
-    )
+    val accentColor = MaterialTheme.colorScheme.primary
 
     BoxWithConstraints(modifier.fillMaxSize()) {
         val sheetHpx = constraints.maxHeight.toFloat()
@@ -330,7 +328,7 @@ fun PlayerSheet(
             // Depth: blurred artwork as ambient backdrop (single blur layer,
             // RenderEffect — minSdk 31), the dominant gradient tames it on top
             val artKey = artResolver.cacheKey(item.song.coverArt)
-            if (progress > 0.1f) {
+            if (appearance.albumArtGlow && progress > 0.1f) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalPlatformContext.current)
                         .data(item.artworkUrl)
@@ -345,17 +343,19 @@ fun PlayerSheet(
                 )
             }
             // Gradient grows in as the sheet expands
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = progress }
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(dominantColor.copy(alpha = 0.9f), MaterialTheme.colorScheme.background),
-                            endY = 1800f,
-                        )
-                    ),
-            )
+            if (appearance.albumArtGlow) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = progress }
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(dominantColor.copy(alpha = 0.9f), MaterialTheme.colorScheme.background),
+                                endY = 1800f,
+                            )
+                        ),
+                )
+            }
 
             // ---- Morph geometry ----
             // mini slot <-> full slot (margined, rounded — YT mindset: dominant but framed)

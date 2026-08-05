@@ -56,11 +56,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.ozgen.navicloud.data.StreamQuality
+import com.ozgen.navicloud.data.AccentColor
+import com.ozgen.navicloud.data.AppearancePreferences
 import com.ozgen.navicloud.i18n.AppLanguage
 import com.ozgen.navicloud.ui.LocalAppContainer
 import com.ozgen.navicloud.ui.i18n.LocalStrings
 import com.ozgen.navicloud.ui.screens.login.LoginScreen
 import com.ozgen.navicloud.ui.screens.settings.LicensesScreen
+import com.ozgen.navicloud.ui.screens.settings.AppearanceSettingsControls
 import com.ozgen.navicloud.ui.screens.settings.commonLicenses
 import com.ozgen.navicloud.ui.screens.settings.desktopLicenses
 import kotlinx.coroutines.delay
@@ -104,6 +107,10 @@ object DesktopPrefs {
         val uiScale: Float = 1f,
         // Görünüm: albüm/kapak grid hedef genişliği (dp). Küçük=daha çok kolon (sıkışık).
         val coverTarget: Float = 176f,
+        // Android ile ortak görünüm tercihleri.
+        val accentColor: String = AccentColor.AUTO.name,
+        val preferPitchBlack: Boolean = false,
+        val albumArtGlow: Boolean = true,
         // hi-DPI ilk-açılış ipucu bir kez gösterildi mi.
         val hiDpiHintShown: Boolean = false,
     )
@@ -232,6 +239,35 @@ object DesktopPrefs {
         set(value) {
             coverTargetFlow.value = value
             save(load().copy(coverTarget = value))
+        }
+
+    val accentColorFlow: MutableStateFlow<AccentColor> = MutableStateFlow(
+        runCatching { AccentColor.valueOf(load().accentColor) }.getOrDefault(AccentColor.AUTO)
+    )
+
+    var accentColor: AccentColor
+        get() = accentColorFlow.value
+        set(value) {
+            accentColorFlow.value = value
+            save(load().copy(accentColor = value.name))
+        }
+
+    val preferPitchBlackFlow: MutableStateFlow<Boolean> = MutableStateFlow(load().preferPitchBlack)
+
+    var preferPitchBlack: Boolean
+        get() = preferPitchBlackFlow.value
+        set(value) {
+            preferPitchBlackFlow.value = value
+            save(load().copy(preferPitchBlack = value))
+        }
+
+    val albumArtGlowFlow: MutableStateFlow<Boolean> = MutableStateFlow(load().albumArtGlow)
+
+    var albumArtGlow: Boolean
+        get() = albumArtGlowFlow.value
+        set(value) {
+            albumArtGlowFlow.value = value
+            save(load().copy(albumArtGlow = value))
         }
 
     /** hi-DPI ipucu bir kez gösterildi mi (tek-seferlik, flow gerekmez). */
@@ -482,6 +518,15 @@ fun DesktopSettingsScreen(navController: NavHostController) {
         )
 
         SectionHeader(s.settingsAppearanceSection)
+        val accentColor by DesktopPrefs.accentColorFlow.collectAsState()
+        val preferPitchBlack by DesktopPrefs.preferPitchBlackFlow.collectAsState()
+        val albumArtGlow by DesktopPrefs.albumArtGlowFlow.collectAsState()
+        AppearanceSettingsControls(
+            appearance = AppearancePreferences(accentColor, preferPitchBlack, albumArtGlow),
+            onAccentChange = { DesktopPrefs.accentColor = it },
+            onPreferPitchBlackChange = { DesktopPrefs.preferPitchBlack = it },
+            onAlbumArtGlowChange = { DesktopPrefs.albumArtGlow = it },
+        )
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text(s.settingsUiScale, style = MaterialTheme.typography.bodyLarge)
             Text(

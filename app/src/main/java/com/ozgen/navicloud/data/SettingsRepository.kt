@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,6 +23,9 @@ private val KEY_RC_DEVICE_ID = stringPreferencesKey("rc_device_id")
 private val KEY_RC_DEVICE_NAME = stringPreferencesKey("rc_device_name")
 private val KEY_RC_SECRET = stringPreferencesKey("rc_secret")
 private val KEY_LANGUAGE = stringPreferencesKey("app_language")
+private val KEY_ACCENT_COLOR = stringPreferencesKey("appearance_accent_color")
+private val KEY_PREFER_PITCH_BLACK = booleanPreferencesKey("appearance_prefer_pitch_black")
+private val KEY_ALBUM_ART_GLOW = booleanPreferencesKey("appearance_album_art_glow")
 
 @Singleton
 class SettingsRepository @Inject constructor(
@@ -119,5 +123,35 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setLanguage(language: com.ozgen.navicloud.i18n.AppLanguage) {
         dataStore.edit { it[KEY_LANGUAGE] = language.name }
+    }
+
+    // --- Görünüm (Android/Desktop ortak sözleşmesi) ---
+
+    val accentColor: Flow<AccentColor> = dataStore.data.map { prefs ->
+        prefs[KEY_ACCENT_COLOR]?.let { runCatching { AccentColor.valueOf(it) }.getOrNull() }
+            ?: AccentColor.AUTO
+    }
+
+    val preferPitchBlack: Flow<Boolean> =
+        dataStore.data.map { it[KEY_PREFER_PITCH_BLACK] ?: false }
+
+    val albumArtGlow: Flow<Boolean> =
+        dataStore.data.map { it[KEY_ALBUM_ART_GLOW] ?: true }
+
+    val appearance: Flow<AppearancePreferences> =
+        combine(accentColor, preferPitchBlack, albumArtGlow) { accent, black, glow ->
+            AppearancePreferences(accent, black, glow)
+        }
+
+    suspend fun setAccentColor(accent: AccentColor) {
+        dataStore.edit { it[KEY_ACCENT_COLOR] = accent.name }
+    }
+
+    suspend fun setPreferPitchBlack(enabled: Boolean) {
+        dataStore.edit { it[KEY_PREFER_PITCH_BLACK] = enabled }
+    }
+
+    suspend fun setAlbumArtGlow(enabled: Boolean) {
+        dataStore.edit { it[KEY_ALBUM_ART_GLOW] = enabled }
     }
 }

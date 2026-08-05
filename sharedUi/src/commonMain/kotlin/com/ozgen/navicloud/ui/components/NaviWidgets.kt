@@ -96,7 +96,7 @@ fun NaviChip(
         Text(
             label,
             style = MaterialTheme.typography.labelLarge,
-            color = if (selected) Color(0xFF0F0F14) else MaterialTheme.colorScheme.onSurface,
+            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
         )
     }
 }

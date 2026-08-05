@@ -15,6 +15,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.ozgen.navicloud.ui.theme.LocalAppearancePreferences
 
 /**
  * Content-derived ambient glow behind collection headers: the cover art,
@@ -27,6 +28,7 @@ fun AmbientBackdrop(
     modifier: Modifier = Modifier,
     height: Dp = 420.dp,
 ) {
+    if (!LocalAppearancePreferences.current.albumArtGlow) return
     val resolver = LocalArtResolver.current
     val url = resolver.url(coverArt, 200) ?: return
     val key = resolver.cacheKey(coverArt, 200)

@@ -1,11 +1,8 @@
 package com.ozgen.navicloud.desktop
 
 import androidx.compose.foundation.background
-import com.ozgen.navicloud.ui.extractArtColors
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.blur
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +54,7 @@ import androidx.compose.ui.window.rememberWindowState
 import coil3.compose.AsyncImage
 import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.playback.RepeatMode
+import com.ozgen.navicloud.data.AppearancePreferences
 import com.ozgen.navicloud.ui.theme.NaviCloudTheme
 import kotlinx.coroutines.delay
 
@@ -68,7 +66,13 @@ import kotlinx.coroutines.delay
  * sürüklenerek taşınır, iğne ikonu topmost'u açar/kapatır, büyüt ana pencereye döner.
  */
 @Composable
-fun MiniPlayerWindow(player: PlayerController, model: MiniWindowModel, onExpand: () -> Unit) {
+fun MiniPlayerWindow(
+    player: PlayerController,
+    model: MiniWindowModel,
+    appearance: AppearancePreferences,
+    autoAccent: Color?,
+    onExpand: () -> Unit,
+) {
     val state = rememberWindowState(
         size = MINI_STANDARD_SIZE,
         position = initialMiniPosition(model, MINI_STANDARD_SIZE),
@@ -92,7 +96,7 @@ fun MiniPlayerWindow(player: PlayerController, model: MiniWindowModel, onExpand:
         // için onDispose'da OKUNMAZ (bozuk 0,0 kaydını önler).
         LaunchedEffect(win) { MiniGeometry.place(win, model) }
 
-        NaviCloudTheme {
+        NaviCloudTheme(appearance = appearance, autoAccent = autoAccent) {
             val ps by player.state.collectAsState()
             val track = ps.currentTrack
             var posMs by remember { mutableLongStateOf(0L) }
@@ -106,26 +110,15 @@ fun MiniPlayerWindow(player: PlayerController, model: MiniWindowModel, onExpand:
                     delay(400)
                 }
             }
-            // Kapaktan türeyen accent (telefondaki gibi); yumuşak geçiş
-            var accentTarget by remember { mutableStateOf<Color?>(null) }
-            LaunchedEffect(track?.song?.coverArt) {
-                val url = track?.artworkUrl
-                accentTarget = if (url == null) null
-                else runCatching { extractArtColors(url, track.song.coverArt) }.getOrNull()?.second
-            }
-            val accent by animateColorAsState(
-                accentTarget ?: MaterialTheme.colorScheme.primary,
-                tween(500),
-                label = "miniAccent",
-            )
+            val accent = MaterialTheme.colorScheme.primary
 
             Surface(
                 modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)),
-                color = Color(0xFF15151B),
+                color = MaterialTheme.colorScheme.surface,
             ) {
                 Box(Modifier.fillMaxSize()) {
                     // Faint, blur'lu kapak — zemin cover'dan gelen tema (telefon dili)
-                    track?.artworkUrl?.let { url ->
+                    track?.artworkUrl?.takeIf { appearance.albumArtGlow }?.let { url ->
                         AsyncImage(
                             model = url,
                             contentDescription = null,

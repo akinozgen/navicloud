@@ -57,6 +57,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.ozgen.navicloud.core.model.Server
 import com.ozgen.navicloud.data.ActiveDownload
+import com.ozgen.navicloud.data.AccentColor
+import com.ozgen.navicloud.data.AppearancePreferences
 import com.ozgen.navicloud.data.DownloadRepository
 import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.data.ServerRepository
@@ -66,6 +68,7 @@ import com.ozgen.navicloud.i18n.AppLanguage
 import com.ozgen.navicloud.ui.i18n.LocalStrings
 import com.ozgen.navicloud.ui.screens.login.LoginScreen
 import com.ozgen.navicloud.ui.screens.settings.LicensesScreen
+import com.ozgen.navicloud.ui.screens.settings.AppearanceSettingsControls
 import com.ozgen.navicloud.ui.screens.settings.androidLicenses
 import com.ozgen.navicloud.ui.screens.settings.commonLicenses
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -90,6 +93,7 @@ data class SettingsUiState(
     val prefetchEnabled: Boolean = true,
     val prefetchWifiOnly: Boolean = true,
     val internetLyrics: Boolean = true,
+    val appearance: AppearancePreferences = AppearancePreferences(),
 )
 
 @HiltViewModel
@@ -107,7 +111,12 @@ class SettingsViewModel @Inject constructor(
         serverRepo.activeServer,
         combine(settings.streamQuality, settings.offlineMode, settings.streamCacheMaxMb) { q, o, mb -> Triple(q, o, mb) },
         combine(settings.downloadWifiOnly, settings.prefetchEnabled, settings.prefetchWifiOnly) { w, p, pw -> Triple(w, p, pw) },
-        combine(downloads.totalCount, downloads.totalSizeBytes, settings.internetLyricsEnabled) { c, b, il -> Triple(c, b, il) },
+        combine(
+            downloads.totalCount,
+            downloads.totalSizeBytes,
+            settings.internetLyricsEnabled,
+            settings.appearance,
+        ) { c, b, il, appearance -> Triple(c, b, il to appearance) },
     ) { servers, active, playback, net, dl ->
         SettingsUiState(
             servers = servers,
@@ -120,7 +129,8 @@ class SettingsViewModel @Inject constructor(
             downloadWifiOnly = net.first,
             prefetchEnabled = net.second,
             prefetchWifiOnly = net.third,
-            internetLyrics = dl.third,
+            internetLyrics = dl.third.first,
+            appearance = dl.third.second,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SettingsUiState())
 
@@ -167,6 +177,9 @@ class SettingsViewModel @Inject constructor(
     fun setDownloadWifiOnly(on: Boolean) = viewModelScope.launch { settings.setDownloadWifiOnly(on) }
     fun setPrefetchEnabled(on: Boolean) = viewModelScope.launch { settings.setPrefetchEnabled(on) }
     fun setPrefetchWifiOnly(on: Boolean) = viewModelScope.launch { settings.setPrefetchWifiOnly(on) }
+    fun setAccentColor(accent: AccentColor) = viewModelScope.launch { settings.setAccentColor(accent) }
+    fun setPreferPitchBlack(on: Boolean) = viewModelScope.launch { settings.setPreferPitchBlack(on) }
+    fun setAlbumArtGlow(on: Boolean) = viewModelScope.launch { settings.setAlbumArtGlow(on) }
 
     // Kütüphane taraması
     private val _scanning = MutableStateFlow<Pair<Boolean, Long>?>(null)
@@ -456,6 +469,15 @@ fun ServersScreen(navController: NavController, vm: SettingsViewModel = hiltView
                 ) { Text(strings.commonSave) }
             }
         }
+
+        // ---- GÖRÜNÜM ----
+        SectionHeader(strings.settingsAppearanceSection)
+        AppearanceSettingsControls(
+            appearance = state.appearance,
+            onAccentChange = vm::setAccentColor,
+            onPreferPitchBlackChange = vm::setPreferPitchBlack,
+            onAlbumArtGlowChange = vm::setAlbumArtGlow,
+        )
 
         // ---- UYGULAMA ----
         SectionHeader(strings.settingsAppSection)

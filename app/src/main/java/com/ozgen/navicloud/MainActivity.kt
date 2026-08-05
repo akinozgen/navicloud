@@ -6,12 +6,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ozgen.navicloud.data.DownloadRepository
 import com.ozgen.navicloud.data.MusicRepository
 import com.ozgen.navicloud.data.RecentSearchesStore
 import com.ozgen.navicloud.data.ServerRepository
 import com.ozgen.navicloud.data.SettingsRepository
+import com.ozgen.navicloud.data.AppearancePreferences
 import androidx.lifecycle.lifecycleScope
 import com.ozgen.navicloud.playback.PlaybackService
 import com.ozgen.navicloud.playback.PlayerController
@@ -22,6 +25,7 @@ import com.ozgen.navicloud.ui.LocalAppContainer
 import com.ozgen.navicloud.ui.NaviCloudRoot
 import com.ozgen.navicloud.ui.screens.servers.ServersScreen
 import com.ozgen.navicloud.ui.theme.NaviCloudTheme
+import com.ozgen.navicloud.ui.theme.rememberAutoAccent
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -44,6 +48,15 @@ class MainActivity : ComponentActivity() {
         queueSync.start()
         handleOpenPlayerIntent(intent)
         setContent {
+            val appearance by settingsRepository.appearance.collectAsStateWithLifecycle(
+                initialValue = AppearancePreferences(),
+            )
+            val playerState by playerController.state.collectAsStateWithLifecycle()
+            val autoAccent = rememberAutoAccent(
+                appearance = appearance,
+                artworkUrl = playerState.currentTrack?.artworkUrl,
+                cacheKey = playerState.currentTrack?.song?.coverArt,
+            )
             // Paylaşılan UI'ın bağımlılık kabı — Hilt grafiğinden beslenir
             val container = remember {
                 AppContainer(
@@ -62,7 +75,7 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(
                 LocalAppContainer provides container,
             ) {
-                NaviCloudTheme {
+                NaviCloudTheme(appearance = appearance, autoAccent = autoAccent) {
                     NaviCloudRoot(
                         platformSettings = { nav -> ServersScreen(nav) },
                     )
