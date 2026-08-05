@@ -9,6 +9,28 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+val appInfoGenDir = layout.buildDirectory.dir("generated/app-info/kotlin")
+
+val generateAppInfo by tasks.registering {
+    inputs.property("version", project.version)
+    outputs.dir(appInfoGenDir)
+    doLast {
+        val output = appInfoGenDir.get()
+            .file("com/ozgen/navicloud/GeneratedAppInfo.kt")
+            .asFile
+        output.parentFile.mkdirs()
+        output.writeText(
+            """
+            package com.ozgen.navicloud
+
+            // Generated from the Gradle project version.
+            internal const val GENERATED_APP_VERSION = "${project.version}"
+            """.trimIndent() + "\n",
+            Charsets.UTF_8,
+        )
+    }
+}
+
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
@@ -60,6 +82,8 @@ val genI18n by tasks.registering {
 
 kotlin.sourceSets["main"].kotlin.srcDir(i18nGenDir)
 tasks.named("compileKotlin") { dependsOn(genI18n) }
+kotlin.sourceSets["main"].kotlin.srcDir(appInfoGenDir)
+tasks.named("compileKotlin") { dependsOn(generateAppInfo) }
 
 // Kotlin string-literal kaçışı (interpolasyonsuz düz metin).
 fun i18nEsc(s: String): String = buildString {

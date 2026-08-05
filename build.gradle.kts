@@ -10,3 +10,11 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform) apply false
     alias(libs.plugins.android.library) apply false
 }
+
+val navicloudVersion = providers.environmentVariable("NAVICLOUD_VERSION")
+    .orElse(providers.gradleProperty("navicloudVersion"))
+    .map { it.removePrefix("v") }
+
+allprojects {
+    version = navicloudVersion.get()
+}

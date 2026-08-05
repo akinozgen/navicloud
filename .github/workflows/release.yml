@@ -11,6 +11,11 @@ on:
 permissions:
   contents: write
 
+# Release build'lerinde tek sürüm kaynağı tag'dir. Gradle ve paketleme scriptleri
+# baştaki "v"yi kaldırarak Android, desktop ve Hakkında ekranına aynı değeri verir.
+env:
+  NAVICLOUD_VERSION: ${{ github.ref_name }}
+
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -71,8 +76,9 @@ jobs:
         shell: pwsh
         run: |
           $appdir = "$env:GITHUB_WORKSPACE\desktop\build\compose\binaries\main\app\NaviCloud"
+          $version = $env:NAVICLOUD_VERSION -replace '^v', ''
           Push-Location desktop/installer
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppDir=$appdir" navicloud.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppDir=$appdir" "/DAppVersion=$version" navicloud.iss
           Pop-Location
           Copy-Item desktop/installer/NaviCloud-Setup.exe "NaviCloud-${{ github.ref_name }}-Setup.exe"
       - uses: actions/upload-artifact@v4

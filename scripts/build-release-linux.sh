@@ -27,7 +27,11 @@ set -euo pipefail
 ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 cd "$ROOT"
 
-VERSION="$(grep -oP 'packageVersion = "\K[^"]+' desktop/build.gradle.kts)"
+DEFAULT_VERSION="$(sed -n 's/^navicloudVersion=//p' gradle.properties | head -n1 | tr -d '\r')"
+VERSION="${NAVICLOUD_VERSION:-$DEFAULT_VERSION}"
+VERSION="${VERSION#v}"
+[ -n "$VERSION" ] || { echo "HATA: NaviCloud sürümü bulunamadı."; exit 1; }
+export NAVICLOUD_VERSION="$VERSION"
 APPIMAGE="$ROOT/desktop/build/compose/binaries/main/app/NaviCloud"
 INSTALLER="$ROOT/desktop/installer"
 ICON="$ROOT/desktop/icons/navicloud.png"

@@ -1,10 +1,12 @@
 ; NaviCloud masaüstü — Inno Setup kurulum betiği (NSIS'in yerine; derleme çok daha hızlı).
 ; Compose createDistributable çıktısını (app-image) alıp kullanıcı-düzeyi kurulum
 ; + Başlat Menüsü/Masaüstü kısayolu + kaldırıcı üretir.
-; Derleme: ISCC.exe /DAppDir=<app-image yolu> navicloud.iss
+; Derleme: ISCC.exe /DAppDir=<app-image yolu> /DAppVersion=<sürüm> navicloud.iss
 
 #define AppName "NaviCloud"
-#define AppVersion "1.5.5"
+#ifndef AppVersion
+  #error AppVersion tanımlanmalı (/DAppVersion=<sürüm>)
+#endif
 #define Company "ozgen"
 #ifndef AppDir
   #define AppDir "..\build\compose\binaries\main\app\NaviCloud"

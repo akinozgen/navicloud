@@ -16,6 +16,11 @@ set -euo pipefail
 
 ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 cd "$ROOT"
+DEFAULT_VERSION="$(sed -n 's/^navicloudVersion=//p' gradle.properties | head -n1 | tr -d '\r')"
+VERSION="${NAVICLOUD_VERSION:-$DEFAULT_VERSION}"
+VERSION="${VERSION#v}"
+[ -n "$VERSION" ] || { echo "HATA: NaviCloud sürümü bulunamadı."; exit 1; }
+export NAVICLOUD_VERSION="$VERSION"
 DESKTOP_OUT="$(cygpath -u "$(cmd.exe /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r')")/Desktop"
 [ -d "$DESKTOP_OUT" ] || DESKTOP_OUT="$HOME/Desktop"
 
@@ -43,6 +48,7 @@ gradlew() { local jh="$1"; shift; JAVA_HOME="$jh" "$jh/bin/java.exe" -cp gradle/
 
 check() {
   echo "ROOT        : $ROOT"
+  echo "Sürüm       : $VERSION"
   echo "Desktop out : $DESKTOP_OUT"
   echo "JBR         : $JBR $( [ -x "$JBR/bin/java.exe" ] && echo OK || echo 'YOK!')"
   echo "jpackage JDK: ${JDK:-<bulunamadı>} $( [ -x "${JDK:-}/bin/jpackage.exe" ] && echo OK || echo 'YOK!')"
@@ -63,7 +69,7 @@ build_desktop() {
   [ -x "${ISCC:-x}" ] || { echo "HATA: ISCC yok. NAVICLOUD_ISCC ile yol ver."; exit 1; }
   gradlew "$JDK" :desktop:createDistributable
   local appdir; appdir="$(cygpath -w "$ROOT/desktop/build/compose/binaries/main/app/NaviCloud")"
-  ( cd desktop/installer && "$ISCC" "/DAppDir=$appdir" navicloud.iss )
+  ( cd desktop/installer && "$ISCC" "/DAppDir=$appdir" "/DAppVersion=$VERSION" navicloud.iss )
   cp "desktop/installer/NaviCloud-Setup.exe" "$DESKTOP_OUT/NaviCloud-Setup.exe"
   echo ">> $DESKTOP_OUT/NaviCloud-Setup.exe"
 }

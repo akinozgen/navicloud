@@ -21,6 +21,12 @@ set "DESKTOP=%USERPROFILE%\Desktop"
 set "TARGET=%~1"
 if "%TARGET%"=="" set "TARGET=all"
 
+set "VERSION=%NAVICLOUD_VERSION%"
+if not defined VERSION for /f "tokens=1,* delims==" %%A in ('findstr /b "navicloudVersion=" gradle.properties') do set "VERSION=%%B"
+if "!VERSION:~0,1!"=="v" set "VERSION=!VERSION:~1!"
+if not defined VERSION ( echo NaviCloud surumu bulunamadi. & exit /b 1 )
+set "NAVICLOUD_VERSION=!VERSION!"
+
 rem --- JBR (Android APK derlemesi icin) ---
 if defined JBR (set "JBR_DIR=%JBR%") else (set "JBR_DIR=C:\Program Files\Android\Android Studio\jbr")
 
@@ -69,7 +75,7 @@ set "JAVA_HOME=%JDK_DIR%"
 if errorlevel 1 ( echo    Gradle basarisiz ^(desktop^) & exit /b 1 )
 set "APPDIR=%ROOT%\desktop\build\compose\binaries\main\app\NaviCloud"
 pushd "desktop\installer"
-"%ISCC_EXE%" "/DAppDir=%APPDIR%" navicloud.iss
+"%ISCC_EXE%" "/DAppDir=%APPDIR%" "/DAppVersion=!VERSION!" navicloud.iss
 if errorlevel 1 ( popd & echo    ISCC basarisiz & exit /b 1 )
 popd
 copy /y "desktop\installer\NaviCloud-Setup.exe" "%DESKTOP%\NaviCloud-Setup.exe" >nul
@@ -81,6 +87,7 @@ rem ---------------------------------------------------------------------------
 :show_check
 echo ROOT        : %ROOT%
 echo Desktop out : %DESKTOP%
+echo Surum       : !VERSION!
 if exist "%JBR_DIR%\bin\java.exe" (set "S=OK") else (set "S=YOK!")
 echo JBR         : %JBR_DIR%  !S!
 if defined JDK_DIR (
