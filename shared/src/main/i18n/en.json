@@ -309,5 +309,8 @@
   "collectionSyncedToast": "Downloaded — to remove, use the ⋯ menu",
   "collectionRemoveDownloadsConfirmTitle": "Remove downloads?",
   "collectionRemoveDownloadsConfirmBody": "The downloaded songs will be removed from this device — you won't be able to play them offline.",
-  "collectionRemoveDownloadsConfirm": "Remove"
+  "collectionRemoveDownloadsConfirm": "Remove",
+  "durationHm": "{h} hr {m} min",
+  "durationH": "{h} hr",
+  "durationM": "{m} min"
 }

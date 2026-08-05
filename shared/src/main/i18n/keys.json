@@ -427,5 +427,8 @@
   "collectionSyncedToast": {},
   "collectionRemoveDownloadsConfirmTitle": {},
   "collectionRemoveDownloadsConfirmBody": {},
-  "collectionRemoveDownloadsConfirm": {}
+  "collectionRemoveDownloadsConfirm": {},
+  "durationHm": {"params": ["h:Int", "m:Int"]},
+  "durationH": {"params": ["h:Int"]},
+  "durationM": {"params": ["m:Int"]}
 }

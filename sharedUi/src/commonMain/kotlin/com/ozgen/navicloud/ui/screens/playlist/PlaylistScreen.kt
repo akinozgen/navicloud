@@ -58,6 +58,7 @@ import com.ozgen.navicloud.playback.PlayerController
 import com.ozgen.navicloud.ui.components.AmbientBackdrop
 import com.ozgen.navicloud.ui.components.CollectionActionRow
 import com.ozgen.navicloud.ui.components.DownloadState
+import com.ozgen.navicloud.ui.components.formatDurationLong
 import com.ozgen.navicloud.ui.components.PlaylistCoverMosaic
 import com.ozgen.navicloud.ui.components.PlaylistNameDialog
 import com.ozgen.navicloud.ui.components.SongItem
@@ -397,6 +398,9 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                         Text(
                             buildString {
                                 append(strings.playlistHeaderSubtitle(rows.size))
+                                if (detail.playlist.duration > 0) {
+                                    append(" • "); append(formatDurationLong(detail.playlist.duration, strings))
+                                }
                                 if (!detail.playlist.editable) {
                                     append(" • "); append(strings.playlistReadOnlyBadge)
                                 }

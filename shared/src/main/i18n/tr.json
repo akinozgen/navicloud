@@ -309,5 +309,8 @@
   "collectionSyncedToast": "İndirildi — kaldırmak için ⋯ menüsü",
   "collectionRemoveDownloadsConfirmTitle": "İndirilenleri kaldır?",
   "collectionRemoveDownloadsConfirmBody": "İndirilen şarkılar bu cihazdan kaldırılacak — çevrimdışıyken çalamazsın.",
-  "collectionRemoveDownloadsConfirm": "Kaldır"
+  "collectionRemoveDownloadsConfirm": "Kaldır",
+  "durationHm": "{h} sa {m} dk",
+  "durationH": "{h} sa",
+  "durationM": "{m} dk"
 }

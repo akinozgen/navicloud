@@ -108,6 +108,14 @@ fun CollectionActionRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
+        // Shuffle en solda ayrı buton (dev-inside #7: sık kullanılıyor); basınca anında karışık çalar
+        IconButton(onClick = onShuffle, enabled = playbackEnabled) {
+            Icon(
+                Icons.Rounded.Shuffle,
+                contentDescription = strings.collectionShufflePlay,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Box {
             IconButton(onClick = { menuOpen = true }) {
                 Icon(
@@ -117,12 +125,7 @@ fun CollectionActionRow(
                 )
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                DropdownMenuItem(
-                    text = { Text(strings.collectionShufflePlay) },
-                    leadingIcon = { Icon(Icons.Rounded.Shuffle, null) },
-                    enabled = playbackEnabled,
-                    onClick = { menuOpen = false; onShuffle() },
-                )
+                // Shuffle artık sol buton — menüden çıkarıldı.
                 DropdownMenuItem(
                     text = { Text(strings.commonPlayNext) },
                     leadingIcon = { Icon(Icons.Rounded.PlaylistPlay, null) },
