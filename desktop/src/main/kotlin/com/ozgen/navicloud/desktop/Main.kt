@@ -382,6 +382,31 @@ private fun runApp() = application {
                     NaviCloudRoot(
                         platformSettings = { nav -> DesktopSettingsScreen(nav) },
                     )
+                    // hi-DPI ilk-açılış ipucu: yüksek çözünürlük ekran ama düşük density
+                    // (sistem ölçeği alınmamış → her şey küçük) algılanırsa tek-seferlik,
+                    // kapatılabilir hatırlatma — kullanıcıyı Görünüm ölçeğine yönlendirir.
+                    var hiDpiHint by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) {
+                        if (!DesktopPrefs.hiDpiHintShown) {
+                            val physW = runCatching {
+                                java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+                                    .defaultScreenDevice.displayMode.width
+                            }.getOrDefault(0)
+                            if (physW >= 2800 && base0.density < 1.25f) hiDpiHint = true
+                        }
+                    }
+                    if (hiDpiHint) {
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = { hiDpiHint = false; DesktopPrefs.hiDpiHintShown = true },
+                            title = { androidx.compose.material3.Text(strings.hiDpiHintTitle) },
+                            text = { androidx.compose.material3.Text(strings.hiDpiHintBody) },
+                            confirmButton = {
+                                androidx.compose.material3.TextButton(onClick = {
+                                    hiDpiHint = false; DesktopPrefs.hiDpiHintShown = true
+                                }) { androidx.compose.material3.Text(strings.commonClose) }
+                            },
+                        )
+                    }
                 }
             }
         }

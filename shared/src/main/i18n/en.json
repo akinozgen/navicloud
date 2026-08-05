@@ -303,5 +303,7 @@
   "settingsGridDensityDesc": "Covers per row",
   "gridDensityCompact": "Compact",
   "gridDensityComfortable": "Comfortable",
-  "gridDensityLarge": "Large"
+  "gridDensityLarge": "Large",
+  "hiDpiHintTitle": "Interface looks small?",
+  "hiDpiHintBody": "A high-resolution display was detected but the interface isn't scaled up. You can enlarge it in Settings → Appearance."
 }

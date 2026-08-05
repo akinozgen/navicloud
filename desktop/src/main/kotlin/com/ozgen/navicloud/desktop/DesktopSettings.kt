@@ -104,6 +104,8 @@ object DesktopPrefs {
         val uiScale: Float = 1f,
         // Görünüm: albüm/kapak grid hedef genişliği (dp). Küçük=daha çok kolon (sıkışık).
         val coverTarget: Float = 176f,
+        // hi-DPI ilk-açılış ipucu bir kez gösterildi mi.
+        val hiDpiHintShown: Boolean = false,
     )
 
     private val file = File(System.getProperty("user.home"), ".navicloud/settings.json")
@@ -231,6 +233,11 @@ object DesktopPrefs {
             coverTargetFlow.value = value
             save(load().copy(coverTarget = value))
         }
+
+    /** hi-DPI ipucu bir kez gösterildi mi (tek-seferlik, flow gerekmez). */
+    var hiDpiHintShown: Boolean
+        get() = load().hiDpiHintShown
+        set(value) { save(load().copy(hiDpiHintShown = value)) }
 
     init {
         // Compose-dışı toast/tepsi için başlangıç dilini yerleştir.

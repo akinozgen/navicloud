@@ -421,5 +421,7 @@
   "settingsGridDensityDesc": {},
   "gridDensityCompact": {},
   "gridDensityComfortable": {},
-  "gridDensityLarge": {}
+  "gridDensityLarge": {},
+  "hiDpiHintTitle": {},
+  "hiDpiHintBody": {}
 }

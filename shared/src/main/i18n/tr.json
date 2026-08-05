@@ -303,5 +303,7 @@
   "settingsGridDensityDesc": "Satır başına kapak",
   "gridDensityCompact": "Sıkışık",
   "gridDensityComfortable": "Rahat",
-  "gridDensityLarge": "Büyük"
+  "gridDensityLarge": "Büyük",
+  "hiDpiHintTitle": "Arayüz küçük mü görünüyor?",
+  "hiDpiHintBody": "Yüksek çözünürlüklü ekran algılandı ama arayüz büyütülmemiş. Ayarlar → Görünüm'den büyütebilirsin."
 }
