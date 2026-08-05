@@ -96,6 +96,15 @@ fun main() {
     if (System.getProperty("os.name").orEmpty().startsWith("Windows")) {
         System.setProperty("skiko.renderApi", "OPENGL")
     }
+    // Linux HiDPI köprüsü: çıplak launch'ta (tiling WM/XWayland) sistem ölçeği AWT'ye
+    // ulaşmayıp her şey 1x küçük kalabiliyor. Kullanıcı açıkça uiScale vermediyse ve
+    // GDK_SCALE (tam sayı) varsa köprüle — AWT init'ten ÖNCE. Kesirli ölçek + kullanıcı
+    // override'ı ayrıca Compose LocalDensity ile (Ayarlar → Görünüm).
+    if (System.getProperty("sun.java2d.uiScale").isNullOrBlank()) {
+        System.getenv("GDK_SCALE")?.trim()?.toDoubleOrNull()?.toInt()?.let { s ->
+            if (s in 2..4) System.setProperty("sun.java2d.uiScale", s.toString())
+        }
+    }
     runApp()
 }
 
@@ -235,6 +244,7 @@ private fun runApp() = application {
     val player = deps.container.player
     val playerState by player.state.collectAsState()
     val language by DesktopPrefs.languageFlow.collectAsState()
+    val uiScale by DesktopPrefs.uiScaleFlow.collectAsState()
     val strings = com.ozgen.navicloud.i18n.stringsFor(language)
     var windowVisible by remember { mutableStateOf(true) }
     var miniOpen by remember { mutableStateOf(false) }
@@ -359,10 +369,18 @@ private fun runApp() = application {
             com.ozgen.navicloud.ui.LocalVolumeController provides deps.volume,
             com.ozgen.navicloud.ui.LocalMiniPlayerToggle provides { openMini() },
         ) {
-            NaviCloudTheme {
-                NaviCloudRoot(
-                    platformSettings = { nav -> DesktopSettingsScreen(nav) },
-                )
+            // Masaüstü UI ölçeği: sistem density'yi kullanıcı çarpanıyla override et
+            // (dp+sp birlikte, Skiko yeniden çizer → keskin). 1f = Otomatik (sisteme uy).
+            val base0 = androidx.compose.ui.platform.LocalDensity.current
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalDensity provides
+                    androidx.compose.ui.unit.Density(base0.density * uiScale, base0.fontScale),
+            ) {
+                NaviCloudTheme {
+                    NaviCloudRoot(
+                        platformSettings = { nav -> DesktopSettingsScreen(nav) },
+                    )
+                }
             }
         }
     }

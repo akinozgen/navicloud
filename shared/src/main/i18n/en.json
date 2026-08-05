@@ -294,5 +294,9 @@
     "RANDOM": "Made for you",
     "STARRED": "Favorite albums"
   },
-  "offlineContentUnavailable": "You're offline — this content hasn't been downloaded"
+  "offlineContentUnavailable": "You're offline — this content hasn't been downloaded",
+  "settingsAppearanceSection": "Appearance",
+  "settingsUiScale": "Interface scale",
+  "settingsUiScaleDesc": "Scales the whole interface and text",
+  "uiScaleAuto": "Auto"
 }

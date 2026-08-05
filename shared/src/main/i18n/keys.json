@@ -412,5 +412,9 @@
       "STARRED"
     ]
   },
-  "offlineContentUnavailable": {}
+  "offlineContentUnavailable": {},
+  "settingsAppearanceSection": {},
+  "settingsUiScale": {},
+  "settingsUiScaleDesc": {},
+  "uiScaleAuto": {}
 }

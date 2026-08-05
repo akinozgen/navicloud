@@ -44,6 +44,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.material3.FilterChip
+import kotlin.math.roundToInt
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -98,6 +100,8 @@ object DesktopPrefs {
         val remoteSecret: String? = null,
         // Uygulama dili (SYSTEM/TURKISH/ENGLISH). Varsayılan İngilizce.
         val language: String = com.ozgen.navicloud.i18n.AppLanguage.ENGLISH.name,
+        // Görünüm: UI ölçeği (sistem density çarpanı). 1f = Otomatik (sisteme uy).
+        val uiScale: Float = 1f,
     )
 
     private val file = File(System.getProperty("user.home"), ".navicloud/settings.json")
@@ -204,6 +208,16 @@ object DesktopPrefs {
             languageFlow.value = value
             save(load().copy(language = value.name))
             com.ozgen.navicloud.i18n.I18n.language = value
+        }
+
+    /** UI ölçeği — Window root'ta LocalDensity çarpanı; canlı okunsun diye flow. 1f = Otomatik. */
+    val uiScaleFlow: MutableStateFlow<Float> = MutableStateFlow(load().uiScale)
+
+    var uiScale: Float
+        get() = uiScaleFlow.value
+        set(value) {
+            uiScaleFlow.value = value
+            save(load().copy(uiScale = value))
         }
 
     init {
@@ -447,6 +461,27 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                 }
             },
         )
+
+        SectionHeader(s.settingsAppearanceSection)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Text(s.settingsUiScale, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                s.settingsUiScaleDesc,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            val uiScale by DesktopPrefs.uiScaleFlow.collectAsState()
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(1.0f, 1.1f, 1.25f, 1.5f, 1.75f, 2.0f).forEach { f ->
+                    FilterChip(
+                        selected = kotlin.math.abs(uiScale - f) < 0.01f,
+                        onClick = { DesktopPrefs.uiScale = f },
+                        label = { Text(if (f == 1.0f) s.uiScaleAuto else "${(f * 100).roundToInt()}%") },
+                    )
+                }
+            }
+        }
 
         SectionHeader(s.settingsAppSection)
         SettingRow(
