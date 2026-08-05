@@ -423,5 +423,9 @@
   "gridDensityComfortable": {},
   "gridDensityLarge": {},
   "hiDpiHintTitle": {},
-  "hiDpiHintBody": {}
+  "hiDpiHintBody": {},
+  "collectionSyncedToast": {},
+  "collectionRemoveDownloadsConfirmTitle": {},
+  "collectionRemoveDownloadsConfirmBody": {},
+  "collectionRemoveDownloadsConfirm": {}
 }

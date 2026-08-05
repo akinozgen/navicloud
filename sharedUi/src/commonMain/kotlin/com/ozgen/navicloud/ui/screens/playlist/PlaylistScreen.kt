@@ -463,6 +463,7 @@ fun PlaylistScreen(navController: NavController, playlistId: String, vm: Playlis
                                 }
                             },
                             onRemoveDownload = { vm.removeDownloads() },
+                            onDownloadedTap = { toast(strings.collectionSyncedToast) },
                             downloadState = downloadState,
                             onRename = if (canEdit) ({ renameDialog = true }) else null,
                             onDelete = if (canEdit) ({ deleteConfirm = true }) else null,

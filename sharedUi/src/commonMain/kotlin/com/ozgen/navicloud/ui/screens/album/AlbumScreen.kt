@@ -241,6 +241,7 @@ fun AlbumScreen(navController: NavController, albumId: String, vm: AlbumViewMode
                                 }
                             },
                             onRemoveDownload = { vm.removeDownloads() },
+                            onDownloadedTap = { toast(strings.collectionSyncedToast) },
                             downloadState = downloadState,
                         )
                         Spacer(Modifier.height(8.dp))

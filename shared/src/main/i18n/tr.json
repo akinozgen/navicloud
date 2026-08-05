@@ -305,5 +305,9 @@
   "gridDensityComfortable": "Rahat",
   "gridDensityLarge": "Büyük",
   "hiDpiHintTitle": "Arayüz küçük mü görünüyor?",
-  "hiDpiHintBody": "Yüksek çözünürlüklü ekran algılandı ama arayüz büyütülmemiş. Ayarlar → Görünüm'den büyütebilirsin."
+  "hiDpiHintBody": "Yüksek çözünürlüklü ekran algılandı ama arayüz büyütülmemiş. Ayarlar → Görünüm'den büyütebilirsin.",
+  "collectionSyncedToast": "İndirildi — kaldırmak için ⋯ menüsü",
+  "collectionRemoveDownloadsConfirmTitle": "İndirilenleri kaldır?",
+  "collectionRemoveDownloadsConfirmBody": "İndirilen şarkılar bu cihazdan kaldırılacak — çevrimdışıyken çalamazsın.",
+  "collectionRemoveDownloadsConfirm": "Kaldır"
 }

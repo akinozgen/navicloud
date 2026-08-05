@@ -86,6 +86,8 @@ fun CollectionActionRow(
     onAddToQueue: () -> Unit,
     onDownload: () -> Unit,
     onRemoveDownload: () -> Unit,
+    /** İndirilmiş+güncel durumda indirme ikonuna dokunuş: YIKICI DEĞİL (ipucu toast'u). */
+    onDownloadedTap: () -> Unit = {},
     downloadState: DownloadState,
     modifier: Modifier = Modifier,
     /** This collection is the active playback context and playing → show pause. */
@@ -99,6 +101,7 @@ fun CollectionActionRow(
 ) {
     val strings = LocalStrings.current
     var menuOpen by remember { mutableStateOf(false) }
+    var removeConfirm by remember { mutableStateOf(false) }
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -143,7 +146,7 @@ fun CollectionActionRow(
                     DropdownMenuItem(
                         text = { Text(strings.collectionRemoveDownloads) },
                         leadingIcon = { Icon(Icons.Rounded.Delete, null) },
-                        onClick = { menuOpen = false; onRemoveDownload() },
+                        onClick = { menuOpen = false; removeConfirm = true },
                     )
                 }
                 if (onDelete != null) {
@@ -176,7 +179,7 @@ fun CollectionActionRow(
             DownloadState.DOWNLOADING -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
             }
-            DownloadState.DONE -> IconButton(onClick = onRemoveDownload) {
+            DownloadState.DONE -> IconButton(onClick = onDownloadedTap) {
                 Icon(
                     Icons.Rounded.DownloadDone,
                     contentDescription = strings.collectionDownloaded,
@@ -191,5 +194,24 @@ fun CollectionActionRow(
                 )
             }
         }
+    }
+
+    // Silme yalnız buradan + onaylı (DONE ikonuna dokunuş artık YIKICI değil — footgun kapandı).
+    if (removeConfirm) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { removeConfirm = false },
+            title = { Text(strings.collectionRemoveDownloadsConfirmTitle) },
+            text = { Text(strings.collectionRemoveDownloadsConfirmBody) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { removeConfirm = false; onRemoveDownload() }) {
+                    Text(strings.collectionRemoveDownloadsConfirm, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { removeConfirm = false }) {
+                    Text(strings.commonCancel)
+                }
+            },
+        )
     }
 }
