@@ -100,7 +100,7 @@ modules:
     sources:
       - type: archive
         url: https://github.com/akinozgen/navicloud/releases/download/v1.5.6/NaviCloud-1.5.6-linux-x86_64.tar.gz
-        sha256: 4e281705844d004f4ba8673f218ae838f4147d45cb4e35f3c7ffd2cf9c742992
+        sha256: a45f15df58bce802f6aaf011ed2303ad13eac555fbb8fd89be0c4ca7bd142d7d
         # tarball içi navicloud/ klasörü strip edilir → bin/ lib/ navicloud.png köke gelir
         strip-components: 1
       - type: script
