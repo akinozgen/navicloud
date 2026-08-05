@@ -99,8 +99,8 @@ modules:
       - install -Dm644 io.github.akinozgen.NaviCloud.desktop /app/share/applications/io.github.akinozgen.NaviCloud.desktop
     sources:
       - type: archive
-        url: https://github.com/akinozgen/navicloud/releases/download/v1.5.3/NaviCloud-1.5.3-linux-x86_64.tar.gz
-        sha256: 6d2edb14db4cbb2ba604475c7e17aca425f7ae8de79f1192c52aa62995863199
+        url: https://github.com/akinozgen/navicloud/releases/download/v1.5.5/NaviCloud-1.5.5-linux-x86_64.tar.gz
+        sha256: 226ae9c3a9b2ebea07296cf4e6cc64eb0ef072a2c9cb69a819b152f854deb52d
         # tarball içi navicloud/ klasörü strip edilir → bin/ lib/ navicloud.png köke gelir
         strip-components: 1
       - type: script
