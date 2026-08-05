@@ -1,6 +1,6 @@
 pkgbase = navicloud-bin
 	pkgdesc = Desktop music client for Navidrome/Subsonic (bundled JRE, libmpv audio engine)
-	pkgver = 1.5.5
+	pkgver = 1.5.6
 	pkgrel = 1
 	url = https://github.com/akinozgen/navicloud
 	arch = x86_64
@@ -9,7 +9,7 @@ pkgbase = navicloud-bin
 	provides = navicloud
 	conflicts = navicloud
 	options = !strip
-	source = NaviCloud-1.5.5-linux-x86_64.tar.gz::https://github.com/akinozgen/navicloud/releases/download/v1.5.5/NaviCloud-1.5.5-linux-x86_64.tar.gz
-	sha256sums = 226ae9c3a9b2ebea07296cf4e6cc64eb0ef072a2c9cb69a819b152f854deb52d
+	source = NaviCloud-1.5.6-linux-x86_64.tar.gz::https://github.com/akinozgen/navicloud/releases/download/v1.5.6/NaviCloud-1.5.6-linux-x86_64.tar.gz
+	sha256sums = 4e281705844d004f4ba8673f218ae838f4147d45cb4e35f3c7ffd2cf9c742992
 
 pkgname = navicloud-bin

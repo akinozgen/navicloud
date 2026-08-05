@@ -5,7 +5,7 @@
 # NOT (maintainer): yeni sürümde `pkgver`i güncelle ve `sha256sums`i tarball'ın
 # gerçek özetiyle sabitle (`updpkgsums` ya da elle). 'SKIP' yalnız hızlı deneme içindir.
 pkgname=navicloud-bin
-pkgver=1.5.5
+pkgver=1.5.6
 pkgrel=1
 pkgdesc="Desktop music client for Navidrome/Subsonic (bundled JRE, libmpv audio engine)"
 arch=('x86_64')
@@ -16,7 +16,7 @@ provides=('navicloud')
 conflicts=('navicloud')
 options=('!strip')         # gömülü JRE'yi strip etme
 source=("NaviCloud-${pkgver}-linux-x86_64.tar.gz::${url}/releases/download/v${pkgver}/NaviCloud-${pkgver}-linux-x86_64.tar.gz")
-sha256sums=('226ae9c3a9b2ebea07296cf4e6cc64eb0ef072a2c9cb69a819b152f854deb52d')
+sha256sums=('4e281705844d004f4ba8673f218ae838f4147d45cb4e35f3c7ffd2cf9c742992')
 
 package() {
   install -d "${pkgdir}/opt/navicloud"
