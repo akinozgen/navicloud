@@ -37,7 +37,7 @@ compose.desktop {
             // jlink runtime'ına eklenmezse SNI tepsisi/MPRIS pakette sessizce devre dışı kalır
             modules("jdk.security.auth")
             packageName = "NaviCloud"
-            packageVersion = "1.5.4"
+            packageVersion = "1.5.5"
             description = "Navidrome/Subsonic music client"
             vendor = "ozgen"
             windows {

@@ -15,8 +15,8 @@ android {
         applicationId = "com.ozgen.navicloud"
         minSdk = 30
         targetSdk = 35
-        versionCode = 17
-        versionName = "1.5.4"
+        versionCode = 18
+        versionName = "1.5.5"
     }
 
     buildTypes {
