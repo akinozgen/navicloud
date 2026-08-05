@@ -298,5 +298,10 @@
   "settingsAppearanceSection": "Appearance",
   "settingsUiScale": "Interface scale",
   "settingsUiScaleDesc": "Scales the whole interface and text",
-  "uiScaleAuto": "Auto"
+  "uiScaleAuto": "Auto",
+  "settingsGridDensity": "Grid density",
+  "settingsGridDensityDesc": "Covers per row",
+  "gridDensityCompact": "Compact",
+  "gridDensityComfortable": "Comfortable",
+  "gridDensityLarge": "Large"
 }

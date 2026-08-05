@@ -102,6 +102,8 @@ object DesktopPrefs {
         val language: String = com.ozgen.navicloud.i18n.AppLanguage.ENGLISH.name,
         // Görünüm: UI ölçeği (sistem density çarpanı). 1f = Otomatik (sisteme uy).
         val uiScale: Float = 1f,
+        // Görünüm: albüm/kapak grid hedef genişliği (dp). Küçük=daha çok kolon (sıkışık).
+        val coverTarget: Float = 176f,
     )
 
     private val file = File(System.getProperty("user.home"), ".navicloud/settings.json")
@@ -218,6 +220,16 @@ object DesktopPrefs {
         set(value) {
             uiScaleFlow.value = value
             save(load().copy(uiScale = value))
+        }
+
+    /** Grid kapak hedef genişliği (dp) — LocalCoverTarget'ı sürer. */
+    val coverTargetFlow: MutableStateFlow<Float> = MutableStateFlow(load().coverTarget)
+
+    var coverTarget: Float
+        get() = coverTargetFlow.value
+        set(value) {
+            coverTargetFlow.value = value
+            save(load().copy(coverTarget = value))
         }
 
     init {
@@ -478,6 +490,28 @@ fun DesktopSettingsScreen(navController: NavHostController) {
                         selected = kotlin.math.abs(uiScale - f) < 0.01f,
                         onClick = { DesktopPrefs.uiScale = f },
                         label = { Text(if (f == 1.0f) s.uiScaleAuto else "${(f * 100).roundToInt()}%") },
+                    )
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(s.settingsGridDensity, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                s.settingsGridDensityDesc,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            val coverTarget by DesktopPrefs.coverTargetFlow.collectAsState()
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    152f to s.gridDensityCompact,
+                    176f to s.gridDensityComfortable,
+                    208f to s.gridDensityLarge,
+                ).forEach { (t, label) ->
+                    FilterChip(
+                        selected = kotlin.math.abs(coverTarget - t) < 0.5f,
+                        onClick = { DesktopPrefs.coverTarget = t },
+                        label = { Text(label) },
                     )
                 }
             }

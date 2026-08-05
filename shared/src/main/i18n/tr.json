@@ -298,5 +298,10 @@
   "settingsAppearanceSection": "Görünüm",
   "settingsUiScale": "Arayüz ölçeği",
   "settingsUiScaleDesc": "Tüm arayüzü ve yazıları büyütür/küçültür",
-  "uiScaleAuto": "Oto"
+  "uiScaleAuto": "Oto",
+  "settingsGridDensity": "Izgara yoğunluğu",
+  "settingsGridDensityDesc": "Satır başına kapak",
+  "gridDensityCompact": "Sıkışık",
+  "gridDensityComfortable": "Rahat",
+  "gridDensityLarge": "Büyük"
 }

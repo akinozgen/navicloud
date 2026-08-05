@@ -416,5 +416,10 @@
   "settingsAppearanceSection": {},
   "settingsUiScale": {},
   "settingsUiScaleDesc": {},
-  "uiScaleAuto": {}
+  "uiScaleAuto": {},
+  "settingsGridDensity": {},
+  "settingsGridDensityDesc": {},
+  "gridDensityCompact": {},
+  "gridDensityComfortable": {},
+  "gridDensityLarge": {}
 }

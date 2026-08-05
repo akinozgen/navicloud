@@ -245,6 +245,7 @@ private fun runApp() = application {
     val playerState by player.state.collectAsState()
     val language by DesktopPrefs.languageFlow.collectAsState()
     val uiScale by DesktopPrefs.uiScaleFlow.collectAsState()
+    val coverTarget by DesktopPrefs.coverTargetFlow.collectAsState()
     val strings = com.ozgen.navicloud.i18n.stringsFor(language)
     var windowVisible by remember { mutableStateOf(true) }
     var miniOpen by remember { mutableStateOf(false) }
@@ -375,6 +376,7 @@ private fun runApp() = application {
             androidx.compose.runtime.CompositionLocalProvider(
                 androidx.compose.ui.platform.LocalDensity provides
                     androidx.compose.ui.unit.Density(base0.density * uiScale, base0.fontScale),
+                com.ozgen.navicloud.ui.components.LocalCoverTarget provides coverTarget.dp,
             ) {
                 NaviCloudTheme {
                     NaviCloudRoot(
